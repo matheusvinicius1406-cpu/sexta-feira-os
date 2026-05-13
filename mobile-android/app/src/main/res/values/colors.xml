@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Primary Brand Colors (Futuristic Blue/Cyan) -->
+    <color name="primary">#00BCD4</color>
+    <color name="primary_dark">#0097A7</color>
+    <color name="primary_light">#B2EBF2</color>
+    
+    <!-- Secondary Colors (Purple Accent) -->
+    <color name="secondary">#7C4DFF</color>
+    <color name="secondary_dark">#651FFF</color>
+    <color name="secondary_light">#B19CD9</color>
+    
+    <!-- Tertiary Colors (Orange) -->
+    <color name="tertiary">#FF6D00</color>
+    <color name="tertiary_dark">#E65100</color>
+    <color name="tertiary_light">#FFAB91</color>
+    
+    <!-- Dark Theme Colors -->
+    <color name="background_dark">#121212</color>
+    <color name="surface_dark">#1E1E1E</color>
+    <color name="surface_variant_dark">#2C2C2C</color>
+    
+    <!-- Text Colors -->
+    <color name="text_primary">#FFFFFF</color>
+    <color name="text_secondary">#B0B0B0</color>
+    <color name="text_hint">#808080</color>
+    
+    <!-- Error Color -->
+    <color name="error">#CF6679</color>
+    
+    <!-- Success Color -->
+    <color name="success">#4CAF50</color>
+</resources>

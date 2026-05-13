@@ -1,0 +1,44 @@
+# Android / Kotlin
+.gradle/
+/build/
+/captures/
+.externalNativeBuild/
+/local.properties
+/.idea/
+*.iml
+*.hprof
+
+# Kotlin DSL cache
+/.gradle/
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.env
+*.venv
+venv/
+ENV/
+.env*
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Logs
+*.log
+logs/
+
+# IDE
+.vscode/
+.idea/
+*.sublime-workspace
+*.sublime-project
+
+# OSX
+.DS_Store
+
+# Misc
+node_modules/
+*.swp
