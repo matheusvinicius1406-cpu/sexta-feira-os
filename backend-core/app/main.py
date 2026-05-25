@@ -12,6 +12,7 @@ from app.core.config import settings
 from app.core.di import initialize_services, get_conversation_pipeline, get_ai_orchestrator
 from app.db.database import Base, engine
 from app.api.routers import health, auth, chat, memory, jarvis
+from app.api import tool_router
 
 # Configure logging
 logging.basicConfig(level=settings.log_level)
@@ -85,9 +86,8 @@ app.include_router(jarvis.router)
 from app.api.routers import chat_v2
 app.include_router(chat_v2.router)
 
-# Include tools router
-from app.api.routers import tools
-app.include_router(tools.router)
+# Include tools router (new modular architecture)
+app.include_router(tool_router.router)
 
 # Include voice router
 from app.api.routers import voice
