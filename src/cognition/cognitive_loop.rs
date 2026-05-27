@@ -66,10 +66,7 @@ pub struct CognitiveLoop {
 }
 
 impl CognitiveLoop {
-    pub fn new(
-        scheduler: CognitiveScheduler,
-        registry: ToolRegistry,
-    ) -> Self {
+    pub fn new(scheduler: CognitiveScheduler, registry: ToolRegistry) -> Self {
         Self {
             state: CognitiveLoopState::Idle,
             scheduler,
@@ -146,9 +143,7 @@ impl CognitiveLoop {
         self.scheduler.enforce_execution_limits(&permit)?;
 
         if !self.registry.tool_exists(&intent.requested_tool) {
-            return Err(CognitiveError::ToolNotFound(
-                intent.requested_tool.clone(),
-            ));
+            return Err(CognitiveError::ToolNotFound(intent.requested_tool.clone()));
         }
 
         self.context.add_to_history(intent.clone());
@@ -190,10 +185,7 @@ impl CognitiveLoop {
 
 impl Default for CognitiveLoop {
     fn default() -> Self {
-        Self::new(
-            CognitiveScheduler::default(),
-            ToolRegistry::new(),
-        )
+        Self::new(CognitiveScheduler::default(), ToolRegistry::new())
     }
 }
 

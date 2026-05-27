@@ -1,9 +1,7 @@
 use sexta_feira_perception::{
-    InterruptBus, InterruptPriority, InterruptSource, InterruptEvent,
-    AudioRingBuffer, VoiceGate, VoiceGateState,
-    ScreenDeltaDetector,
-    PerceptualFunnel, PerceptualOutput,
-    CognitiveSnapshot, ToolState, ToolStatus, SymbolicMarker,
+    AudioRingBuffer, CognitiveSnapshot, InterruptBus, InterruptEvent, InterruptPriority,
+    InterruptSource, PerceptualFunnel, PerceptualOutput, ScreenDeltaDetector, SymbolicMarker,
+    ToolState, ToolStatus, VoiceGate, VoiceGateState,
 };
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -17,11 +15,7 @@ const SCREEN_WIDTH: usize = 640;
 const SCREEN_HEIGHT: usize = 480;
 const SCREEN_SENSITIVITY: usize = 5;
 
-async fn audio_stream_simulator(
-    bus: InterruptBus,
-    buffer: AudioRingBuffer,
-    mut gate: VoiceGate,
-) {
+async fn audio_stream_simulator(bus: InterruptBus, buffer: AudioRingBuffer, mut gate: VoiceGate) {
     let mut interval = interval(std::time::Duration::from_millis(10));
     let mut voice_active = false;
 
@@ -55,10 +49,7 @@ async fn audio_stream_simulator(
     }
 }
 
-async fn screen_stream_simulator(
-    mut detector: ScreenDeltaDetector,
-    funnel: PerceptualFunnel,
-) {
+async fn screen_stream_simulator(mut detector: ScreenDeltaDetector, funnel: PerceptualFunnel) {
     let mut interval = interval(std::time::Duration::from_millis(33));
     let mut frame_count = 0u32;
     let mut current_frame = vec![128u8; SCREEN_WIDTH * SCREEN_HEIGHT * 3];
@@ -73,7 +64,10 @@ async fn screen_stream_simulator(
             for i in 0..change_size {
                 current_frame[i] = ((current_frame[i] as u32 + 50) % 256) as u8;
             }
-            println!("[SCREEN] Frame {} - significant change detected", frame_count);
+            println!(
+                "[SCREEN] Frame {} - significant change detected",
+                frame_count
+            );
         }
 
         let analysis = detector.analyze_changes(&current_frame);
@@ -103,9 +97,7 @@ async fn screen_stream_simulator(
     }
 }
 
-async fn perception_evaluator(
-    funnel: Arc<PerceptualFunnel>,
-) {
+async fn perception_evaluator(funnel: Arc<PerceptualFunnel>) {
     let mut rx = funnel.interrupt_bus().subscribe();
     let mut wake_count = 0u32;
 
@@ -123,8 +115,7 @@ async fn perception_evaluator(
                             wake_count, context_trigger, attention
                         );
 
-                        let mut snapshot =
-                            CognitiveSnapshot::new(format!("wake_{}", wake_count));
+                        let mut snapshot = CognitiveSnapshot::new(format!("wake_{}", wake_count));
                         snapshot.add_metadata(
                             "trigger_source".to_string(),
                             format!("{:?}", event.source),
@@ -147,9 +138,7 @@ async fn perception_evaluator(
     }
 }
 
-async fn diagnostics_reporter(
-    bus: Arc<InterruptBus>,
-) {
+async fn diagnostics_reporter(bus: Arc<InterruptBus>) {
     let mut interval = interval(std::time::Duration::from_secs(2));
 
     loop {
@@ -199,28 +188,27 @@ async fn main() {
 
     println!("Initialized components:");
     println!("  - InterruptBus (capacity: 256)");
-    println!("  - AudioRingBuffer ({} frames × {} samples)", AUDIO_FRAMES_PER_BUFFER, AUDIO_FRAME_SIZE);
+    println!(
+        "  - AudioRingBuffer ({} frames × {} samples)",
+        AUDIO_FRAMES_PER_BUFFER, AUDIO_FRAME_SIZE
+    );
     println!("  - VoiceGate (energy: 0.015, zcr: 15)");
-    println!("  - ScreenDeltaDetector ({}×{}, sensitivity: {}%)", SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_SENSITIVITY);
+    println!(
+        "  - ScreenDeltaDetector ({}×{}, sensitivity: {}%)",
+        SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_SENSITIVITY
+    );
     println!("  - PerceptualFunnel (debounce: 500ms)");
     println!();
 
     let audio_task = {
         let bus = bus.clone();
         let buffer = audio_buffer.clone();
-        tokio::spawn(audio_stream_simulator(
-            (*bus).clone(),
-            buffer,
-            voice_gate,
-        ))
+        tokio::spawn(audio_stream_simulator((*bus).clone(), buffer, voice_gate))
     };
 
     let screen_task = {
         let funnel = funnel.clone();
-        tokio::spawn(screen_stream_simulator(
-            screen_detector,
-            (*funnel).clone(),
-        ))
+        tokio::spawn(screen_stream_simulator(screen_detector, (*funnel).clone()))
     };
 
     let evaluator_task = {
@@ -278,11 +266,7 @@ mod integration_tests {
 
         snapshot.add_tool_state(tool);
 
-        let marker = SymbolicMarker::new(
-            "test_marker".to_string(),
-            "test_value".to_string(),
-            0.95,
-        );
+        let marker = SymbolicMarker::new("test_marker".to_string(), "test_value".to_string(), 0.95);
 
         snapshot.add_symbolic_marker(marker);
 

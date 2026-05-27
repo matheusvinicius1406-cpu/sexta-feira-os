@@ -92,7 +92,9 @@ impl StreamDecoder {
         if self.buffer.len() + chunk.len() > self.max_buffer_size {
             self.state = StreamState::Corrupted;
             self.corrupted_reason = Some("Buffer overflow".to_string());
-            return Err(CognitiveError::StreamCorruption("Buffer overflow".to_string()));
+            return Err(CognitiveError::StreamCorruption(
+                "Buffer overflow".to_string(),
+            ));
         }
 
         self.buffer.push_str(chunk);

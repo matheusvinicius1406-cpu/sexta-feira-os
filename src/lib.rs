@@ -1,23 +1,23 @@
-pub mod perception;
 pub mod cognition;
+pub mod integration;
+pub mod perception;
 
 pub use perception::{
-    InterruptBus, InterruptEvent, InterruptPriority, InterruptSource,
-    AudioRingBuffer,
-    VoiceGate, VoiceGateState,
-    ScreenDeltaDetector, ScreenDeltaAnalysis, BlockHash,
-    PerceptualFunnel, PerceptualOutput, AttentionState,
-    CognitiveSnapshot, CognitiveContext, WindowState, WindowBounds,
-    ToolState, ToolStatus, SymbolicMarker,
+    AttentionState, AudioRingBuffer, BlockHash, CognitiveContext, CognitiveSnapshot, InterruptBus,
+    InterruptEvent, InterruptPriority, InterruptSource, PerceptualFunnel, PerceptualOutput,
+    ScreenDeltaAnalysis, ScreenDeltaDetector, SymbolicMarker, ToolState, ToolStatus, VoiceGate,
+    VoiceGateState, WindowBounds, WindowState,
 };
 
 pub use cognition::{
-    CognitiveError, CognitiveResult,
-    StructuredIntent, IntentSource,
-    IntentParser,
-    StreamDecoder, StreamState, DecoderMetrics,
-    CognitiveScheduler, CognitiveBudget, SchedulerDecision, ExecutionPermit,
-    ReasoningContext,
-    ToolRegistry, ToolSignature, ToolCapability,
-    CognitiveLoop, CognitiveLoopState, CognitiveLoopMetrics,
+    CognitiveBudget, CognitiveError, CognitiveLoop, CognitiveLoopMetrics, CognitiveLoopState,
+    CognitiveResult, CognitiveScheduler, DecoderMetrics, ExecutionPermit, IntentParser,
+    IntentSource, ReasoningContext, SchedulerDecision, StreamDecoder, StreamState,
+    StructuredIntent, ToolCapability, ToolRegistry, ToolSignature,
+};
+
+pub use integration::{
+    AndroidRuntimeManager, Capability, CapabilityMatrix, CognitiveRuntimeBridge, EventMesh,
+    ExecutionContext, ExecutionRequest, FlutterHudBridge, HudState, RoomEvent, RuntimeMetrics,
+    RuntimeState, SecureIntent, ToolExecutor, ToolInput, ToolOutput,
 };

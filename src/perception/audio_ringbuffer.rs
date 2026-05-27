@@ -1,6 +1,6 @@
+use std::cell::UnsafeCell;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
-use std::cell::UnsafeCell;
 
 pub struct AudioRingBuffer {
     data: Arc<UnsafeCell<Vec<f32>>>,

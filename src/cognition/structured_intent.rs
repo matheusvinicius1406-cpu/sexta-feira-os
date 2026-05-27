@@ -24,11 +24,7 @@ pub enum IntentSource {
 }
 
 impl StructuredIntent {
-    pub fn new(
-        intent_id: String,
-        requested_tool: String,
-        source: IntentSource,
-    ) -> Self {
+    pub fn new(intent_id: String, requested_tool: String, source: IntentSource) -> Self {
         Self {
             intent_id,
             timestamp_ns: current_time_ns(),

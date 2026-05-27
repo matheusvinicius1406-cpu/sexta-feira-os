@@ -46,9 +46,7 @@ impl IntentParser {
         has_id && has_tool && has_source
     }
 
-    pub fn parse_partial_chunk(
-        chunk: &str,
-    ) -> CognitiveResult<Option<Vec<(String, String)>>> {
+    pub fn parse_partial_chunk(chunk: &str) -> CognitiveResult<Option<Vec<(String, String)>>> {
         if chunk.is_empty() {
             return Ok(None);
         }
@@ -174,9 +172,10 @@ impl IntentParser {
             "app" | "application" => Ok(IntentSource::ApplicationRequest),
             "system" => Ok(IntentSource::SystemTrigger),
             "memory" => Ok(IntentSource::MemoryRecall),
-            _ => Err(CognitiveError::ParseError(
-                format!("Unknown source: {}", source_str),
-            )),
+            _ => Err(CognitiveError::ParseError(format!(
+                "Unknown source: {}",
+                source_str
+            ))),
         }
     }
 }

@@ -1,6 +1,6 @@
-use tokio::sync::broadcast;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
+use tokio::sync::broadcast;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum InterruptPriority {
@@ -126,11 +126,7 @@ mod tests {
             context: "test".to_string(),
         });
 
-        let event = tokio::time::timeout(
-            std::time::Duration::from_millis(100),
-            rx.recv(),
-        )
-        .await;
+        let event = tokio::time::timeout(std::time::Duration::from_millis(100), rx.recv()).await;
 
         assert!(event.is_ok());
     }

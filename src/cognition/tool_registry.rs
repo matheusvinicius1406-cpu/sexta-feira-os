@@ -225,8 +225,7 @@ mod tests {
 
         registry.register_tool(sig).unwrap();
 
-        let result =
-            registry.validate_tool_access("fs", &[ToolCapability::FileAccess]);
+        let result = registry.validate_tool_access("fs", &[ToolCapability::FileAccess]);
         assert!(result.is_ok());
     }
 
@@ -238,10 +237,7 @@ mod tests {
 
         registry.register_tool(sig).unwrap();
 
-        let result = registry.validate_tool_access(
-            "fs",
-            &[ToolCapability::ProcessExecution],
-        );
+        let result = registry.validate_tool_access("fs", &[ToolCapability::ProcessExecution]);
         assert!(result.is_err());
     }
 }

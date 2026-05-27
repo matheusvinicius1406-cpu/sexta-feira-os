@@ -109,8 +109,7 @@ impl CognitiveSnapshot {
     }
 
     pub fn add_tool_state(&mut self, tool: ToolState) {
-        Arc::get_mut(&mut self.tool_states)
-            .map(|m| m.insert(tool.name.clone(), tool));
+        Arc::get_mut(&mut self.tool_states).map(|m| m.insert(tool.name.clone(), tool));
     }
 
     pub fn get_tool_state(&self, tool_name: &str) -> Option<ToolState> {
@@ -118,8 +117,7 @@ impl CognitiveSnapshot {
     }
 
     pub fn add_symbolic_marker(&mut self, marker: SymbolicMarker) {
-        Arc::get_mut(&mut self.symbolic_markers)
-            .map(|m| m.insert(marker.key.clone(), marker));
+        Arc::get_mut(&mut self.symbolic_markers).map(|m| m.insert(marker.key.clone(), marker));
     }
 
     pub fn get_symbolic_marker(&self, key: &str) -> Option<SymbolicMarker> {
@@ -163,13 +161,11 @@ impl CognitiveSnapshot {
         }
 
         for (name, tool_state) in other.tool_states.iter() {
-            Arc::get_mut(&mut self.tool_states)
-                .map(|m| m.insert(name.clone(), tool_state.clone()));
+            Arc::get_mut(&mut self.tool_states).map(|m| m.insert(name.clone(), tool_state.clone()));
         }
 
         for (key, marker) in other.symbolic_markers.iter() {
-            Arc::get_mut(&mut self.symbolic_markers)
-                .map(|m| m.insert(key.clone(), marker.clone()));
+            Arc::get_mut(&mut self.symbolic_markers).map(|m| m.insert(key.clone(), marker.clone()));
         }
 
         self.timestamp_ns = current_time_ns();
@@ -212,8 +208,10 @@ impl WindowBounds {
     }
 
     pub fn contains_point(&self, px: i32, py: i32) -> bool {
-        px >= self.x && px < (self.x + self.width as i32)
-            && py >= self.y && py < (self.y + self.height as i32)
+        px >= self.x
+            && px < (self.x + self.width as i32)
+            && py >= self.y
+            && py < (self.y + self.height as i32)
     }
 }
 
@@ -256,8 +254,8 @@ mod tests {
 
     #[test]
     fn test_cognitive_snapshot_with_intent() {
-        let snapshot = CognitiveSnapshot::new("conv-001".to_string())
-            .with_intent("find_files".to_string());
+        let snapshot =
+            CognitiveSnapshot::new("conv-001".to_string()).with_intent("find_files".to_string());
         assert_eq!(snapshot.context.user_intent, Some("find_files".to_string()));
     }
 
@@ -277,12 +275,8 @@ mod tests {
 
     #[test]
     fn test_symbolic_marker_with_ttl() {
-        let marker = SymbolicMarker::new(
-            "focus".to_string(),
-            "window_1".to_string(),
-            0.95,
-        )
-        .with_ttl(5000);
+        let marker =
+            SymbolicMarker::new("focus".to_string(), "window_1".to_string(), 0.95).with_ttl(5000);
 
         assert!(marker.expires_at_ns.is_some());
     }
@@ -311,12 +305,8 @@ mod tests {
     fn test_cleanup_expired_markers() {
         let mut snapshot = CognitiveSnapshot::new("conv-001".to_string());
 
-        let marker_expired = SymbolicMarker::new(
-            "old".to_string(),
-            "value".to_string(),
-            0.5,
-        )
-        .with_ttl(1);
+        let marker_expired =
+            SymbolicMarker::new("old".to_string(), "value".to_string(), 0.5).with_ttl(1);
 
         snapshot.add_symbolic_marker(marker_expired);
 

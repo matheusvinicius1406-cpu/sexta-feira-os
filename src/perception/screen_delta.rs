@@ -192,7 +192,7 @@ mod tests {
         let mut frame2 = frame1.clone();
 
         detector.analyze_changes(&frame1);
-        
+
         let change_size = (640 * 480 * 3) / 10;
         frame2[0..change_size].iter_mut().for_each(|b| *b = 200);
 

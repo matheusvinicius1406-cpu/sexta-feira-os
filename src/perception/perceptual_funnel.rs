@@ -39,19 +39,13 @@ impl PerceptualFunnel {
             InterruptPriority::HumanVoice => {
                 self.set_attention_state(AttentionState::HighAlert);
                 PerceptualOutput::WakeCognitiveCore {
-                    context_trigger: format!(
-                        "human_voice:{}",
-                        event.context
-                    ),
+                    context_trigger: format!("human_voice:{}", event.context),
                 }
             }
             InterruptPriority::Critical => {
                 self.set_attention_state(AttentionState::HighAlert);
                 PerceptualOutput::WakeCognitiveCore {
-                    context_trigger: format!(
-                        "critical:{}",
-                        event.context
-                    ),
+                    context_trigger: format!("critical:{}", event.context),
                 }
             }
             InterruptPriority::Medium => {
@@ -61,10 +55,7 @@ impl PerceptualFunnel {
                     } else {
                         self.set_attention_state(AttentionState::Attentive);
                         PerceptualOutput::WakeCognitiveCore {
-                            context_trigger: format!(
-                                "visual_delta:{}",
-                                event.context
-                            ),
+                            context_trigger: format!("visual_delta:{}", event.context),
                         }
                     }
                 } else {
@@ -113,8 +104,7 @@ impl PerceptualFunnel {
     }
 
     fn set_attention_state(&self, state: AttentionState) {
-        self.attention_state
-            .store(state as u8, Ordering::Release);
+        self.attention_state.store(state as u8, Ordering::Release);
     }
 
     fn should_debounce_wake(&self) -> bool {
@@ -176,10 +166,7 @@ mod tests {
         };
 
         let output = funnel.evaluate_attention(&event);
-        assert!(matches!(
-            output,
-            PerceptualOutput::WakeCognitiveCore { .. }
-        ));
+        assert!(matches!(output, PerceptualOutput::WakeCognitiveCore { .. }));
         assert_eq!(funnel.current_attention_state(), AttentionState::HighAlert);
     }
 
@@ -196,10 +183,7 @@ mod tests {
         };
 
         let output = funnel.evaluate_attention(&event);
-        assert!(matches!(
-            output,
-            PerceptualOutput::WakeCognitiveCore { .. }
-        ));
+        assert!(matches!(output, PerceptualOutput::WakeCognitiveCore { .. }));
     }
 
     #[test]
@@ -241,6 +225,9 @@ mod tests {
         let outputs = funnel.process_interrupt_batch(events);
         assert_eq!(outputs.len(), 2);
         assert!(matches!(outputs[0], PerceptualOutput::DropEvent));
-        assert!(matches!(outputs[1], PerceptualOutput::WakeCognitiveCore { .. }));
+        assert!(matches!(
+            outputs[1],
+            PerceptualOutput::WakeCognitiveCore { .. }
+        ));
     }
 }

@@ -38,8 +38,8 @@ impl VoiceGate {
         let energy = calculate_frame_energy(samples);
         let zero_crossings = count_zero_crossings(samples);
 
-        let is_voice = energy > self.energy_threshold 
-            && zero_crossings >= self.zero_crossing_threshold;
+        let is_voice =
+            energy > self.energy_threshold && zero_crossings >= self.zero_crossing_threshold;
 
         let current_state = self.current_state();
 
@@ -107,7 +107,8 @@ impl VoiceGate {
 
     pub fn reset(&mut self) {
         self.frame_counter = 0;
-        self.state.store(VoiceGateState::Silence as u8, Ordering::Release);
+        self.state
+            .store(VoiceGateState::Silence as u8, Ordering::Release);
     }
 }
 
