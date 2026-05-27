@@ -1,6 +1,6 @@
-/workspaces/sexta-feira-os/target/debug/deps/sexta_feira_perception-c56c40bc482d38f6.d: src/lib.rs src/perception/mod.rs src/perception/interrupt_bus.rs src/perception/audio_ringbuffer.rs src/perception/voice_gate.rs src/perception/screen_delta.rs src/perception/perceptual_funnel.rs src/perception/cognitive_snapshot.rs
+/workspaces/sexta-feira-os/target/debug/deps/sexta_feira_perception-c56c40bc482d38f6.d: src/lib.rs src/perception/mod.rs src/perception/interrupt_bus.rs src/perception/audio_ringbuffer.rs src/perception/voice_gate.rs src/perception/screen_delta.rs src/perception/perceptual_funnel.rs src/perception/cognitive_snapshot.rs src/cognition/mod.rs src/cognition/cognitive_errors.rs src/cognition/structured_intent.rs src/cognition/intent_parser.rs src/cognition/stream_decoder.rs src/cognition/cognitive_scheduler.rs src/cognition/reasoning_context.rs src/cognition/tool_registry.rs src/cognition/cognitive_loop.rs
 
-/workspaces/sexta-feira-os/target/debug/deps/sexta_feira_perception-c56c40bc482d38f6: src/lib.rs src/perception/mod.rs src/perception/interrupt_bus.rs src/perception/audio_ringbuffer.rs src/perception/voice_gate.rs src/perception/screen_delta.rs src/perception/perceptual_funnel.rs src/perception/cognitive_snapshot.rs
+/workspaces/sexta-feira-os/target/debug/deps/sexta_feira_perception-c56c40bc482d38f6: src/lib.rs src/perception/mod.rs src/perception/interrupt_bus.rs src/perception/audio_ringbuffer.rs src/perception/voice_gate.rs src/perception/screen_delta.rs src/perception/perceptual_funnel.rs src/perception/cognitive_snapshot.rs src/cognition/mod.rs src/cognition/cognitive_errors.rs src/cognition/structured_intent.rs src/cognition/intent_parser.rs src/cognition/stream_decoder.rs src/cognition/cognitive_scheduler.rs src/cognition/reasoning_context.rs src/cognition/tool_registry.rs src/cognition/cognitive_loop.rs
 
 src/lib.rs:
 src/perception/mod.rs:
@@ -10,3 +10,12 @@ src/perception/voice_gate.rs:
 src/perception/screen_delta.rs:
 src/perception/perceptual_funnel.rs:
 src/perception/cognitive_snapshot.rs:
+src/cognition/mod.rs:
+src/cognition/cognitive_errors.rs:
+src/cognition/structured_intent.rs:
+src/cognition/intent_parser.rs:
+src/cognition/stream_decoder.rs:
+src/cognition/cognitive_scheduler.rs:
+src/cognition/reasoning_context.rs:
+src/cognition/tool_registry.rs:
+src/cognition/cognitive_loop.rs:
