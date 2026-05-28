@@ -11,7 +11,7 @@ pub struct CognitiveBudget {
 }
 
 impl CognitiveBudget {
-    pub fn default() -> Self {
+    pub fn standard() -> Self {
         Self {
             max_execution_time_ms: 5000,
             max_memory_bytes: 100 * 1024 * 1024,
@@ -159,7 +159,7 @@ impl Clone for CognitiveScheduler {
 
 impl Default for CognitiveScheduler {
     fn default() -> Self {
-        Self::new(CognitiveBudget::default())
+        Self::new(CognitiveBudget::standard())
     }
 }
 
@@ -190,7 +190,7 @@ mod tests {
 
     #[test]
     fn test_scheduler_preemption() {
-        let scheduler = CognitiveScheduler::new(CognitiveBudget::default());
+        let scheduler = CognitiveScheduler::new(CognitiveBudget::standard());
 
         scheduler.request_preemption();
 
@@ -217,7 +217,7 @@ mod tests {
 
     #[test]
     fn test_cancel_preemption() {
-        let scheduler = CognitiveScheduler::new(CognitiveBudget::default());
+        let scheduler = CognitiveScheduler::new(CognitiveBudget::standard());
 
         scheduler.request_preemption();
         scheduler.cancel_preemption();

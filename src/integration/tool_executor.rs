@@ -190,7 +190,7 @@ impl ToolExecutor {
             .unwrap_or_default()
             .as_nanos() as u64;
 
-        let duration_ms = ((end_ns - start_ns) / 1_000_000).min(u64::MAX) as u64;
+        let duration_ms = (end_ns - start_ns) / 1_000_000;
 
         if duration_ms > input.timeout_ms {
             self.total_timeouts.fetch_add(1, Ordering::Relaxed);

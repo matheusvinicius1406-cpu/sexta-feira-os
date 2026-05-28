@@ -56,6 +56,12 @@ impl CognitiveLoopMetrics {
     }
 }
 
+impl Default for CognitiveLoopMetrics {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 pub struct CognitiveLoop {
     state: CognitiveLoopState,
     scheduler: CognitiveScheduler,
@@ -207,7 +213,7 @@ mod tests {
 
     #[test]
     fn test_dispatch_intent() {
-        let scheduler = CognitiveScheduler::new(CognitiveBudget::default());
+        let scheduler = CognitiveScheduler::new(CognitiveBudget::standard());
         let mut registry = ToolRegistry::new();
 
         let sig = ToolSignature::new("search".to_string(), "1.0".to_string());
@@ -228,7 +234,7 @@ mod tests {
     #[test]
     fn test_metrics_recording() {
         let loop_instance = CognitiveLoop::new(
-            CognitiveScheduler::new(CognitiveBudget::default()),
+            CognitiveScheduler::new(CognitiveBudget::standard()),
             ToolRegistry::new(),
         );
 

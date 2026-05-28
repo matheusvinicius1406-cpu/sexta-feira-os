@@ -1,23 +1,6 @@
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 
-pub type TraceResult<T> = Result<T, TraceError>;
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum TraceError {
-    InvalidSpan,
-    SpanAlreadyClosed,
-    BufferFull,
-}
-
-#[derive(Debug, Clone)]
-pub struct TraceSpan {
-    pub name: String,
-    pub start_ns: u64,
-    pub end_ns: u64,
-    pub duration_ns: u64,
-}
-
 pub struct RuntimeMetrics {
     pub total_requests: Arc<AtomicU64>,
     pub requests_succeeded: Arc<AtomicU64>,

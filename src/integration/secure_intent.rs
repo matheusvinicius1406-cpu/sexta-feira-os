@@ -18,18 +18,18 @@ pub enum SecurityError {
 
 impl std::fmt::Display for SecurityError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            SecurityError::UntrustedSource(s) => write!(f, "Untrusted source: {}", s),
-            SecurityError::InvalidCapability(c) => write!(f, "Invalid capability: {}", c),
-            SecurityError::ResourceLimitExceeded(r) => write!(f, "Resource limit exceeded: {}", r),
-            SecurityError::PathTraversalAttempt => write!(f, "Path traversal attempt blocked"),
-            SecurityError::PromptInjectionDetected => write!(f, "Prompt injection detected"),
-            SecurityError::MissingRequiredCapability(c) => write!(f, "Missing capability: {}", c),
-            SecurityError::IntentSchemaViolation(v) => write!(f, "Schema violation: {}", v),
-            SecurityError::CapabilityViolationAttempt(msg) => {
-                write!(f, "Capability violation: {}", msg)
-            }
-        }
+        use SecurityError::*;
+        let msg = match self {
+            UntrustedSource(s) => format!("untrusted source: {}", s),
+            InvalidCapability(c) => format!("invalid capability: {}", c),
+            ResourceLimitExceeded(r) => format!("resource limit exceeded: {}", r),
+            PathTraversalAttempt => "path traversal blocked".to_string(),
+            PromptInjectionDetected => "prompt injection detected".to_string(),
+            MissingRequiredCapability(c) => format!("missing capability: {}", c),
+            IntentSchemaViolation(v) => format!("schema violation: {}", v),
+            CapabilityViolationAttempt(m) => format!("capability violation: {}", m),
+        };
+        write!(f, "{}", msg)
     }
 }
 

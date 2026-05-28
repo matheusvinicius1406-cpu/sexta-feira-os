@@ -57,6 +57,12 @@ impl DecoderMetrics {
     }
 }
 
+impl Default for DecoderMetrics {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 pub struct StreamDecoder {
     state: StreamState,
     buffer: String,

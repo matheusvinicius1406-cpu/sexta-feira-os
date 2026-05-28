@@ -45,8 +45,8 @@ impl ScreenDeltaDetector {
     pub fn analyze_changes(&mut self, frame_data: &[u8]) -> ScreenDeltaAnalysis {
         let mut changed_blocks = Vec::new();
         let mut unchanged_blocks = 0;
-        let block_cols = (self.width + BLOCK_SIZE - 1) / BLOCK_SIZE;
-        let block_rows = (self.height + BLOCK_SIZE - 1) / BLOCK_SIZE;
+        let block_cols = self.width.div_ceil(BLOCK_SIZE);
+        let block_rows = self.height.div_ceil(BLOCK_SIZE);
 
         for block_row in 0..block_rows {
             for block_col in 0..block_cols {
