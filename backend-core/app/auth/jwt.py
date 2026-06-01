@@ -6,7 +6,7 @@ from typing import Optional
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 from fastapi import Depends, HTTPException, status
-from fastapi.security import HTTPBearer, HTTPAuthCredentials
+from fastapi.security import HTTPBearer
 from sqlalchemy.orm import Session
 from app.core.config import settings
 from app.db.database import get_db
@@ -70,7 +70,7 @@ security = HTTPBearer()
 
 
 async def get_current_user(
-    credentials: HTTPAuthCredentials = Depends(security),
+    credentials = Depends(security),
     db: Session = Depends(get_db)
 ) -> User:
     """Get current authenticated user from JWT token"""

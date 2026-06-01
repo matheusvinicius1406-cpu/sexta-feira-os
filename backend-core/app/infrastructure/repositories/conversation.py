@@ -25,7 +25,7 @@ class ConversationModel(Base):
     user_id = Column(String, nullable=False, index=True)
     created_at = Column(DateTime, default=datetime.utcnow, index=True)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    metadata = Column(JSON, default={})
+    meta_data = Column(JSON, default={})
     title = Column(String, nullable=True)
     
     @classmethod
@@ -36,7 +36,7 @@ class ConversationModel(Base):
             user_id=session.user_id,
             created_at=session.created_at,
             updated_at=session.updated_at,
-            metadata=session.metadata,
+            meta_data=session.metadata,
             title=session.metadata.get("title")
         )
 
@@ -51,7 +51,7 @@ class MessageModel(Base):
     content = Column(Text, nullable=False)
     timestamp = Column(DateTime, default=datetime.utcnow, index=True)
     tokens = Column(Integer, default=0)
-    metadata = Column(JSON, default={})
+    meta_data = Column(JSON, default={})
 
 
 class SQLConversationRepository(ConversationRepository):
@@ -117,7 +117,7 @@ class SQLConversationRepository(ConversationRepository):
                 role=MessageRole(m.role),
                 content=m.content,
                 timestamp=m.timestamp,
-                metadata=m.metadata or {}
+                metadata=m.meta_data or {}
             )
             for m in msg_models
         ]
@@ -128,7 +128,7 @@ class SQLConversationRepository(ConversationRepository):
             created_at=conv_model.created_at,
             updated_at=conv_model.updated_at,
             messages=messages,
-            metadata=conv_model.metadata or {}
+            metadata=conv_model.meta_data or {}
         )
     
     async def save_session(self, session: ConversationSession) -> None:
@@ -145,7 +145,7 @@ class SQLConversationRepository(ConversationRepository):
             self.db.add(conv_model)
         else:
             conv_model.updated_at = datetime.utcnow()
-            conv_model.metadata = session.metadata
+            conv_model.meta_data = session.metadata
         
         await self.db.commit()
     

@@ -5,8 +5,8 @@ import logging
 from typing import Optional
 
 from app.core.config import settings
-from app.infrastructure.ai.providers import AIProviderType, ProviderFactory
-from app.infrastructure.ai.orchestrator import AIOrchestrator
+from app.infrastructure.ai.providers import AIProviderType
+from app.infrastructure.ai.orchestrator import AIOrchestrator, ProviderFactory
 from app.infrastructure.ai.tools import create_default_tool_executor
 from app.infrastructure.memory.semantic import (
     EmbeddingService, InMemoryStore, RetrievalPipeline

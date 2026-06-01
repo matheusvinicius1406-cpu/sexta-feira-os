@@ -93,9 +93,9 @@ app.include_router(tool_router.router)
 from app.api.routers import voice
 app.include_router(voice.router)
 
-# Include android router
-from app.api.routers import android
-app.include_router(android.router)
+# Android router - To be implemented in Phase 6
+# from app.api.routers import android
+# app.include_router(android.router)
 
 
 # Exception handlers

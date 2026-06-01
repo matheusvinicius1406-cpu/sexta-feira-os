@@ -1,52 +1,62 @@
 """
-Jarvis System API endpoints
-Exposes the enhanced AI assistant capabilities
+Jarvis AI Assistant API - Production implementation
+Handles Android ↔ Gemini integration with memory context
 """
 from fastapi import APIRouter, Depends, HTTPException, status, Header
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
-from typing import Optional
+from typing import Optional, AsyncIterator
 from pydantic import BaseModel
+import logging
+import json
 
 from app.db.database import get_db
 from app.models.models import User
 from app.auth.jwt import get_user_id_from_token
-from app.ai.orchestrator import ai_orchestrator
+from app.core.di import get_ai_orchestrator
+from app.infrastructure.ai.providers import AIRequest, AIMessage
 from app.services.memory_service import MemoryService
 
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1/jarvis", tags=["jarvis"])
 
 
-# Request/Response models
+# ========== Data Models ==========
+
 class JarvisMessage(BaseModel):
+    """Chat message from Android"""
     message: str
-    provider: Optional[str] = "gemini"
-    context: Optional[dict] = None
+    conversation_id: Optional[str] = None
+    stream: bool = False
 
 
 class JarvisResponse(BaseModel):
+    """Chat response to Android"""
     response: str
     provider: str
-    confidence: float
-    metadata: dict
+    conversation_id: Optional[str] = None
+    metadata: dict = {}
 
 
 class JarvisStatus(BaseModel):
+    """Jarvis system status"""
     status: str
     version: str
-    providers: list
-    default_provider: str
-    features: dict
+    gemini_ready: bool
+    memory_ready: bool
 
+
+# ========== Dependencies ==========
 
 async def get_current_user(
     authorization: Optional[str] = Header(None),
     db: Session = Depends(get_db)
 ) -> User:
-    """Dependency to get current user from token"""
+    """Extract user from Bearer token"""
     if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Missing or invalid authorization header"
+            detail="Missing authorization header"
         )
     
     token = authorization.split(" ")[1]
@@ -68,23 +78,20 @@ async def get_current_user(
     return user
 
 
+# ========== Endpoints ==========
+
 @router.get("/status", response_model=JarvisStatus)
-async def get_jarvis_status():
-    """Get Jarvis system status"""
-    providers = ai_orchestrator.get_available_providers()
+async def jarvis_status(
+    current_user: User = Depends(get_current_user)
+):
+    """Get Jarvis operational status"""
+    orchestrator = get_ai_orchestrator()
     
     return JarvisStatus(
         status="operational",
         version="1.0.0",
-        providers=providers,
-        default_provider=ai_orchestrator.default_provider,
-        features={
-            "gemini_integration": True,
-            "memory_system": True,
-            "learning_enabled": True,
-            "tool_support": True,
-            "multi_agent": True,
-        }
+        gemini_ready=orchestrator.default_provider is not None,
+        memory_ready=True
     )
 
 
@@ -95,136 +102,140 @@ async def jarvis_chat(
     db: Session = Depends(get_db)
 ):
     """
-    Chat with Jarvis AI assistant
-    Enhanced endpoint with Gemini integration and context awareness
+    Chat with Jarvis (non-streaming)
+    
+    Sends message → Gemini → Returns response with memory integration
     """
     try:
-        # Get user context from memory
-        user_context = MemoryService.get_user_context(db, current_user.id)
+        orchestrator = get_ai_orchestrator()
         
-        # Build agent prompt with user info
-        agent_prompt = f"""You are Jarvis, a personal AI assistant for {current_user.name}.
-        
-Your goal is to be helpful, intelligent, and personalized to the user's needs and preferences.
-Always consider the user's context and history when responding.
-Be concise but thorough in your responses."""
-        
-        # Process through AI orchestrator
-        response = await ai_orchestrator.process_chat(
-            message=request.message,
-            provider=request.provider or "gemini",
-            context=user_context
+        # Build AI request
+        ai_request = AIRequest(
+            messages=[AIMessage(role="user", content=request.message)],
+            model="gemini-2.0-flash",
+            temperature=0.7,
+            max_tokens=2000,
+            stream=False
         )
+        
+        # Generate response via orchestrator
+        response = await orchestrator.generate(
+            ai_request,
+            user_id=current_user.id,
+            conversation_id=request.conversation_id,
+            prompt_type="default"
+        )
+        
+        logger.info(f"Jarvis response generated for user {current_user.id}")
         
         return JarvisResponse(
-            response=response.get("response", "No response"),
-            provider=response.get("provider", "unknown"),
-            confidence=response.get("confidence", 0.0),
-            metadata=response.get("metadata", {})
+            response=response.content,
+            provider=response.provider,
+            conversation_id=request.conversation_id,
+            metadata={
+                "model": response.model,
+                "tokens": response.tokens_used
+            }
         )
     
     except Exception as e:
+        logger.error(f"Jarvis chat error: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error processing chat: {str(e)}"
+            detail=f"Chat processing failed: {str(e)}"
         )
 
 
-@router.post("/analyze")
-async def jarvis_analyze(
-    text: str,
-    analysis_type: str = "general",
-    current_user: User = Depends(get_current_user),
+@router.post("/chat/stream")
+async def jarvis_chat_stream(
+    request: JarvisMessage,
+    current_user: User = Depends(get_current_user)
 ):
     """
-    Analyze text using Jarvis
-    Supports: sentiment, summary, keywords, general
-    """
-    try:
-        from app.jarvis import GeminiOrchestratorV2
-        import os
-        
-        api_key = os.getenv("GEMINI_API_KEY")
-        if not api_key:
-            raise ValueError("Gemini API key not configured")
-        
-        orchestrator = GeminiOrchestratorV2(api_key)
-        result = await orchestrator.analyze_text(text, analysis_type)
-        
-        return {
-            "analysis": result.get("response"),
-            "type": analysis_type,
-            "provider": result.get("provider"),
-        }
+    Chat with Jarvis (streaming)
     
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error analyzing text: {str(e)}"
-        )
+    Streams responses token-by-token to Android
+    """
+    async def stream_response() -> AsyncIterator[str]:
+        try:
+            orchestrator = get_ai_orchestrator()
+            
+            # Build AI request
+            ai_request = AIRequest(
+                messages=[AIMessage(role="user", content=request.message)],
+                model="gemini-2.0-flash",
+                temperature=0.7,
+                max_tokens=2000,
+                stream=True
+            )
+            
+            # Stream from orchestrator
+            async for chunk in orchestrator.stream_generate(
+                ai_request,
+                user_id=current_user.id,
+                conversation_id=request.conversation_id,
+                prompt_type="default"
+            ):
+                # Send each chunk as SSE
+                yield f"data: {json.dumps({'chunk': chunk})}\n\n"
+            
+            # Send completion marker
+            yield f"data: {json.dumps({'done': True})}\n\n"
+            logger.info(f"Jarvis stream completed for user {current_user.id}")
+            
+        except Exception as e:
+            logger.error(f"Jarvis stream error: {str(e)}")
+            yield f"data: {json.dumps({'error': str(e)})}\n\n"
+    
+    return StreamingResponse(
+        stream_response(),
+        media_type="text/event-stream"
+    )
 
 
-@router.get("/providers")
-async def get_providers():
-    """Get available AI providers"""
-    return {
-        "providers": ai_orchestrator.get_available_providers(),
-        "default": ai_orchestrator.default_provider,
-    }
-
-
-@router.post("/memory/store")
-async def store_memory(
+@router.post("/memory/save")
+async def save_memory(
     key: str,
     value: str,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Store something in Jarvis memory"""
+    """Save user memory entry (for context future chats)"""
     try:
-        MemoryService.create_memory_entry(
-            db=db,
+        memory_service = MemoryService(db)
+        await memory_service.store(
             user_id=current_user.id,
-            key=key,
-            value=value,
-            category="jarvis"
+            content=value,
+            metadata={"key": key}
         )
-        return {
-            "status": "stored",
-            "key": key,
-            "timestamp": str(__import__("datetime").datetime.utcnow().isoformat())
-        }
+        return {"status": "saved", "key": key}
     except Exception as e:
+        logger.error(f"Memory save error: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error storing memory: {str(e)}"
+            detail=f"Failed to save memory: {str(e)}"
         )
 
 
-@router.get("/memory/recall")
-async def recall_memory(
-    key: str,
+@router.get("/memory/retrieve")
+async def retrieve_memory(
+    query: str,
+    limit: int = 5,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Recall from Jarvis memory"""
+    """Retrieve relevant memory entries for context"""
     try:
-        memory = MemoryService.get_user_memory(db, current_user.id)
-        
-        # Search for key in all categories
-        for category, entries in memory.items():
-            if key in entries:
-                return {
-                    "key": key,
-                    "value": entries[key]["value"],
-                    "category": category,
-                    "updated": entries[key]["updated"]
-                }
-        
-        return {"key": key, "value": None, "found": False}
-    
+        memory_service = MemoryService(db)
+        memories = await memory_service.retrieve(
+            user_id=current_user.id,
+            query=query,
+            limit=limit
+        )
+        return {"memories": memories}
     except Exception as e:
+        logger.error(f"Memory retrieve error: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error recalling memory: {str(e)}"
+            detail=f"Failed to retrieve memory: {str(e)}"
         )
