@@ -140,8 +140,10 @@ impl ToolOutput {
     }
 }
 
+type ToolFn = Arc<dyn Fn(&ToolInput) -> ToolResult<String> + Send + Sync>;
+
 pub struct ToolExecutor {
-    tools: Arc<HashMap<String, Arc<dyn Fn(&ToolInput) -> ToolResult<String> + Send + Sync>>>,
+    tools: Arc<HashMap<String, ToolFn>>,
     max_concurrent_executions: usize,
     active_executions: Arc<AtomicU64>,
     total_executions: Arc<AtomicU64>,

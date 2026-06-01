@@ -62,11 +62,7 @@ impl RuntimeMetrics {
         let failed = self.requests_failed.load(Ordering::Acquire);
         let total_latency_ns = self.total_latency_ns.load(Ordering::Acquire);
 
-        let avg_latency_ns = if succeeded > 0 {
-            total_latency_ns / succeeded
-        } else {
-            0
-        };
+        let avg_latency_ns = total_latency_ns.saturating_div(succeeded.max(1));
 
         RuntimeMetricsSnapshot {
             total_requests: total,

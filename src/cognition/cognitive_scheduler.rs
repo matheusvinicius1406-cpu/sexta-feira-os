@@ -11,19 +11,21 @@ pub struct CognitiveBudget {
 }
 
 impl CognitiveBudget {
-    pub fn standard() -> Self {
-        Self {
-            max_execution_time_ms: 5000,
-            max_memory_bytes: 100 * 1024 * 1024,
-            max_reasoning_depth: 100,
-        }
-    }
-
     pub fn realtime() -> Self {
         Self {
             max_execution_time_ms: 500,
             max_memory_bytes: 50 * 1024 * 1024,
             max_reasoning_depth: 50,
+        }
+    }
+}
+
+impl Default for CognitiveBudget {
+    fn default() -> Self {
+        Self {
+            max_execution_time_ms: 5000,
+            max_memory_bytes: 100 * 1024 * 1024,
+            max_reasoning_depth: 100,
         }
     }
 }
@@ -49,11 +51,7 @@ impl ExecutionPermit {
 
     pub fn remaining_ms(&self) -> u64 {
         let elapsed = self.start_time.elapsed().as_millis() as u64;
-        if elapsed >= self.max_duration_ms {
-            0
-        } else {
-            self.max_duration_ms - elapsed
-        }
+        self.max_duration_ms.saturating_sub(elapsed)
     }
 
     pub fn should_preempt(&self) -> bool {
@@ -159,7 +157,7 @@ impl Clone for CognitiveScheduler {
 
 impl Default for CognitiveScheduler {
     fn default() -> Self {
-        Self::new(CognitiveBudget::standard())
+        Self::new(CognitiveBudget::default())
     }
 }
 
@@ -190,7 +188,7 @@ mod tests {
 
     #[test]
     fn test_scheduler_preemption() {
-        let scheduler = CognitiveScheduler::new(CognitiveBudget::standard());
+        let scheduler = CognitiveScheduler::new(CognitiveBudget::default());
 
         scheduler.request_preemption();
 
@@ -217,7 +215,7 @@ mod tests {
 
     #[test]
     fn test_cancel_preemption() {
-        let scheduler = CognitiveScheduler::new(CognitiveBudget::standard());
+        let scheduler = CognitiveScheduler::new(CognitiveBudget::default());
 
         scheduler.request_preemption();
         scheduler.cancel_preemption();

@@ -253,7 +253,7 @@ mod tests {
     #[test]
     fn test_bridge_creation() {
         let bridge = CognitiveRuntimeBridge::new(
-            CognitiveScheduler::new(CognitiveBudget::standard()),
+            CognitiveScheduler::new(CognitiveBudget::default()),
             ToolRegistry::new(),
             CapabilityMatrix::new(),
         );
@@ -266,7 +266,7 @@ mod tests {
     #[test]
     fn test_bridge_process_valid_request() {
         let bridge = CognitiveRuntimeBridge::new(
-            CognitiveScheduler::new(CognitiveBudget::standard()),
+            CognitiveScheduler::new(CognitiveBudget::default()),
             ToolRegistry::new(),
             CapabilityMatrix::new(),
         );

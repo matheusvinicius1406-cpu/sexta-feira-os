@@ -213,7 +213,7 @@ mod tests {
 
     #[test]
     fn test_dispatch_intent() {
-        let scheduler = CognitiveScheduler::new(CognitiveBudget::standard());
+        let scheduler = CognitiveScheduler::new(CognitiveBudget::default());
         let mut registry = ToolRegistry::new();
 
         let sig = ToolSignature::new("search".to_string(), "1.0".to_string());
@@ -234,7 +234,7 @@ mod tests {
     #[test]
     fn test_metrics_recording() {
         let loop_instance = CognitiveLoop::new(
-            CognitiveScheduler::new(CognitiveBudget::standard()),
+            CognitiveScheduler::new(CognitiveBudget::default()),
             ToolRegistry::new(),
         );
 

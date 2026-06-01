@@ -134,7 +134,7 @@ impl CognitiveSnapshot {
 
     pub fn cleanup_expired_markers(&mut self) {
         let now = current_time_ns();
-        Arc::get_mut(&mut self.symbolic_markers).map(|m| {
+        if let Some(m) = Arc::get_mut(&mut self.symbolic_markers) {
             m.retain(|_, marker| {
                 if let Some(expires_at) = marker.expires_at_ns {
                     now < expires_at
@@ -142,7 +142,7 @@ impl CognitiveSnapshot {
                     true
                 }
             });
-        });
+        }
     }
 
     pub fn merge(&mut self, other: CognitiveSnapshot) {
