@@ -68,6 +68,10 @@ class Settings(BaseSettings):
     brain_temperature: float = float(os.getenv("BRAIN_TEMPERATURE", "0.7"))
     brain_max_tokens: int = int(os.getenv("BRAIN_MAX_TOKENS", "2048"))
     brain_context_messages: int = int(os.getenv("BRAIN_CONTEXT_MESSAGES", "12"))
+    # Agentic tool-calling: let the brain act on its own (remember/recall/automations)
+    # during a normal conversation — driven by voice/chat from the phone, no terminal.
+    tools_enabled: bool = os.getenv("TOOLS_ENABLED", "true").lower() == "true"
+    tool_max_rounds: int = int(os.getenv("TOOL_MAX_ROUNDS", "4"))
 
     # The kernel's personality / identity. This is who Sexta-Feira is to you.
     brain_persona: str = os.getenv(

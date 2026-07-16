@@ -51,6 +51,14 @@ os dispara por Webhook. Degrada com 503 se o n8n estiver fora. É assim que o Se
 **age** no mundo (milhares de integrações). Endpoints em `api/routers/automation.py`.
 O n8n sobe junto no `docker-compose.yml`, só em loopback.
 
+### 3d. Tool-calling agêntico (`app/brain/tools.py`) — pensar → agir
+`ToolKit` expõe ao cérebro ferramentas que ele decide usar sozinho durante a conversa
+(`remember`, `recall`, `run_automation`) via tool-calling nativo do Ollama. O laço vive
+em `cognition._run_with_tools`: pergunta ao cérebro → se ele pede uma ação, executa,
+devolve o resultado e continua até a resposta final. Assim, do **celular por voz**, sem
+terminal: "me lembra do dentista amanhã" → o cérebro chama a automação/memória certa e
+confirma em linguagem natural.
+
 ## Fluxo de uma conversa
 
 1. Corpo envia `POST /api/v1/chat {message, conversation_id?}` com o token.

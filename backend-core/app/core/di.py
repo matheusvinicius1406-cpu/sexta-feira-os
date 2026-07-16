@@ -12,6 +12,7 @@ from app.automation.n8n import N8nClient
 from app.brain.cognition import Cognition
 from app.brain.engine import LocalBrain
 from app.brain.memory import PersistentMemory
+from app.brain.tools import ToolKit
 from app.core.config import settings
 from app.db.database import SessionLocal
 from app.models.models import Owner
@@ -36,9 +37,11 @@ class Kernel:
             return
         self.brain = LocalBrain()
         self.memory = PersistentMemory(self.brain)
-        self.cognition = Cognition(self.brain, self.memory)
-        self.voice = VoiceBox()
         self.automations = N8nClient()
+        self.voice = VoiceBox()
+        self.cognition = Cognition(
+            self.brain, self.memory, ToolKit(self.memory, self.automations)
+        )
         self._ready = True
 
         if await self.brain.health():

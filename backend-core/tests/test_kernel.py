@@ -306,3 +306,44 @@ def test_trigger_succeeds_when_n8n_up(client, owner_headers):
         assert r.json()["result"]["received"] == {"hello": "world"}
     finally:
         n8n.trigger = original
+
+
+# ---------------- agentic tool-calling (the brain acts on its own) ----------------
+
+def test_brain_can_call_tools(client, owner_headers):
+    """
+    From a plain sentence, the brain decides to call a tool (remember) and only
+    then answers — the phone-first 'talk -> act' loop. Deterministic: we stub the
+    brain to emit a tool_call on the first pass and a final answer on the second.
+    """
+    from app.core.di import get_kernel
+
+    brain = get_kernel().cognition.brain
+    original = brain.chat_with_tools
+    state = {"calls": 0}
+
+    async def fake_tools(messages, tools=None, **_kwargs):
+        state["calls"] += 1
+        if state["calls"] == 1:
+            return {
+                "role": "assistant",
+                "content": "",
+                "tool_calls": [
+                    {"function": {"name": "remember",
+                                  "arguments": {"content": "Consulta no dentista amanhã às 15h"}}}
+                ],
+            }
+        return {"role": "assistant", "content": "Anotado, vou te lembrar."}
+
+    brain.chat_with_tools = fake_tools
+    try:
+        r = client.post("/api/v1/chat",
+                        json={"message": "me lembra do dentista amanhã às 15h"},
+                        headers=owner_headers)
+        assert r.status_code == 200
+        assert "Anotado" in r.json()["reply"]
+        # The tool actually ran => the fact is now in memory.
+        mems = client.get("/api/v1/memory", headers=owner_headers).json()
+        assert any("dentista" in m["content"].lower() for m in mems)
+    finally:
+        brain.chat_with_tools = original

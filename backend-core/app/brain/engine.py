@@ -91,6 +91,38 @@ class LocalBrain:
                 f"Rode `ollama serve` e `ollama pull {self.model}`."
             ) from e
 
+    async def chat_with_tools(
+        self,
+        messages: list[dict],
+        tools: list[dict] | None = None,
+        temperature: float | None = None,
+        max_tokens: int | None = None,
+    ) -> dict:
+        """
+        Tool-calling completion. Returns the full Ollama `message` dict, which may
+        contain `tool_calls` when the model decides to act. Models that don't
+        support tools simply return normal content — the caller handles both.
+        """
+        payload = {
+            "model": self.model,
+            "messages": messages,
+            "stream": False,
+            "options": {
+                "temperature": settings.brain_temperature if temperature is None else temperature,
+                "num_predict": settings.brain_max_tokens if max_tokens is None else max_tokens,
+            },
+        }
+        if tools:
+            payload["tools"] = tools
+        try:
+            r = await self._client.post("/api/chat", json=payload)
+            r.raise_for_status()
+            return r.json().get("message", {"role": "assistant", "content": ""})
+        except httpx.ConnectError as e:
+            raise BrainUnavailable(
+                f"Ollama não respondeu em {self.endpoint}. Rode `ollama serve`."
+            ) from e
+
     async def stream_chat(
         self,
         messages: list[dict[str, str]],

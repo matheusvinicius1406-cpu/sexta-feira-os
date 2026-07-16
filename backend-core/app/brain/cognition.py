@@ -11,6 +11,7 @@ Pipeline for every turn:
 """
 from __future__ import annotations
 
+import json
 import logging
 import uuid
 from collections.abc import AsyncIterator
@@ -27,9 +28,10 @@ logger = logging.getLogger("sexta-feira.cognition")
 
 
 class Cognition:
-    def __init__(self, brain: LocalBrain, memory: PersistentMemory):
+    def __init__(self, brain: LocalBrain, memory: PersistentMemory, toolkit=None):
         self.brain = brain
         self.memory = memory
+        self.toolkit = toolkit  # ToolKit | None — enables agentic actions
 
     # ---------- conversation helpers ----------
 
@@ -106,14 +108,51 @@ class Cognition:
         self, db: Session, owner_id: str, user_text: str,
         conversation_id: str | None = None, device_id: str | None = None,
     ) -> tuple[str, str]:
-        """Return (reply_text, conversation_id)."""
+        """Return (reply_text, conversation_id). Runs the agentic tool loop."""
         conv = self._get_or_create_conversation(db, owner_id, conversation_id, device_id)
         messages = await self._build_messages(db, owner_id, conv, user_text)
-        reply = await self.brain.chat(messages)
+        reply = await self._run_with_tools(db, owner_id, messages)
         self._persist_turn(db, conv, "owner", user_text)
         self._persist_turn(db, conv, "assistant", reply)
         await self._auto_learn(db, owner_id, user_text, reply)
         return reply, conv.id
+
+    async def _run_with_tools(self, db: Session, owner_id: str, messages: list[dict]) -> str:
+        """
+        Ask the brain; if it decides to act (tool_calls), execute the tools, feed
+        the results back, and continue — until it produces a final answer. When
+        tools are disabled/unavailable, this is a single plain completion.
+        """
+        use_tools = bool(self.toolkit) and settings.tools_enabled
+        tools = await self.toolkit.specs() if use_tools else None
+
+        for _ in range(settings.tool_max_rounds if tools else 1):
+            msg = await self.brain.chat_with_tools(messages, tools=tools)
+            tool_calls = msg.get("tool_calls") or []
+            if not tool_calls:
+                return msg.get("content", "")
+
+            messages.append({
+                "role": "assistant",
+                "content": msg.get("content", ""),
+                "tool_calls": tool_calls,
+            })
+            for call in tool_calls:
+                fn = call.get("function", {})
+                name = fn.get("name", "")
+                args = fn.get("arguments", {})
+                if isinstance(args, str):
+                    try:
+                        args = json.loads(args)
+                    except Exception:  # noqa: BLE001
+                        args = {}
+                result = await self.toolkit.dispatch(name, args, db, owner_id)
+                logger.info("tool %s -> %s", name, result[:80])
+                messages.append({"role": "tool", "content": result})
+
+        # Ran out of rounds still wanting tools: get a final plain answer.
+        final = await self.brain.chat_with_tools(messages)
+        return final.get("content", "")
 
     async def respond_stream(
         self, db: Session, owner_id: str, user_text: str,

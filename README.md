@@ -14,6 +14,7 @@ sai deste host — não há OpenAI, Claude, Gemini nem qualquer LLM externo.**
 - 🧩 **Multilocal (um cérebro, vários corpos)** — celular, tela do carro, óculos, relógio conectam ao mesmo cérebro pela sua rede privada.
 - 💾 **Memória de verdade** — fatos, preferências e conversas persistem em SQLite com embeddings locais.
 - 🕸️ **Grafo de conhecimento (estilo Obsidian)** — cada informação vira um *nó* que se **liga** às relacionadas (semântica + `[[wikilinks]]` + manual). O raciocínio percorre essas conexões: forma um cérebro em rede, não uma lista solta.
+- 🤖 **Ele age sozinho** — do celular, por voz: "me lembra do dentista amanhã" → o cérebro decide e dispara a automação/memória certa (tool-calling), sem terminal.
 - 📚 **Ele aprende com você** — sua história vira dataset para *fine-tuning* (LoRA); o modelo fica cada vez mais *seu*.
 - 🕵️ **Sem telemetria** — nada é rastreado, nada é enviado.
 
