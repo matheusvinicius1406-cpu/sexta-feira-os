@@ -1,5 +1,5 @@
 """Health & status — no auth (loopback only anyway)."""
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from fastapi import APIRouter
 
@@ -20,5 +20,5 @@ async def health():
         "brain_online": brain_ok,
         "brain_model": settings.brain_model,
         "access_mode": settings.access_mode,
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "timestamp": datetime.now(UTC).isoformat(),
     }

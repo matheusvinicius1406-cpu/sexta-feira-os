@@ -8,7 +8,7 @@ Design principles (do not violate):
 """
 import os
 import secrets
-from typing import List
+
 from pydantic_settings import BaseSettings
 
 
@@ -95,7 +95,7 @@ class Settings(BaseSettings):
 
     # ============ Privacy ============
     # Loopback-only origins. The kernel refuses cross-origin browser calls.
-    cors_origins: List[str] = [
+    cors_origins: list[str] = [
         "http://localhost",
         "http://127.0.0.1",
         "http://localhost:8000",

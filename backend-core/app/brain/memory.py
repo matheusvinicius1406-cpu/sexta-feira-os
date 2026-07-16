@@ -21,7 +21,6 @@ import json
 import logging
 import re
 import uuid
-from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 from sqlalchemy import or_
@@ -50,11 +49,11 @@ class PersistentMemory:
         kind: str = "fact",
         importance: float = 0.5,
         source: str = "manual",
-        title: Optional[str] = None,
-        auto_link: Optional[bool] = None,
+        title: str | None = None,
+        auto_link: bool | None = None,
     ) -> Memory:
         """Store a node, compute its local embedding, and weave it into the graph."""
-        embedding: Optional[List[float]] = None
+        embedding: list[float] | None = None
         try:
             embedding = await self.brain.embed(content)
         except Exception as e:  # noqa: BLE001 — memory must never crash the chat
@@ -114,12 +113,12 @@ class PersistentMemory:
 
     def _semantic_neighbours(
         self, db: Session, owner_id: str, mem: Memory, k: int
-    ) -> List[Tuple[Memory, float]]:
+    ) -> list[tuple[Memory, float]]:
         v = np.asarray(json.loads(mem.embedding), dtype=np.float32)
         if v.size == 0 or not np.any(v):
             return []
         v = v / (np.linalg.norm(v) + 1e-9)
-        scored: List[Tuple[Memory, float]] = []
+        scored: list[tuple[Memory, float]] = []
         rows = db.query(Memory).filter(
             Memory.owner_id == owner_id, Memory.id != mem.id, Memory.embedding.isnot(None)
         ).all()
@@ -138,7 +137,7 @@ class PersistentMemory:
     def link(
         self, db: Session, owner_id: str, source_id: str, target_id: str,
         relation: str = "related", weight: float = 1.0, origin: str = "manual",
-    ) -> Optional[MemoryLink]:
+    ) -> MemoryLink | None:
         """Create an edge (idempotent for the same source/target/relation)."""
         if source_id == target_id:
             return None
@@ -171,7 +170,7 @@ class PersistentMemory:
         db.commit()
         return True
 
-    def neighbours(self, db: Session, owner_id: str, memory_id: str) -> Dict[str, list]:
+    def neighbours(self, db: Session, owner_id: str, memory_id: str) -> dict[str, list]:
         """Forward links + backlinks for a node."""
         forward = db.query(MemoryLink).filter(
             MemoryLink.owner_id == owner_id, MemoryLink.source_id == memory_id
@@ -180,7 +179,7 @@ class PersistentMemory:
             MemoryLink.owner_id == owner_id, MemoryLink.target_id == memory_id
         ).all()
 
-        def node(mid: str) -> Optional[dict]:
+        def node(mid: str) -> dict | None:
             m = db.query(Memory).filter(Memory.id == mid).first()
             return {"id": m.id, "title": m.title, "kind": m.kind} if m else None
 
@@ -195,7 +194,7 @@ class PersistentMemory:
             ],
         }
 
-    def graph(self, db: Session, owner_id: str, limit: int = 500) -> Dict[str, list]:
+    def graph(self, db: Session, owner_id: str, limit: int = 500) -> dict[str, list]:
         """The whole graph — nodes + edges — for a visualization (Obsidian-style)."""
         nodes = db.query(Memory).filter(Memory.owner_id == owner_id).limit(limit).all()
         node_ids = {n.id for n in nodes}
@@ -216,7 +215,7 @@ class PersistentMemory:
 
     async def _seed_by_similarity(
         self, db: Session, owner_id: str, query: str, top_k: int
-    ) -> List[Tuple[Memory, float]]:
+    ) -> list[tuple[Memory, float]]:
         rows = db.query(Memory).filter(
             Memory.owner_id == owner_id, Memory.embedding.isnot(None)
         ).all()
@@ -230,7 +229,7 @@ class PersistentMemory:
         if q.size == 0 or not np.any(q):
             return []
         q = q / (np.linalg.norm(q) + 1e-9)
-        scored: List[Tuple[Memory, float]] = []
+        scored: list[tuple[Memory, float]] = []
         for m in rows:
             v = np.asarray(json.loads(m.embedding), dtype=np.float32)
             if v.size != q.size or not np.any(v):
@@ -242,8 +241,8 @@ class PersistentMemory:
         return scored[:top_k]
 
     async def recall(
-        self, db: Session, owner_id: str, query: str, top_k: Optional[int] = None
-    ) -> List[Memory]:
+        self, db: Session, owner_id: str, query: str, top_k: int | None = None
+    ) -> list[Memory]:
         """Plain semantic recall (seed nodes only)."""
         top_k = top_k or settings.memory_top_k
         seeds = await self._seed_by_similarity(db, owner_id, query, top_k)
@@ -251,8 +250,8 @@ class PersistentMemory:
         return [m for m, _ in seeds]
 
     async def recall_graph(
-        self, db: Session, owner_id: str, query: str, top_k: Optional[int] = None
-    ) -> List[Memory]:
+        self, db: Session, owner_id: str, query: str, top_k: int | None = None
+    ) -> list[Memory]:
         """
         Networked recall: semantic seeds, then EXPAND along edges (backlinks
         included) so connected context comes along for the ride.
@@ -262,8 +261,8 @@ class PersistentMemory:
         if not seeds:
             return []
 
-        scores: Dict[str, float] = {}
-        nodes: Dict[str, Memory] = {}
+        scores: dict[str, float] = {}
+        nodes: dict[str, Memory] = {}
         for m, s in seeds:
             scores[m.id] = s
             nodes[m.id] = m
@@ -277,7 +276,7 @@ class PersistentMemory:
                 MemoryLink.owner_id == owner_id,
                 or_(MemoryLink.source_id.in_(frontier), MemoryLink.target_id.in_(frontier)),
             ).all()
-            next_frontier: List[str] = []
+            next_frontier: list[str] = []
             for e in edges:
                 for near_id, far_id in ((e.source_id, e.target_id), (e.target_id, e.source_id)):
                     if near_id in scores and far_id not in scores:
@@ -294,7 +293,7 @@ class PersistentMemory:
         self._touch(db, result)
         return result
 
-    def _touch(self, db: Session, mems: List[Memory]) -> None:
+    def _touch(self, db: Session, mems: list[Memory]) -> None:
         for m in mems:
             m.access_count = (m.access_count or 0) + 1
         if mems:
@@ -302,7 +301,7 @@ class PersistentMemory:
 
     # ================= misc =================
 
-    def list_all(self, db: Session, owner_id: str, limit: int = 200) -> List[Memory]:
+    def list_all(self, db: Session, owner_id: str, limit: int = 200) -> list[Memory]:
         return (
             db.query(Memory)
             .filter(Memory.owner_id == owner_id)

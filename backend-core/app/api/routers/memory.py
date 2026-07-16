@@ -10,7 +10,6 @@ Memory — inspect and curate your second brain, now as a KNOWLEDGE GRAPH.
   GET    /api/v1/memory/{id}/neighbours   links + backlinks of a node
   GET    /api/v1/memory/graph        the whole graph (nodes + edges) to visualize
 """
-from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
@@ -27,14 +26,14 @@ router = APIRouter(prefix="/api/v1/memory", tags=["memory"])
 
 class RememberRequest(BaseModel):
     content: str = Field(..., min_length=1)
-    title: Optional[str] = None
+    title: str | None = None
     kind: str = "fact"
     importance: float = Field(0.5, ge=0.0, le=1.0)
 
 
 class RecallRequest(BaseModel):
     query: str
-    top_k: Optional[int] = None
+    top_k: int | None = None
     networked: bool = True  # expand along links; False = plain semantic
 
 

@@ -8,18 +8,17 @@ Two token audiences, both belonging to the ONE owner:
 There is no multi-user model and no open registration. Access = the owner,
 optionally acting through one of their paired devices.
 """
-from datetime import datetime, timedelta, timezone
-from typing import Optional
+from datetime import UTC, datetime, timedelta
 
 from fastapi import Depends, HTTPException, status
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.db.database import get_db
-from app.models.models import Owner, Device
+from app.models.models import Device, Owner
 
 pwd_context = CryptContext(schemes=["argon2"], deprecated="auto")
 security = HTTPBearer(auto_error=True)
@@ -39,7 +38,7 @@ def verify_password(plain: str, hashed: str) -> bool:
 
 def _encode(payload: dict, expires: timedelta) -> str:
     to_encode = payload.copy()
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     to_encode.update({"iat": now, "exp": now + expires})
     return jwt.encode(to_encode, settings.resolve_jwt_secret(), algorithm=settings.jwt_algorithm)
 
@@ -59,7 +58,7 @@ def create_device_token(owner_id: str, device_id: str) -> str:
     )
 
 
-def decode_token(token: str) -> Optional[dict]:
+def decode_token(token: str) -> dict | None:
     for audience in ("owner", "device"):
         try:
             return jwt.decode(
@@ -88,7 +87,7 @@ def get_current_owner(
         device = db.query(Device).filter(Device.id == device_id).first()
         if not device or device.revoked:
             raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Device not paired or revoked")
-        device.last_seen_at = datetime.now(timezone.utc)
+        device.last_seen_at = datetime.now(UTC)
         db.commit()
 
     owner = db.query(Owner).filter(Owner.id == payload.get("sub")).first()

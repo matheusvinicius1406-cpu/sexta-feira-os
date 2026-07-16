@@ -5,8 +5,8 @@ One brain, running on your machine. Many trusted bodies (phone, car, glasses,
 watch) connect to it over your private network. No cloud. No other LLM. No
 data ever leaves this host.
 """
-from pathlib import Path
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from dotenv import load_dotenv
 
@@ -18,10 +18,10 @@ import logging  # noqa: E402
 from fastapi import FastAPI  # noqa: E402
 from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
 
+from app.api.routers import auth, chat, health, memory  # noqa: E402
 from app.core.config import settings  # noqa: E402
 from app.core.di import get_kernel  # noqa: E402
-from app.db.database import Base, engine  # noqa: E402
-from app.api.routers import auth, chat, health, memory  # noqa: E402
+from app.db.migrations import run_migrations  # noqa: E402
 
 logging.basicConfig(level=settings.log_level)
 logger = logging.getLogger("sexta-feira")
@@ -30,7 +30,7 @@ logger = logging.getLogger("sexta-feira")
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("🚀 %s v%s (access=%s)", settings.app_name, settings.app_version, settings.access_mode)
-    Base.metadata.create_all(bind=engine)  # local single-file DB
+    run_migrations()  # bring the schema up to date (versioned, Alembic)
     await get_kernel().start()
     yield
     await get_kernel().stop()

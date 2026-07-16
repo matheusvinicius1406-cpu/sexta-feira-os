@@ -13,7 +13,7 @@ serve through Ollama — so the whole loop stays on hardware you control.
 from __future__ import annotations
 
 import json
-from typing import Dict, Iterator, List
+from collections.abc import Iterator
 
 from sqlalchemy.orm import Session
 
@@ -21,7 +21,7 @@ from app.core.config import settings
 from app.models.models import Conversation, Memory
 
 
-def build_dataset(db: Session, owner_id: str) -> List[Dict]:
+def build_dataset(db: Session, owner_id: str) -> list[dict]:
     """
     Produce a list of chat samples:
         {"messages": [{"role": "system"|"user"|"assistant", "content": ...}]}
@@ -30,13 +30,13 @@ def build_dataset(db: Session, owner_id: str) -> List[Dict]:
       * every conversation turn-pair (owner -> assistant)
       * curated memories, framed as things "you" taught the assistant
     """
-    samples: List[Dict] = []
+    samples: list[dict] = []
     system = settings.brain_persona
 
     # 1) Real dialogue: each (owner, assistant) pair becomes a supervised sample.
     convs = db.query(Conversation).filter(Conversation.owner_id == owner_id).all()
     for conv in convs:
-        history: List[Dict] = [{"role": "system", "content": system}]
+        history: list[dict] = [{"role": "system", "content": system}]
         pending_user = None
         for msg in conv.messages:
             if msg.role == "owner":
@@ -68,6 +68,6 @@ def build_dataset(db: Session, owner_id: str) -> List[Dict]:
     return samples
 
 
-def to_jsonl(samples: List[Dict]) -> Iterator[str]:
+def to_jsonl(samples: list[dict]) -> Iterator[str]:
     for s in samples:
         yield json.dumps(s, ensure_ascii=False)

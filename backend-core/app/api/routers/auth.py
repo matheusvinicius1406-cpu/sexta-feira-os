@@ -13,7 +13,10 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.auth.jwt import (
-    create_device_token, create_owner_token, get_current_owner, verify_password,
+    create_device_token,
+    create_owner_token,
+    get_current_owner,
+    verify_password,
 )
 from app.core.config import settings
 from app.db.database import get_db

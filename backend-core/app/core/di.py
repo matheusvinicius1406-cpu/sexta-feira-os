@@ -6,7 +6,6 @@ from __future__ import annotations
 
 import logging
 import uuid
-from typing import Optional
 
 from app.auth.jwt import hash_password
 from app.brain.cognition import Cognition
@@ -23,9 +22,9 @@ class Kernel:
     """Holds the singletons that make up the running brain."""
 
     def __init__(self) -> None:
-        self.brain: Optional[LocalBrain] = None
-        self.memory: Optional[PersistentMemory] = None
-        self.cognition: Optional[Cognition] = None
+        self.brain: LocalBrain | None = None
+        self.memory: PersistentMemory | None = None
+        self.cognition: Cognition | None = None
         self._ready = False
 
     async def start(self) -> None:

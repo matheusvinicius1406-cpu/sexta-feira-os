@@ -3,8 +3,10 @@ Local database setup. Everything lives in a single SQLite file on YOUR disk
 (./data/sexta_feira_os.db). This file is your second brain — never commit it.
 """
 from pathlib import Path
+
 from sqlalchemy import create_engine
 from sqlalchemy.orm import declarative_base, sessionmaker
+
 from app.core.config import settings
 
 DATABASE_URL = settings.database_url

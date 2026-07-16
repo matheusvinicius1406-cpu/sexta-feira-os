@@ -12,7 +12,7 @@ BRAIN_MODEL at it and everything else keeps working unchanged.
 from __future__ import annotations
 
 import logging
-from typing import AsyncIterator, Dict, List, Optional
+from collections.abc import AsyncIterator
 
 import httpx
 
@@ -30,9 +30,9 @@ class LocalBrain:
 
     def __init__(
         self,
-        endpoint: Optional[str] = None,
-        model: Optional[str] = None,
-        embedding_model: Optional[str] = None,
+        endpoint: str | None = None,
+        model: str | None = None,
+        embedding_model: str | None = None,
     ):
         self.endpoint = (endpoint or settings.ollama_endpoint).rstrip("/")
         self.model = model or settings.brain_model
@@ -55,7 +55,7 @@ class LocalBrain:
             logger.warning("Brain health check failed: %s", e)
             return False
 
-    async def installed_models(self) -> List[str]:
+    async def installed_models(self) -> list[str]:
         try:
             r = await self._client.get("/api/tags", timeout=5.0)
             r.raise_for_status()
@@ -67,9 +67,9 @@ class LocalBrain:
 
     async def chat(
         self,
-        messages: List[Dict[str, str]],
-        temperature: Optional[float] = None,
-        max_tokens: Optional[int] = None,
+        messages: list[dict[str, str]],
+        temperature: float | None = None,
+        max_tokens: int | None = None,
     ) -> str:
         """Non-streaming completion. `messages` = [{"role","content"}...]."""
         payload = {
@@ -93,9 +93,9 @@ class LocalBrain:
 
     async def stream_chat(
         self,
-        messages: List[Dict[str, str]],
-        temperature: Optional[float] = None,
-        max_tokens: Optional[int] = None,
+        messages: list[dict[str, str]],
+        temperature: float | None = None,
+        max_tokens: int | None = None,
     ) -> AsyncIterator[str]:
         """Token-by-token streaming completion."""
         payload = {
@@ -127,7 +127,7 @@ class LocalBrain:
 
     # ---------- embeddings ----------
 
-    async def embed(self, text: str) -> List[float]:
+    async def embed(self, text: str) -> list[float]:
         """Locally compute an embedding vector for `text`."""
         try:
             r = await self._client.post(

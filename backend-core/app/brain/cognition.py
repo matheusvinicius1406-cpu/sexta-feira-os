@@ -13,8 +13,8 @@ from __future__ import annotations
 
 import logging
 import uuid
-from datetime import datetime, timezone
-from typing import AsyncIterator, List, Optional, Tuple
+from collections.abc import AsyncIterator
+from datetime import UTC, datetime
 
 from sqlalchemy.orm import Session
 
@@ -34,7 +34,7 @@ class Cognition:
     # ---------- conversation helpers ----------
 
     def _get_or_create_conversation(
-        self, db: Session, owner_id: str, conversation_id: Optional[str], device_id: Optional[str]
+        self, db: Session, owner_id: str, conversation_id: str | None, device_id: str | None
     ) -> Conversation:
         if conversation_id:
             conv = db.query(Conversation).filter(
@@ -50,14 +50,14 @@ class Cognition:
         db.refresh(conv)
         return conv
 
-    def _recent_history(self, conv: Conversation) -> List[dict]:
+    def _recent_history(self, conv: Conversation) -> list[dict]:
         msgs = conv.messages[-settings.brain_context_messages:]
         role_map = {"owner": "user", "assistant": "assistant"}
         return [{"role": role_map.get(m.role, "user"), "content": m.content} for m in msgs]
 
     async def _build_messages(
         self, db: Session, owner_id: str, conv: Conversation, user_text: str
-    ) -> List[dict]:
+    ) -> list[dict]:
         # Networked recall: seed by similarity, then follow the links between
         # memories so connected knowledge comes along (Obsidian-style).
         memories = await self.memory.recall_graph(db, owner_id, user_text)
@@ -75,7 +75,7 @@ class Cognition:
 
     def _persist_turn(self, db: Session, conv: Conversation, role: str, content: str) -> None:
         db.add(Message(id=str(uuid.uuid4()), conversation_id=conv.id, role=role, content=content))
-        conv.updated_at = datetime.now(timezone.utc)
+        conv.updated_at = datetime.now(UTC)
         if role == "owner" and not conv.title:
             conv.title = content[:60]
         db.commit()
@@ -104,8 +104,8 @@ class Cognition:
 
     async def respond(
         self, db: Session, owner_id: str, user_text: str,
-        conversation_id: Optional[str] = None, device_id: Optional[str] = None,
-    ) -> Tuple[str, str]:
+        conversation_id: str | None = None, device_id: str | None = None,
+    ) -> tuple[str, str]:
         """Return (reply_text, conversation_id)."""
         conv = self._get_or_create_conversation(db, owner_id, conversation_id, device_id)
         messages = await self._build_messages(db, owner_id, conv, user_text)
@@ -117,13 +117,13 @@ class Cognition:
 
     async def respond_stream(
         self, db: Session, owner_id: str, user_text: str,
-        conversation_id: Optional[str] = None, device_id: Optional[str] = None,
+        conversation_id: str | None = None, device_id: str | None = None,
     ) -> AsyncIterator[dict]:
         """Yield {'conversation_id'|'chunk'|'done'} events; persists at the end."""
         conv = self._get_or_create_conversation(db, owner_id, conversation_id, device_id)
         messages = await self._build_messages(db, owner_id, conv, user_text)
         yield {"conversation_id": conv.id}
-        parts: List[str] = []
+        parts: list[str] = []
         async for chunk in self.brain.stream_chat(messages):
             parts.append(chunk)
             yield {"chunk": chunk}

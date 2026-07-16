@@ -1,0 +1,26 @@
+[project]
+name = "sexta-feira-kernel"
+version = "1.0.0"
+description = "Private, local, single-owner cognitive kernel"
+requires-python = ">=3.11"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+extend-exclude = [".venv", "data", "alembic/versions"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "W"]
+ignore = [
+    "E501",  # line length is handled by the formatter, not enforced hard
+    "B008",  # FastAPI uses function calls in argument defaults (Depends)
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["E402"]      # tests set env before importing the app on purpose
+"app/main.py" = ["E402"]  # dotenv must load before settings-dependent imports
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+filterwarnings = ["ignore::DeprecationWarning"]

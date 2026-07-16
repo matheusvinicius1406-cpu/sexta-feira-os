@@ -7,10 +7,17 @@ Model of the world:
   * Conversations -> Messages (persisted chat history).
   * Memory entries (the semantic second brain, with locally-computed embeddings).
 """
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from sqlalchemy import (
-    Column, String, DateTime, Text, Boolean, Integer, Float, ForeignKey,
+    Boolean,
+    Column,
+    DateTime,
+    Float,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
 )
 from sqlalchemy.orm import relationship
 
@@ -18,7 +25,7 @@ from app.db.database import Base
 
 
 def _now() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 class Owner(Base):

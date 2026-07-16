@@ -3,7 +3,6 @@ Chat — talk to your second brain. Every reply is grounded in your persisted
 memory and conversation history, produced entirely by the LOCAL brain.
 """
 import json
-from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import StreamingResponse
@@ -22,8 +21,8 @@ router = APIRouter(prefix="/api/v1/chat", tags=["chat"])
 
 class ChatRequest(BaseModel):
     message: str = Field(..., min_length=1, max_length=8000)
-    conversation_id: Optional[str] = None
-    device_id: Optional[str] = None
+    conversation_id: str | None = None
+    device_id: str | None = None
 
 
 class ChatResponse(BaseModel):
@@ -44,7 +43,7 @@ async def chat(
         )
         return ChatResponse(reply=reply, conversation_id=conv_id)
     except BrainUnavailable as e:
-        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, str(e))
+        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, str(e)) from e
 
 
 @router.post("/stream")

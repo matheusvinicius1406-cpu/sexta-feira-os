@@ -104,7 +104,7 @@ def test_wikilink_creates_graph_edge(client, owner_headers):
     assert len(graph["edges"]) >= 1              # at least the wikilink edge
 
     nb = client.get(f"/api/v1/memory/{node_id}/neighbours", headers=owner_headers).json()
-    assert any(l["relation"] == "wikilink" for l in nb["links"])
+    assert any(link["relation"] == "wikilink" for link in nb["links"])
 
 
 def test_manual_link_and_backlink(client, owner_headers):
