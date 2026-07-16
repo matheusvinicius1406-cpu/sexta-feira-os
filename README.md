@@ -77,6 +77,9 @@ Ou use `scripts/setup.sh` para fazer tudo isso de uma vez.
 | `POST` | `/api/v1/voice/transcribe` | áudio → texto (STT local, offline) |
 | `POST` | `/api/v1/voice/speak` | texto → áudio (TTS local, offline) |
 | `POST` | `/api/v1/voice/chat` | áudio → ouve, pensa (com memória) e responde (voz) |
+| `GET` | `/api/v1/automations` | lista seus workflows do n8n |
+| `POST` | `/api/v1/automations/trigger` | dispara um workflow (o Sexta-Feira **age**) |
+| `GET` | `/api/v1/automations/status` | o n8n local está no ar? |
 
 ### Voz local (offline)
 
@@ -86,6 +89,20 @@ Ouvir e falar rodam na sua máquina. É um extra opcional (degrada com 503 limpo
 pip install -r backend-core/requirements-voice.txt   # faster-whisper + piper
 # baixe uma voz Piper pt-BR (.onnx) e aponte TTS_VOICE no .env
 ```
+
+### Automações (as mãos — n8n local)
+
+O Sexta-Feira **age** através de um **n8n self-hosted** (centenas de integrações →
+milhares de automações). Tudo roda na sua máquina.
+
+```bash
+docker compose up -d n8n     # painel em http://127.0.0.1:5678 (só seu)
+# crie workflows com um nó Webhook; o kernel dispara por /api/v1/automations/trigger
+# para listar workflows, gere uma API key no n8n e coloque em N8N_API_KEY no .env
+```
+
+> Privacidade: o motor n8n é local. Uma automação que fala com um serviço externo
+> (enviar e-mail, etc.) o faz por sua escolha naquele fluxo — não é vazamento do cérebro.
 
 ## Ensinar o Sexta-Feira (fine-tuning)
 

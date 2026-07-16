@@ -257,3 +257,52 @@ def test_auto_links_get_named_relations(client, owner_headers):
     finally:
         kernel.memory.brain.embed = orig_embed
         kernel.memory.brain.chat = orig_chat
+
+
+# ---------------- automations (n8n bridge) ----------------
+
+def test_automations_require_auth(client):
+    assert client.get("/api/v1/automations/status").status_code == 403
+
+
+def test_automations_status_reports_offline(client, owner_headers):
+    # No n8n in CI => status returns 200 with online=False (not a crash).
+    body = client.get("/api/v1/automations/status", headers=owner_headers).json()
+    assert body["online"] is False
+    assert "endpoint" in body
+
+
+def test_list_automations_degrades_gracefully(client, owner_headers):
+    # No API key / no n8n => clean 503.
+    r = client.get("/api/v1/automations", headers=owner_headers)
+    assert r.status_code == 503
+
+
+def test_trigger_degrades_gracefully(client, owner_headers):
+    # n8n unreachable in CI => clean 503.
+    r = client.post("/api/v1/automations/trigger",
+                    json={"webhook": "meu-fluxo", "payload": {"x": 1}},
+                    headers=owner_headers)
+    assert r.status_code == 503
+
+
+def test_trigger_succeeds_when_n8n_up(client, owner_headers):
+    # Deterministic success via a stubbed n8n client.
+    from app.core.di import get_kernel
+
+    n8n = get_kernel().automations
+    original = n8n.trigger
+
+    async def fake_trigger(webhook, payload=None):
+        return {"ok": True, "status_code": 200, "result": {"received": payload}}
+
+    n8n.trigger = fake_trigger
+    try:
+        r = client.post("/api/v1/automations/trigger",
+                        json={"webhook": "meu-fluxo", "payload": {"hello": "world"}},
+                        headers=owner_headers)
+        assert r.status_code == 200
+        assert r.json()["ok"] is True
+        assert r.json()["result"]["received"] == {"hello": "world"}
+    finally:
+        n8n.trigger = original

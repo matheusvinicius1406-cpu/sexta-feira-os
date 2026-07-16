@@ -111,6 +111,15 @@ class Settings(BaseSettings):
     tts_voice: str = os.getenv("TTS_VOICE", "")             # path to a Piper voice .onnx
     tts_speak_replies: bool = os.getenv("TTS_SPEAK_REPLIES", "true").lower() == "true"
 
+    # ============ Automations (n8n, self-hosted) ============
+    # The kernel bridges to a LOCAL n8n instance so Sexta-Feira can ACT: trigger
+    # workflows (thousands of possible integrations). n8n runs on your machine.
+    # Missing/unreachable n8n => the automation endpoints return a clean 503.
+    automations_enabled: bool = os.getenv("AUTOMATIONS_ENABLED", "true").lower() == "true"
+    n8n_endpoint: str = os.getenv("N8N_ENDPOINT", "http://127.0.0.1:5678")
+    n8n_api_key: str = os.getenv("N8N_API_KEY", "")   # n8n Public API key (for listing)
+    n8n_webhook_prefix: str = os.getenv("N8N_WEBHOOK_PREFIX", "webhook")  # or 'webhook-test'
+
     # ============ Privacy ============
     # Loopback-only origins. The kernel refuses cross-origin browser calls.
     cors_origins: list[str] = [

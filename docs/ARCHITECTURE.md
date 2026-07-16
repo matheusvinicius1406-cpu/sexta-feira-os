@@ -45,6 +45,12 @@ Ouvir e falar, 100% local e **opcional** (extra `requirements-voice.txt`):
 - `box.py` — `VoiceBox`: carrega os motores sob demanda; degrada com 503 limpo se ausentes.
 Endpoints em `api/routers/voice.py`, incluindo `/voice/chat` (ouve → pensa com memória → responde falando).
 
+### 3c. Automações (`app/automation`) — as mãos
+Ponte para um **n8n self-hosted** (local). `N8nClient` lista workflows (Public API) e
+os dispara por Webhook. Degrada com 503 se o n8n estiver fora. É assim que o Sexta-Feira
+**age** no mundo (milhares de integrações). Endpoints em `api/routers/automation.py`.
+O n8n sobe junto no `docker-compose.yml`, só em loopback.
+
 ## Fluxo de uma conversa
 
 1. Corpo envia `POST /api/v1/chat {message, conversation_id?}` com o token.

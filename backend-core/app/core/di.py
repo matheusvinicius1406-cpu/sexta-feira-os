@@ -8,6 +8,7 @@ import logging
 import uuid
 
 from app.auth.jwt import hash_password
+from app.automation.n8n import N8nClient
 from app.brain.cognition import Cognition
 from app.brain.engine import LocalBrain
 from app.brain.memory import PersistentMemory
@@ -27,6 +28,7 @@ class Kernel:
         self.memory: PersistentMemory | None = None
         self.cognition: Cognition | None = None
         self.voice: VoiceBox | None = None
+        self.automations: N8nClient | None = None
         self._ready = False
 
     async def start(self) -> None:
@@ -36,6 +38,7 @@ class Kernel:
         self.memory = PersistentMemory(self.brain)
         self.cognition = Cognition(self.brain, self.memory)
         self.voice = VoiceBox()
+        self.automations = N8nClient()
         self._ready = True
 
         if await self.brain.health():
@@ -77,6 +80,8 @@ class Kernel:
     async def stop(self) -> None:
         if self.brain:
             await self.brain.aclose()
+        if self.automations:
+            await self.automations.aclose()
 
 
 _kernel = Kernel()
@@ -102,3 +107,9 @@ def get_voice() -> VoiceBox:
     if not _kernel.voice:
         raise RuntimeError("Kernel not started")
     return _kernel.voice
+
+
+def get_automations() -> N8nClient:
+    if not _kernel.automations:
+        raise RuntimeError("Kernel not started")
+    return _kernel.automations
