@@ -60,6 +60,13 @@ O *vocabulário* de ações é do dispositivo, não do kernel (extensível sem m
 Endpoints em `api/routers/action.py` (`/actions/dispatch`, `/actions/stream` WS,
 `/actions/pending`, `/actions/{id}/result`).
 
+### 3c-ter. Agendador (`app/schedule`) — o senso de tempo
+`Scheduler` guarda intenções futuras (lembretes e ações com hora) e as dispara quando
+vencem, pelo Protocolo de Ação (um lembrete vira uma ação `notify` no celular). `run_due`
+é um método puro e determinístico (fácil de testar); um loop de fundo (config
+`SCHEDULER_ENABLED`) só o chama no intervalo. Suporta recorrência. Endpoints em
+`api/routers/schedule.py`.
+
 ### 3d. Tool-calling agêntico (`app/brain/tools.py`) — pensar → agir
 `ToolKit` expõe ao cérebro ferramentas que ele decide usar sozinho durante a conversa
 (`remember`, `recall`, `run_automation`) via tool-calling nativo do Ollama. O laço vive

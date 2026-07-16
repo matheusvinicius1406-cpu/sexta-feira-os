@@ -25,6 +25,7 @@ from app.api.routers import (  # noqa: E402
     chat,
     health,
     memory,
+    schedule,
     voice,
 )
 from app.core.config import settings  # noqa: E402
@@ -67,6 +68,7 @@ app.include_router(memory.router)
 app.include_router(voice.router)
 app.include_router(automation.router)
 app.include_router(action.router)
+app.include_router(schedule.router)
 
 
 @app.get("/")

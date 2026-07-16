@@ -79,9 +79,10 @@ Conversar sobre código, explicar erros/algoritmos: funciona hoje (chat). Execut
 (build, testes, commit, abrir projeto) depende do **Agente de Desktop** + tools de dev.
 
 ### 🔐 Cibersegurança (estudo autorizado) · 🎓 Estudos · ✅ Produtividade — 🔧 parcial
-Orientação/explicação/planejamento funcionam por conversa hoje. Ações (montar lab,
-cronômetros, flashcards, agenda) viram **tools/automações**. *Escopo:* só ambientes
-próprios e autorizados.
+Orientação/explicação/planejamento funcionam por conversa hoje. **Lembretes e ações
+agendadas no tempo** já funcionam (✅ agendador: "me lembra disso daqui a 2 meses" →
+dispara sozinho na hora). Flashcards, montar lab, cronogramas viram **tools/automações**.
+*Escopo:* só ambientes próprios e autorizados.
 
 ### ❤️ Saúde & wearables · 🏠 Casa inteligente · 🌐 Internet — 📋 planejado
 Wearables e casa entram via **conectores/n8n**; busca na web vira uma **tool**

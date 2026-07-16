@@ -149,3 +149,25 @@ class DeviceCommand(Base):
     created_at = Column(DateTime, default=_now, index=True)
     delivered_at = Column(DateTime, nullable=True)
     completed_at = Column(DateTime, nullable=True)
+
+
+class ScheduledTask(Base):
+    """
+    A future intention: a reminder ("me lembre disso daqui a 2 meses") or a timed
+    action ("navegar pra faculdade às 8h"). The scheduler fires it when due, using
+    the Action Protocol. Optional recurrence reschedules it.
+    """
+    __tablename__ = "scheduled_tasks"
+
+    id = Column(String, primary_key=True, index=True)
+    owner_id = Column(String, ForeignKey("owner.id", ondelete="CASCADE"), index=True, nullable=False)
+    kind = Column(String, default="reminder")          # "reminder" | "action"
+    due_at = Column(DateTime, nullable=False, index=True)
+    text = Column(Text, nullable=True)                 # reminder message
+    device_selector = Column(String, nullable=True)    # target body ("celular"...)
+    action = Column(String, nullable=True)             # for kind="action"
+    params = Column(Text, nullable=True)               # JSON args
+    recurrence_seconds = Column(Integer, nullable=True)  # repeat every N seconds
+    status = Column(String, default="pending", index=True)  # pending|fired|cancelled
+    created_at = Column(DateTime, default=_now, index=True)
+    fired_at = Column(DateTime, nullable=True)

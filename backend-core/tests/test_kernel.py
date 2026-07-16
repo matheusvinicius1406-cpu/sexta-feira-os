@@ -19,6 +19,7 @@ os.environ.update(
     OWNER_NAME="Test Owner",
     OWNER_PASSWORD="a-strong-test-password",
     DEVICE_PAIRING_CODE="pair-code-123",
+    SCHEDULER_ENABLED="false",  # tests drive run_due() directly, deterministically
     DATABASE_URL=f"sqlite:////tmp/sexta_test_{uuid.uuid4().hex}.db",
 )
 
@@ -457,5 +458,113 @@ def test_brain_dispatches_device_action(client, owner_headers):
         assert "Spotify" in r.json()["reply"]
         history = client.get("/api/v1/actions", headers=owner_headers).json()
         assert any(c["action"] == "open_app" and c["params"] == {"app": "spotify"} for c in history)
+    finally:
+        brain.chat_with_tools = original
+
+
+# ---------------- scheduler (proactive reminders / timed actions) ----------------
+
+def test_schedule_crud(client, owner_headers):
+    r = client.post("/api/v1/schedule",
+                    json={"kind": "reminder", "text": "ligar dentista", "in_days": 1},
+                    headers=owner_headers)
+    assert r.status_code == 200
+    tid = r.json()["id"]
+    assert any(t["id"] == tid for t in client.get("/api/v1/schedule", headers=owner_headers).json())
+    assert client.delete(f"/api/v1/schedule/{tid}", headers=owner_headers).status_code == 200
+    # cancelled => no longer in the pending list
+    assert not any(t["id"] == tid for t in client.get("/api/v1/schedule", headers=owner_headers).json())
+
+
+def test_schedule_requires_a_time(client, owner_headers):
+    r = client.post("/api/v1/schedule", json={"kind": "reminder", "text": "sem hora"},
+                    headers=owner_headers)
+    assert r.status_code == 400
+
+
+def test_scheduler_fires_due_reminder(client, owner_headers):
+    import asyncio
+    from datetime import UTC, datetime, timedelta
+
+    from app.core.di import get_kernel
+    from app.db.database import SessionLocal
+    from app.models.models import Owner
+
+    _pair_phone(client, "phone-sched")
+    scheduler = get_kernel().scheduler
+    db = SessionLocal()
+    try:
+        owner_id = db.query(Owner).first().id
+        task = scheduler.schedule(
+            db, owner_id, kind="reminder",
+            due_at=datetime.now(UTC) - timedelta(minutes=1),
+            text="beba água", device="phone-sched",
+        )
+        fired = asyncio.run(scheduler.run_due(db, datetime.now(UTC)))
+        assert fired >= 1
+        db.refresh(task)
+        assert task.status == "fired"
+    finally:
+        db.close()
+
+    # firing dispatched a 'notify' action to the phone
+    history = client.get("/api/v1/actions", headers=owner_headers).json()
+    assert any(c["action"] == "notify" and c["params"].get("text") == "beba água" for c in history)
+
+
+def test_scheduler_recurring_reschedules(client, owner_headers):
+    import asyncio
+    from datetime import UTC, datetime, timedelta
+
+    from app.core.di import get_kernel
+    from app.db.database import SessionLocal
+    from app.models.models import Owner
+    from app.schedule.service import _aware
+
+    _pair_phone(client, "phone-recur")
+    scheduler = get_kernel().scheduler
+    db = SessionLocal()
+    try:
+        owner_id = db.query(Owner).first().id
+        now = datetime.now(UTC)
+        task = scheduler.schedule(
+            db, owner_id, kind="reminder", due_at=now - timedelta(minutes=2),
+            text="beber água", device="phone-recur", recurrence_seconds=3600,
+        )
+        asyncio.run(scheduler.run_due(db, now))
+        db.refresh(task)
+        assert task.status == "pending"              # recurring => stays pending
+        assert _aware(task.due_at) > now             # rescheduled into the future
+    finally:
+        db.close()
+
+
+def test_brain_schedules_reminder(client, owner_headers):
+    from app.core.di import get_kernel
+
+    brain = get_kernel().cognition.brain
+    original = brain.chat_with_tools
+    state = {"n": 0}
+
+    async def fake_tools(messages, tools=None, **_kwargs):
+        state["n"] += 1
+        if state["n"] == 1:
+            return {
+                "role": "assistant", "content": "",
+                "tool_calls": [
+                    {"function": {"name": "schedule_reminder",
+                                  "arguments": {"text": "estudar redes", "in_days": 7}}}
+                ],
+            }
+        return {"role": "assistant", "content": "Agendado, te lembro semana que vem."}
+
+    brain.chat_with_tools = fake_tools
+    try:
+        r = client.post("/api/v1/chat",
+                        json={"message": "me lembra de estudar redes semana que vem"},
+                        headers=owner_headers)
+        assert r.status_code == 200
+        scheduled = client.get("/api/v1/schedule", headers=owner_headers).json()
+        assert any("estudar redes" in (t["text"] or "") for t in scheduled)
     finally:
         brain.chat_with_tools = original

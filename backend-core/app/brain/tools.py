@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import json
 import logging
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from sqlalchemy.orm import Session
@@ -21,11 +22,30 @@ from sqlalchemy.orm import Session
 logger = logging.getLogger("sexta-feira.tools")
 
 
+def _compute_due(args: dict) -> datetime | None:
+    """Turn {at} ISO or {in_seconds|in_minutes|in_hours|in_days} into a UTC datetime."""
+    if args.get("at"):
+        try:
+            dt = datetime.fromisoformat(str(args["at"]).replace("Z", "+00:00"))
+            return dt if dt.tzinfo else dt.replace(tzinfo=UTC)
+        except ValueError:
+            return None
+    now = datetime.now(UTC)
+    for unit, mult in (("in_seconds", 1), ("in_minutes", 60), ("in_hours", 3600), ("in_days", 86400)):
+        if args.get(unit) is not None:
+            try:
+                return now + timedelta(seconds=float(args[unit]) * mult)
+            except (TypeError, ValueError):
+                return None
+    return None
+
+
 class ToolKit:
-    def __init__(self, memory, automations, actions=None):
+    def __init__(self, memory, automations, actions=None, scheduler=None):
         self.memory = memory
         self.automations = automations
-        self.actions = actions  # ActionService | None
+        self.actions = actions      # ActionService | None
+        self.scheduler = scheduler  # Scheduler | None
 
     async def specs(self) -> list[dict]:
         """OpenAI/Ollama-style tool schemas. Injects live automation names as a hint."""
@@ -106,6 +126,50 @@ class ToolKit:
                     },
                 },
             },
+            {
+                "type": "function",
+                "function": {
+                    "name": "schedule_reminder",
+                    "description": (
+                        "Agenda um lembrete para o futuro ('me lembra disso amanhã / daqui a 2 meses'). "
+                        "Informe o tempo por 'in_minutes'/'in_hours'/'in_days' OU 'at' (ISO 8601)."
+                    ),
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "text": {"type": "string", "description": "o que lembrar"},
+                            "in_minutes": {"type": "number"},
+                            "in_hours": {"type": "number"},
+                            "in_days": {"type": "number"},
+                            "at": {"type": "string", "description": "data/hora ISO 8601"},
+                        },
+                        "required": ["text"],
+                    },
+                },
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "schedule_action",
+                    "description": (
+                        "Agenda uma AÇÃO em um dispositivo para um horário futuro "
+                        "(ex.: navegar para a faculdade às 8h). Tempo como no schedule_reminder."
+                    ),
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "device": {"type": "string"},
+                            "action": {"type": "string"},
+                            "params": {"type": "object"},
+                            "in_minutes": {"type": "number"},
+                            "in_hours": {"type": "number"},
+                            "in_days": {"type": "number"},
+                            "at": {"type": "string"},
+                        },
+                        "required": ["device", "action"],
+                    },
+                },
+            },
         ]
 
     async def dispatch(self, name: str, args: dict[str, Any], db: Session, owner_id: str) -> str:
@@ -142,6 +206,29 @@ class ToolKit:
                     if out.get("delivered")
                     else f"Ação enfileirada para {dest} (vai executar quando ele conectar)."
                 )
+            if name == "schedule_reminder":
+                if not self.scheduler:
+                    return "Agendamento não disponível."
+                due = _compute_due(args)
+                if not due:
+                    return "Não entendi para quando; me diga em minutos/horas/dias ou uma data."
+                self.scheduler.schedule(
+                    db, owner_id, kind="reminder", due_at=due,
+                    text=args.get("text", ""), device=args.get("device"),
+                )
+                return f"Lembrete agendado para {due.isoformat(timespec='minutes')}."
+            if name == "schedule_action":
+                if not self.scheduler:
+                    return "Agendamento não disponível."
+                due = _compute_due(args)
+                if not due:
+                    return "Não entendi para quando; me diga em minutos/horas/dias ou uma data."
+                self.scheduler.schedule(
+                    db, owner_id, kind="action", due_at=due,
+                    device=args.get("device"), action=args.get("action", ""),
+                    params=args.get("params") or {},
+                )
+                return f"Ação agendada para {due.isoformat(timespec='minutes')}."
             return f"Ferramenta desconhecida: {name}"
         except Exception as e:  # noqa: BLE001 — a tool failure must not crash the turn
             logger.warning("tool '%s' failed: %s", name, e)

@@ -14,7 +14,8 @@ sai deste host — não há OpenAI, Claude, Gemini nem qualquer LLM externo.**
 - 🧩 **Multilocal (um cérebro, vários corpos)** — celular, tela do carro, óculos, relógio conectam ao mesmo cérebro pela sua rede privada.
 - 💾 **Memória de verdade** — fatos, preferências e conversas persistem em SQLite com embeddings locais.
 - 🕸️ **Grafo de conhecimento (estilo Obsidian)** — cada informação vira um *nó* que se **liga** às relacionadas (semântica + `[[wikilinks]]` + manual). O raciocínio percorre essas conexões: forma um cérebro em rede, não uma lista solta.
-- 🤖 **Ele age sozinho** — do celular, por voz: "me lembra do dentista amanhã" → o cérebro decide e dispara a automação/memória certa (tool-calling), sem terminal.
+- 🤖 **Ele age sozinho** — do celular, por voz: "me lembra do dentista amanhã" → o cérebro decide e dispara a automação/ação/lembrete certo (tool-calling), sem terminal.
+- ⏰ **Ele lembra na hora certa** — agenda lembretes e ações no tempo ("me lembra disso daqui a 2 meses") e dispara sozinho quando chega a hora.
 - 📚 **Ele aprende com você** — sua história vira dataset para *fine-tuning* (LoRA); o modelo fica cada vez mais *seu*.
 - 🕵️ **Sem telemetria** — nada é rastreado, nada é enviado.
 
@@ -85,6 +86,8 @@ Ou use `scripts/setup.sh` para fazer tudo isso de uma vez.
 | `WS` | `/api/v1/actions/stream?token=…` | canal ao vivo do dispositivo (recebe ações, reporta) |
 | `GET` | `/api/v1/actions/pending` | fila do dispositivo (fallback por polling) |
 | `POST` | `/api/v1/actions/{id}/result` | o dispositivo reporta o resultado |
+| `POST` | `/api/v1/schedule` | agenda um lembrete ou ação futura |
+| `GET`/`DELETE` | `/api/v1/schedule[/{id}]` | lista / cancela agendamentos |
 
 ### Voz local (offline)
 

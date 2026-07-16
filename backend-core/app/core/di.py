@@ -4,6 +4,8 @@ Also bootstraps the single owner on first boot from environment variables.
 """
 from __future__ import annotations
 
+import asyncio
+import contextlib
 import logging
 import uuid
 
@@ -18,6 +20,7 @@ from app.brain.tools import ToolKit
 from app.core.config import settings
 from app.db.database import SessionLocal
 from app.models.models import Owner
+from app.schedule.service import Scheduler
 from app.voice.box import VoiceBox
 
 logger = logging.getLogger("sexta-feira.di")
@@ -34,6 +37,8 @@ class Kernel:
         self.automations: N8nClient | None = None
         self.action_bus: CommandBus | None = None
         self.actions: ActionService | None = None
+        self.scheduler: Scheduler | None = None
+        self._scheduler_task: asyncio.Task | None = None
         self._ready = False
 
     async def start(self) -> None:
@@ -44,12 +49,17 @@ class Kernel:
         self.automations = N8nClient()
         self.action_bus = CommandBus()
         self.actions = ActionService(self.action_bus)
+        self.scheduler = Scheduler(self.actions)
         self.voice = VoiceBox()
         self.cognition = Cognition(
             self.brain, self.memory,
-            ToolKit(self.memory, self.automations, self.actions),
+            ToolKit(self.memory, self.automations, self.actions, self.scheduler),
         )
         self._ready = True
+
+        if settings.scheduler_enabled:
+            self._scheduler_task = asyncio.create_task(self._scheduler_loop())
+            logger.info("⏰ Scheduler running (every %ss)", settings.scheduler_interval_seconds)
 
         if await self.brain.health():
             logger.info("🧠 Local brain online (%s)", settings.brain_model)
@@ -87,7 +97,26 @@ class Kernel:
         finally:
             db.close()
 
+    async def _scheduler_loop(self) -> None:
+        """Fire due reminders/actions on an interval. Sleeps first (never at boot)."""
+        while True:
+            try:
+                await asyncio.sleep(settings.scheduler_interval_seconds)
+                db = SessionLocal()
+                try:
+                    await self.scheduler.run_due(db)
+                finally:
+                    db.close()
+            except asyncio.CancelledError:
+                break
+            except Exception as e:  # noqa: BLE001 — the loop must survive one bad tick
+                logger.warning("scheduler tick failed: %s", e)
+
     async def stop(self) -> None:
+        if self._scheduler_task:
+            self._scheduler_task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await self._scheduler_task
         if self.brain:
             await self.brain.aclose()
         if self.automations:
@@ -135,3 +164,9 @@ def get_action_bus() -> CommandBus:
     if not _kernel.action_bus:
         raise RuntimeError("Kernel not started")
     return _kernel.action_bus
+
+
+def get_scheduler() -> Scheduler:
+    if not _kernel.scheduler:
+        raise RuntimeError("Kernel not started")
+    return _kernel.scheduler

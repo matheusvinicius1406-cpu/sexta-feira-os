@@ -72,6 +72,10 @@ class Settings(BaseSettings):
     # during a normal conversation — driven by voice/chat from the phone, no terminal.
     tools_enabled: bool = os.getenv("TOOLS_ENABLED", "true").lower() == "true"
     tool_max_rounds: int = int(os.getenv("TOOL_MAX_ROUNDS", "4"))
+    # Scheduler: fire reminders / timed actions when due. Background loop; the
+    # firing logic itself is a pure method (run_due) so it's easy to test.
+    scheduler_enabled: bool = os.getenv("SCHEDULER_ENABLED", "true").lower() == "true"
+    scheduler_interval_seconds: int = int(os.getenv("SCHEDULER_INTERVAL_SECONDS", "30"))
 
     # The kernel's personality / identity. This is who Sexta-Feira is to you.
     brain_persona: str = os.getenv(
