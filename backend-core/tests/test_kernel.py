@@ -85,3 +85,88 @@ def test_chat_degrades_gracefully_without_brain(client, owner_headers):
     # Ollama isn't running in CI => a clean 503, not a crash.
     r = client.post("/api/v1/chat", json={"message": "oi"}, headers=owner_headers)
     assert r.status_code == 503
+
+
+# ---------------- knowledge graph (networked thought) ----------------
+
+def test_wikilink_creates_graph_edge(client, owner_headers):
+    # Writing [[Café]] inside a memory should auto-create a concept node + edge,
+    # even with no embeddings (Ollama offline).
+    r = client.post("/api/v1/memory",
+                    json={"content": "Tomo [[Café]] toda manhã", "kind": "routine"},
+                    headers=owner_headers)
+    assert r.status_code == 200
+    node_id = r.json()["id"]
+
+    graph = client.get("/api/v1/memory/graph", headers=owner_headers).json()
+    titles = {n["title"] for n in graph["nodes"]}
+    assert "Café" in titles                      # concept node was created
+    assert len(graph["edges"]) >= 1              # at least the wikilink edge
+
+    nb = client.get(f"/api/v1/memory/{node_id}/neighbours", headers=owner_headers).json()
+    assert any(l["relation"] == "wikilink" for l in nb["links"])
+
+
+def test_manual_link_and_backlink(client, owner_headers):
+    a = client.post("/api/v1/memory", json={"content": "Gosto de jazz"},
+                    headers=owner_headers).json()["id"]
+    b = client.post("/api/v1/memory", json={"content": "Toco saxofone"},
+                    headers=owner_headers).json()["id"]
+
+    r = client.post(f"/api/v1/memory/{a}/link",
+                    json={"target_id": b, "relation": "about"}, headers=owner_headers)
+    assert r.status_code == 200
+
+    # b should see a as a backlink
+    nb = client.get(f"/api/v1/memory/{b}/neighbours", headers=owner_headers).json()
+    assert any(bl["source"]["id"] == a for bl in nb["backlinks"])
+
+
+def test_forget_cascades_edges(client, owner_headers):
+    node = client.post("/api/v1/memory",
+                       json={"content": "Nota com [[Projeto X]]"},
+                       headers=owner_headers).json()["id"]
+    assert client.delete(f"/api/v1/memory/{node}", headers=owner_headers).status_code == 200
+    # No dangling edges referencing the deleted node.
+    graph = client.get("/api/v1/memory/graph", headers=owner_headers).json()
+    assert all(e["source"] != node and e["target"] != node for e in graph["edges"])
+
+
+def test_networked_recall_expands_along_links(client, owner_headers):
+    """
+    THE Obsidian effect: a query matches ONE node, but a linked node that does
+    NOT match the query is still surfaced by following the connection.
+    Uses deterministic fake embeddings so it runs without Ollama.
+    """
+    from app.core.di import get_kernel
+
+    async def fake_embed(text: str):
+        return [1.0, 0.0] if "alpha" in text.lower() else [0.0, 1.0]
+
+    kernel = get_kernel()
+    original = kernel.memory.brain.embed
+    kernel.memory.brain.embed = fake_embed
+    try:
+        m1 = client.post("/api/v1/memory", json={"content": "alpha node"},
+                         headers=owner_headers).json()["id"]
+        m2 = client.post("/api/v1/memory", json={"content": "beta node"},
+                         headers=owner_headers).json()["id"]
+        # Connect them by hand (they are NOT semantically similar).
+        client.post(f"/api/v1/memory/{m1}/link",
+                    json={"target_id": m2, "relation": "related"}, headers=owner_headers)
+
+        # Networked recall: query matches only alpha, but beta rides along the link.
+        got = client.post("/api/v1/memory/recall",
+                          json={"query": "alpha", "networked": True},
+                          headers=owner_headers).json()
+        ids = {r["id"] for r in got}
+        assert m1 in ids and m2 in ids
+
+        # Plain semantic recall: only the matching node.
+        got_plain = client.post("/api/v1/memory/recall",
+                                json={"query": "alpha", "networked": False},
+                                headers=owner_headers).json()
+        plain_ids = {r["id"] for r in got_plain}
+        assert m1 in plain_ids and m2 not in plain_ids
+    finally:
+        kernel.memory.brain.embed = original

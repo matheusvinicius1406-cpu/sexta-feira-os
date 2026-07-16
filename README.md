@@ -13,6 +13,7 @@ sai deste host — não há OpenAI, Claude, Gemini nem qualquer LLM externo.**
 - 👤 **Dono único** — uma só conta, sua. Sem cadastro aberto. Dispositivos são *pareados* por você.
 - 🧩 **Multilocal (um cérebro, vários corpos)** — celular, tela do carro, óculos, relógio conectam ao mesmo cérebro pela sua rede privada.
 - 💾 **Memória de verdade** — fatos, preferências e conversas persistem em SQLite com embeddings locais.
+- 🕸️ **Grafo de conhecimento (estilo Obsidian)** — cada informação vira um *nó* que se **liga** às relacionadas (semântica + `[[wikilinks]]` + manual). O raciocínio percorre essas conexões: forma um cérebro em rede, não uma lista solta.
 - 📚 **Ele aprende com você** — sua história vira dataset para *fine-tuning* (LoRA); o modelo fica cada vez mais *seu*.
 - 🕵️ **Sem telemetria** — nada é rastreado, nada é enviado.
 
@@ -67,9 +68,12 @@ Ou use `scripts/setup.sh` para fazer tudo isso de uma vez.
 | `GET` | `/api/v1/auth/devices` | listar/gerir dispositivos pareados |
 | `POST` | `/api/v1/chat` | conversar (com memória + histórico) |
 | `POST` | `/api/v1/chat/stream` | conversar em streaming (SSE) |
-| `POST` | `/api/v1/memory` | ensinar um fato ao cérebro |
-| `POST` | `/api/v1/memory/recall` | buscar na memória (semântico) |
+| `POST` | `/api/v1/memory` | ensinar um fato (auto-liga aos relacionados; aceita `[[wikilinks]]`) |
+| `POST` | `/api/v1/memory/recall` | recall em rede (semântico + expansão pelo grafo) |
 | `GET`/`DELETE` | `/api/v1/memory[/{id}]` | revisar / esquecer |
+| `POST` | `/api/v1/memory/{id}/link` | conectar dois nós manualmente |
+| `GET` | `/api/v1/memory/{id}/neighbours` | ligações + backlinks de um nó |
+| `GET` | `/api/v1/memory/graph` | o grafo inteiro (nós + arestas) para visualizar |
 
 ## Ensinar o Sexta-Feira (fine-tuning)
 

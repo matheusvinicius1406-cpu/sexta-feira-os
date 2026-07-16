@@ -84,19 +84,39 @@ class Message(Base):
 
 class Memory(Base):
     """
-    A durable fact the brain remembers about you — the second brain.
-    Embeddings are computed LOCALLY (Ollama) and stored as JSON text so
-    retrieval survives restarts. Nothing leaves the machine.
+    A NODE in the knowledge graph — a durable thing the brain remembers.
+    Nodes connect to each other via MemoryLink edges, forming a networked
+    second brain (à la Obsidian). Embeddings are computed LOCALLY (Ollama)
+    and stored as JSON text so retrieval survives restarts.
     """
     __tablename__ = "memories"
 
     id = Column(String, primary_key=True, index=True)
     owner_id = Column(String, ForeignKey("owner.id", ondelete="CASCADE"), index=True, nullable=False)
+    title = Column(String, nullable=True, index=True)  # short label; wikilink target
     content = Column(Text, nullable=False)
-    kind = Column(String, default="fact")              # fact|preference|person|routine|note
+    kind = Column(String, default="fact")              # fact|preference|person|routine|note|concept
     importance = Column(Float, default=0.5)            # 0.0 - 1.0
     embedding = Column(Text, nullable=True)            # JSON-encoded vector
-    source = Column(String, default="manual")          # manual|auto_learned|imported
+    source = Column(String, default="manual")          # manual|auto_learned|imported|wikilink
     access_count = Column(Integer, default=0)
     created_at = Column(DateTime, default=_now, index=True)
     updated_at = Column(DateTime, default=_now, onupdate=_now)
+
+
+class MemoryLink(Base):
+    """
+    An EDGE between two memory nodes — a connection in the brain.
+    Links are directed but traversed both ways (backlinks). They arise from
+    [[wikilinks]], semantic similarity, LLM relation extraction, or by hand.
+    """
+    __tablename__ = "memory_links"
+
+    id = Column(String, primary_key=True, index=True)
+    owner_id = Column(String, ForeignKey("owner.id", ondelete="CASCADE"), index=True, nullable=False)
+    source_id = Column(String, ForeignKey("memories.id", ondelete="CASCADE"), index=True, nullable=False)
+    target_id = Column(String, ForeignKey("memories.id", ondelete="CASCADE"), index=True, nullable=False)
+    relation = Column(String, default="related")       # related|wikilink|is_a|part_of|about|...
+    weight = Column(Float, default=1.0)                 # strength of the connection
+    origin = Column(String, default="semantic")        # semantic|wikilink|manual|llm
+    created_at = Column(DateTime, default=_now)

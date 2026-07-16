@@ -1,6 +1,14 @@
 """
-Memory — inspect and curate your second brain directly. Teach it facts,
-review what it knows, and forget what you want gone.
+Memory — inspect and curate your second brain, now as a KNOWLEDGE GRAPH.
+
+  POST   /api/v1/memory              teach a fact (auto-links to related nodes)
+  POST   /api/v1/memory/recall       networked recall (semantic + graph expansion)
+  GET    /api/v1/memory              list nodes
+  DELETE /api/v1/memory/{id}         forget a node (its edges cascade)
+  POST   /api/v1/memory/{id}/link    connect two nodes by hand
+  DELETE /api/v1/memory/links/{id}   remove an edge
+  GET    /api/v1/memory/{id}/neighbours   links + backlinks of a node
+  GET    /api/v1/memory/graph        the whole graph (nodes + edges) to visualize
 """
 from typing import Optional
 
@@ -19,6 +27,7 @@ router = APIRouter(prefix="/api/v1/memory", tags=["memory"])
 
 class RememberRequest(BaseModel):
     content: str = Field(..., min_length=1)
+    title: Optional[str] = None
     kind: str = "fact"
     importance: float = Field(0.5, ge=0.0, le=1.0)
 
@@ -26,7 +35,16 @@ class RememberRequest(BaseModel):
 class RecallRequest(BaseModel):
     query: str
     top_k: Optional[int] = None
+    networked: bool = True  # expand along links; False = plain semantic
 
+
+class LinkRequest(BaseModel):
+    target_id: str
+    relation: str = "related"
+    weight: float = 1.0
+
+
+# ---- static routes BEFORE dynamic /{id} routes ----
 
 @router.post("")
 async def remember(
@@ -35,8 +53,10 @@ async def remember(
     memory: PersistentMemory = Depends(get_memory),
     db: Session = Depends(get_db),
 ):
-    m = await memory.remember(db, owner.id, body.content, body.kind, body.importance)
-    return {"id": m.id, "content": m.content, "kind": m.kind}
+    m = await memory.remember(
+        db, owner.id, body.content, body.kind, body.importance, title=body.title
+    )
+    return {"id": m.id, "title": m.title, "content": m.content, "kind": m.kind}
 
 
 @router.post("/recall")
@@ -46,8 +66,9 @@ async def recall(
     memory: PersistentMemory = Depends(get_memory),
     db: Session = Depends(get_db),
 ):
-    results = await memory.recall(db, owner.id, body.query, body.top_k)
-    return [{"id": m.id, "content": m.content, "kind": m.kind} for m in results]
+    fn = memory.recall_graph if body.networked else memory.recall
+    results = await fn(db, owner.id, body.query, body.top_k)
+    return [{"id": m.id, "title": m.title, "content": m.content, "kind": m.kind} for m in results]
 
 
 @router.get("")
@@ -59,11 +80,61 @@ async def list_memories(
 ):
     return [
         {
-            "id": m.id, "content": m.content, "kind": m.kind,
+            "id": m.id, "title": m.title, "content": m.content, "kind": m.kind,
             "importance": m.importance, "source": m.source, "created_at": m.created_at,
         }
         for m in memory.list_all(db, owner.id, limit)
     ]
+
+
+@router.get("/graph")
+async def graph(
+    limit: int = 500,
+    owner: Owner = Depends(get_current_owner),
+    memory: PersistentMemory = Depends(get_memory),
+    db: Session = Depends(get_db),
+):
+    return memory.graph(db, owner.id, limit)
+
+
+@router.delete("/links/{link_id}")
+async def unlink(
+    link_id: str,
+    owner: Owner = Depends(get_current_owner),
+    memory: PersistentMemory = Depends(get_memory),
+    db: Session = Depends(get_db),
+):
+    if not memory.unlink(db, owner.id, link_id):
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Ligação não encontrada")
+    return {"unlinked": link_id}
+
+
+@router.post("/{memory_id}/link")
+async def link(
+    memory_id: str,
+    body: LinkRequest,
+    owner: Owner = Depends(get_current_owner),
+    memory: PersistentMemory = Depends(get_memory),
+    db: Session = Depends(get_db),
+):
+    edge = memory.link(
+        db, owner.id, memory_id, body.target_id,
+        relation=body.relation, weight=body.weight, origin="manual",
+    )
+    if not edge:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Não foi possível criar a ligação")
+    return {"id": edge.id, "source": edge.source_id, "target": edge.target_id,
+            "relation": edge.relation, "weight": edge.weight}
+
+
+@router.get("/{memory_id}/neighbours")
+async def neighbours(
+    memory_id: str,
+    owner: Owner = Depends(get_current_owner),
+    memory: PersistentMemory = Depends(get_memory),
+    db: Session = Depends(get_db),
+):
+    return memory.neighbours(db, owner.id, memory_id)
 
 
 @router.delete("/{memory_id}")

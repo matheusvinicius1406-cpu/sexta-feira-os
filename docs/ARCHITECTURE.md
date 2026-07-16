@@ -28,8 +28,11 @@ agindo através de um corpo pareado.
 ### 3. Cérebro (`app/brain`)
 - `engine.py` — `LocalBrain`: única via de inferência. Fala com o Ollama local para
   **chat** e **embeddings**. Cliente httpx compartilhado (pooling). Sem nuvem.
-- `memory.py` — `PersistentMemory`: guarda fatos com embeddings locais no SQLite e
-  recupera por similaridade de cosseno. Sobrevive a reinícios.
+- `memory.py` — `PersistentMemory`: **grafo de conhecimento**. Cada memória é um nó;
+  arestas (`MemoryLink`) conectam nós via `[[wikilinks]]`, similaridade semântica
+  (embeddings locais) e ligações manuais. A recuperação faz *seed* por similaridade
+  e **expande pelas arestas** (backlinks incluídos) — pensamento em rede à la Obsidian.
+  Tudo no SQLite, sobrevive a reinícios.
 - `cognition.py` — o loop: persona + memória recuperada + histórico + mensagem →
   resposta; persiste os turnos; auto-aprende um fato durável (best-effort).
 - `teach.py` — transforma história + memórias em dataset de fine-tuning.

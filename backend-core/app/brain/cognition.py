@@ -58,13 +58,15 @@ class Cognition:
     async def _build_messages(
         self, db: Session, owner_id: str, conv: Conversation, user_text: str
     ) -> List[dict]:
-        memories = await self.memory.recall(db, owner_id, user_text)
+        # Networked recall: seed by similarity, then follow the links between
+        # memories so connected knowledge comes along (Obsidian-style).
+        memories = await self.memory.recall_graph(db, owner_id, user_text)
         system = settings.brain_persona
         if memories:
             recalled = "\n".join(f"- {m.content}" for m in memories)
             system += (
-                "\n\nO que você já sabe sobre seu dono (use quando for útil, "
-                "sem repetir mecanicamente):\n" + recalled
+                "\n\nO que você já sabe sobre seu dono e como as coisas se conectam "
+                "(use quando for útil, sem repetir mecanicamente):\n" + recalled
             )
         messages = [{"role": "system", "content": system}]
         messages.extend(self._recent_history(conv))

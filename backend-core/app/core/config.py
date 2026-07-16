@@ -84,6 +84,15 @@ class Settings(BaseSettings):
     # Auto-remember: after each exchange, distil durable facts into memory.
     memory_auto_learn: bool = os.getenv("MEMORY_AUTO_LEARN", "true").lower() == "true"
 
+    # ============ Knowledge graph (networked thought, à la Obsidian) ============
+    # New memories auto-link to related ones (semantic + [[wikilinks]]), forming
+    # a connected brain. Recall expands along those links to pull in context.
+    graph_autolink: bool = os.getenv("GRAPH_AUTOLINK", "true").lower() == "true"
+    graph_autolink_k: int = int(os.getenv("GRAPH_AUTOLINK_K", "3"))
+    graph_link_min_similarity: float = float(os.getenv("GRAPH_LINK_MIN_SIMILARITY", "0.55"))
+    graph_expand_hops: int = int(os.getenv("GRAPH_EXPAND_HOPS", "1"))
+    graph_expand_decay: float = float(os.getenv("GRAPH_EXPAND_DECAY", "0.55"))
+
     # ============ Privacy ============
     # Loopback-only origins. The kernel refuses cross-origin browser calls.
     cors_origins: List[str] = [
