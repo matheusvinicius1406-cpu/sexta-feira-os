@@ -1,0 +1,11 @@
+# =========================================================
+# Sexta-Feira OS — VOICE extra (optional, local & offline).
+# Install on top of requirements.txt when you want the kernel to hear & speak:
+#     pip install -r requirements.txt -r requirements-voice.txt
+#
+# STT: faster-whisper (Whisper on your machine). Downloads the model once.
+# TTS: piper-tts (offline). You also need a Piper voice .onnx and set TTS_VOICE.
+#      Grab a pt-BR voice, e.g. from https://github.com/rhasspy/piper (voices).
+# =========================================================
+faster-whisper==1.0.3
+piper-tts==1.2.0

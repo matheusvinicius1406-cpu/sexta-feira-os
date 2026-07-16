@@ -93,6 +93,20 @@ class Settings(BaseSettings):
     graph_expand_hops: int = int(os.getenv("GRAPH_EXPAND_HOPS", "1"))
     graph_expand_decay: float = float(os.getenv("GRAPH_EXPAND_DECAY", "0.55"))
 
+    # ============ Voice (local, offline) ============
+    # Hearing (STT) and speaking (TTS) run on YOUR machine. Voice is an optional
+    # extra (pip install -r requirements-voice.txt) and degrades gracefully: if
+    # the engine/model isn't present, the voice endpoints return a clean 503.
+    voice_enabled: bool = os.getenv("VOICE_ENABLED", "true").lower() == "true"
+    stt_engine: str = os.getenv("STT_ENGINE", "faster-whisper")
+    stt_model: str = os.getenv("STT_MODEL", "small")        # tiny|base|small|medium|large-v3
+    stt_language: str = os.getenv("STT_LANGUAGE", "pt")
+    stt_compute_type: str = os.getenv("STT_COMPUTE_TYPE", "int8")  # int8|float16|float32
+    stt_device: str = os.getenv("STT_DEVICE", "cpu")        # cpu|cuda
+    tts_engine: str = os.getenv("TTS_ENGINE", "piper")
+    tts_voice: str = os.getenv("TTS_VOICE", "")             # path to a Piper voice .onnx
+    tts_speak_replies: bool = os.getenv("TTS_SPEAK_REPLIES", "true").lower() == "true"
+
     # ============ Privacy ============
     # Loopback-only origins. The kernel refuses cross-origin browser calls.
     cors_origins: list[str] = [

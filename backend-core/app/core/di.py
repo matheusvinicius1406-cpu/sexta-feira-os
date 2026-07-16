@@ -14,6 +14,7 @@ from app.brain.memory import PersistentMemory
 from app.core.config import settings
 from app.db.database import SessionLocal
 from app.models.models import Owner
+from app.voice.box import VoiceBox
 
 logger = logging.getLogger("sexta-feira.di")
 
@@ -25,6 +26,7 @@ class Kernel:
         self.brain: LocalBrain | None = None
         self.memory: PersistentMemory | None = None
         self.cognition: Cognition | None = None
+        self.voice: VoiceBox | None = None
         self._ready = False
 
     async def start(self) -> None:
@@ -33,6 +35,7 @@ class Kernel:
         self.brain = LocalBrain()
         self.memory = PersistentMemory(self.brain)
         self.cognition = Cognition(self.brain, self.memory)
+        self.voice = VoiceBox()
         self._ready = True
 
         if await self.brain.health():
@@ -93,3 +96,9 @@ def get_memory() -> PersistentMemory:
     if not _kernel.memory:
         raise RuntimeError("Kernel not started")
     return _kernel.memory
+
+
+def get_voice() -> VoiceBox:
+    if not _kernel.voice:
+        raise RuntimeError("Kernel not started")
+    return _kernel.voice

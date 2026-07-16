@@ -74,6 +74,18 @@ Ou use `scripts/setup.sh` para fazer tudo isso de uma vez.
 | `POST` | `/api/v1/memory/{id}/link` | conectar dois nós manualmente |
 | `GET` | `/api/v1/memory/{id}/neighbours` | ligações + backlinks de um nó |
 | `GET` | `/api/v1/memory/graph` | o grafo inteiro (nós + arestas) para visualizar |
+| `POST` | `/api/v1/voice/transcribe` | áudio → texto (STT local, offline) |
+| `POST` | `/api/v1/voice/speak` | texto → áudio (TTS local, offline) |
+| `POST` | `/api/v1/voice/chat` | áudio → ouve, pensa (com memória) e responde (voz) |
+
+### Voz local (offline)
+
+Ouvir e falar rodam na sua máquina. É um extra opcional (degrada com 503 limpo se ausente):
+
+```bash
+pip install -r backend-core/requirements-voice.txt   # faster-whisper + piper
+# baixe uma voz Piper pt-BR (.onnx) e aponte TTS_VOICE no .env
+```
 
 ## Ensinar o Sexta-Feira (fine-tuning)
 

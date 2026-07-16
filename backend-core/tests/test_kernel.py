@@ -170,3 +170,56 @@ def test_networked_recall_expands_along_links(client, owner_headers):
         assert m1 in plain_ids and m2 not in plain_ids
     finally:
         kernel.memory.brain.embed = original
+
+
+# ---------------- voice (local, optional extra) ----------------
+
+def test_voice_status(client, owner_headers):
+    body = client.get("/api/v1/voice/status", headers=owner_headers).json()
+    assert "stt_available" in body and "tts_available" in body
+
+
+def test_transcribe_degrades_gracefully(client, owner_headers):
+    # Force the engine-unavailable path deterministically (independent of whether
+    # faster-whisper happens to be installed) => the API must return a clean 503.
+    from app.core.di import get_kernel
+    from app.voice.stt import VoiceUnavailable
+
+    voice = get_kernel().voice
+    original = voice.transcriber.transcribe
+
+    async def boom(*_a, **_k):
+        raise VoiceUnavailable("engine not installed")
+
+    voice.transcriber.transcribe = boom
+    try:
+        r = client.post(
+            "/api/v1/voice/transcribe",
+            files={"file": ("clip.wav", b"RIFF0000WAVE", "audio/wav")},
+            headers=owner_headers,
+        )
+        assert r.status_code == 503
+    finally:
+        voice.transcriber.transcribe = original
+
+
+def test_speak_degrades_gracefully(client, owner_headers):
+    from app.core.di import get_kernel
+    from app.voice.stt import VoiceUnavailable
+
+    voice = get_kernel().voice
+    original = voice.synthesizer.speak
+
+    async def boom(*_a, **_k):
+        raise VoiceUnavailable("piper voice not configured")
+
+    voice.synthesizer.speak = boom
+    try:
+        r = client.post("/api/v1/voice/speak", json={"text": "olá"}, headers=owner_headers)
+        assert r.status_code == 503
+    finally:
+        voice.synthesizer.speak = original
+
+
+def test_voice_endpoints_require_auth(client):
+    assert client.get("/api/v1/voice/status").status_code == 403

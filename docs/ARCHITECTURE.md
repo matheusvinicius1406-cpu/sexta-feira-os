@@ -37,6 +37,13 @@ agindo através de um corpo pareado.
   resposta; persiste os turnos; auto-aprende um fato durável (best-effort).
 - `teach.py` — transforma história + memórias em dataset de fine-tuning.
 
+### 3b. Voz (`app/voice`)
+Ouvir e falar, 100% local e **opcional** (extra `requirements-voice.txt`):
+- `stt.py` — `Transcriber` (faster-whisper): áudio → texto, offline.
+- `tts.py` — `Synthesizer` (Piper): texto → áudio, offline.
+- `box.py` — `VoiceBox`: carrega os motores sob demanda; degrada com 503 limpo se ausentes.
+Endpoints em `api/routers/voice.py`, incluindo `/voice/chat` (ouve → pensa com memória → responde falando).
+
 ## Fluxo de uma conversa
 
 1. Corpo envia `POST /api/v1/chat {message, conversation_id?}` com o token.
