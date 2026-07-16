@@ -1,1 +1,1 @@
-"""Routers module initialization"""
+"""API routers for the local kernel."""

@@ -1,64 +1,45 @@
-version: '3.9'
-
+# =========================================================
+# Sexta-Feira OS — stack local e privada.
+# Roda o cérebro (Ollama) + o kernel, tudo na sua máquina.
+# Nada é exposto para fora do host por padrão.
+# =========================================================
 services:
-  # PostgreSQL Database
-  postgres:
-    image: postgres:15-alpine
-    container_name: sexta-feira-postgres
-    environment:
-      POSTGRES_USER: ${POSTGRES_USER:-sexta_user}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-sexta_password}
-      POSTGRES_DB: ${POSTGRES_DB:-sexta_feira_os}
+  # O cérebro local: Ollama (raciocínio + embeddings).
+  ollama:
+    image: ollama/ollama:latest
+    container_name: sexta-feira-brain
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - ollama_models:/root/.ollama
     ports:
-      - "5432:5432"
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U sexta_user"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+      - "127.0.0.1:11434:11434"   # loopback apenas
+    restart: unless-stopped
+    # Para GPU NVIDIA, descomente:
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: all
+    #           capabilities: [gpu]
 
-  # FastAPI Backend
-  backend:
+  # O kernel cognitivo.
+  kernel:
     build:
       context: ./backend-core
       dockerfile: Dockerfile
-    container_name: sexta-feira-backend
+    container_name: sexta-feira-kernel
+    env_file: .env
     environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER:-sexta_user}:${POSTGRES_PASSWORD:-sexta_password}@postgres:5432/${POSTGRES_DB:-sexta_feira_os}
-      ENVIRONMENT: ${ENVIRONMENT:-development}
-      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-dev-secret-key-change-in-prod}
-      OPENAI_API_KEY: ${OPENAI_API_KEY}
-      CLAUDE_API_KEY: ${CLAUDE_API_KEY}
-      GEMINI_API_KEY: ${GEMINI_API_KEY}
-      DEFAULT_AI_PROVIDER: ${DEFAULT_AI_PROVIDER:-openai}
-      LOG_LEVEL: ${LOG_LEVEL:-INFO}
-    ports:
-      - "8000:8000"
-    depends_on:
-      postgres:
-        condition: service_healthy
+      OLLAMA_ENDPOINT: http://ollama:11434
+      DATABASE_URL: sqlite:////data/sexta_feira_os.db
+      ACCESS_MODE: ${ACCESS_MODE:-lan}   # 'lan' p/ o compose alcançar entre containers
     volumes:
-      - ./backend-core:/app
-      - ./data:/app/data
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
-
-  # Redis for caching (optional)
-  redis:
-    image: redis:7-alpine
-    container_name: sexta-feira-redis
+      - ./data:/data                     # sua memória persistente (fica no host)
     ports:
-      - "6379:6379"
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+      - "127.0.0.1:8000:8000"            # loopback; use túnel p/ acesso remoto privado
+    depends_on:
+      - ollama
+    restart: unless-stopped
 
 volumes:
-  postgres_data:
-
-networks:
-  default:
-    name: sexta-feira-network
+  ollama_models:

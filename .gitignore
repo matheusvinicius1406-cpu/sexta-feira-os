@@ -1,44 +1,63 @@
-# Android / Kotlin
-.gradle/
-/build/
-/captures/
-.externalNativeBuild/
-/local.properties
-/.idea/
-*.iml
-*.hprof
+# =========================================================
+# Sexta-Feira OS — private, local, single-owner cognitive kernel
+# NOTHING that could carry private data or bloat leaves this repo.
+# =========================================================
 
-# Kotlin DSL cache
-/.gradle/
+# --- Rust build artifacts ---
+/target/
+**/target/
+*.rs.bk
 
-# Python
+# --- Python ---
 __pycache__/
 *.py[cod]
 *.pyo
-*.env
-*.venv
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# --- Virtual environments (never commit these) ---
+.venv/
+.venv_new/
 venv/
 ENV/
-.env*
+env/
 
-# Database
+# --- Environment / secrets (NEVER commit) ---
+.env
+.env.*
+!.env.template
+
+# --- Local brain data: conversations, memory, embeddings ---
+# This is YOUR private second brain. It must never be pushed.
+/data/
 *.db
 *.sqlite
 *.sqlite3
+*.duckdb
+/models/
+*.gguf
+*.bin
+*.safetensors
 
-# Logs
+# --- Android / Kotlin ---
+.gradle/
+/build/
+**/build/
+/captures/
+.externalNativeBuild/
+/local.properties
+*.iml
+*.hprof
+
+# --- Logs ---
 *.log
 logs/
 
-# IDE
-.vscode/
+# --- IDE / OS ---
 .idea/
-*.sublime-workspace
-*.sublime-project
-
-# OSX
-.DS_Store
-
-# Misc
-node_modules/
+.vscode/
 *.swp
+.DS_Store
+node_modules/

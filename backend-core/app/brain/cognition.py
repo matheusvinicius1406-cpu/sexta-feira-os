@@ -1,0 +1,132 @@
+"""
+Cognition — the reasoning loop that turns a message into a grounded reply.
+
+Pipeline for every turn:
+  1. Load / create the conversation and its recent history (persisted).
+  2. Recall relevant long-term memories (semantic search over YOUR data).
+  3. Assemble the prompt: persona + recalled memory + history + new message.
+  4. Ask the LocalBrain (Ollama) — non-streaming or streaming.
+  5. Persist both turns.
+  6. Optionally auto-learn a durable fact from the exchange.
+"""
+from __future__ import annotations
+
+import logging
+import uuid
+from datetime import datetime, timezone
+from typing import AsyncIterator, List, Optional, Tuple
+
+from sqlalchemy.orm import Session
+
+from app.brain.engine import LocalBrain
+from app.brain.memory import PersistentMemory
+from app.core.config import settings
+from app.models.models import Conversation, Message
+
+logger = logging.getLogger("sexta-feira.cognition")
+
+
+class Cognition:
+    def __init__(self, brain: LocalBrain, memory: PersistentMemory):
+        self.brain = brain
+        self.memory = memory
+
+    # ---------- conversation helpers ----------
+
+    def _get_or_create_conversation(
+        self, db: Session, owner_id: str, conversation_id: Optional[str], device_id: Optional[str]
+    ) -> Conversation:
+        if conversation_id:
+            conv = db.query(Conversation).filter(
+                Conversation.id == conversation_id, Conversation.owner_id == owner_id
+            ).first()
+            if conv:
+                return conv
+        conv = Conversation(
+            id=str(uuid.uuid4()), owner_id=owner_id, device_id=device_id, title=None,
+        )
+        db.add(conv)
+        db.commit()
+        db.refresh(conv)
+        return conv
+
+    def _recent_history(self, conv: Conversation) -> List[dict]:
+        msgs = conv.messages[-settings.brain_context_messages:]
+        role_map = {"owner": "user", "assistant": "assistant"}
+        return [{"role": role_map.get(m.role, "user"), "content": m.content} for m in msgs]
+
+    async def _build_messages(
+        self, db: Session, owner_id: str, conv: Conversation, user_text: str
+    ) -> List[dict]:
+        memories = await self.memory.recall(db, owner_id, user_text)
+        system = settings.brain_persona
+        if memories:
+            recalled = "\n".join(f"- {m.content}" for m in memories)
+            system += (
+                "\n\nO que você já sabe sobre seu dono (use quando for útil, "
+                "sem repetir mecanicamente):\n" + recalled
+            )
+        messages = [{"role": "system", "content": system}]
+        messages.extend(self._recent_history(conv))
+        messages.append({"role": "user", "content": user_text})
+        return messages
+
+    def _persist_turn(self, db: Session, conv: Conversation, role: str, content: str) -> None:
+        db.add(Message(id=str(uuid.uuid4()), conversation_id=conv.id, role=role, content=content))
+        conv.updated_at = datetime.now(timezone.utc)
+        if role == "owner" and not conv.title:
+            conv.title = content[:60]
+        db.commit()
+
+    async def _auto_learn(self, db: Session, owner_id: str, user_text: str, reply: str) -> None:
+        """Ask the brain to distil a durable fact worth remembering (best-effort)."""
+        if not settings.memory_auto_learn:
+            return
+        try:
+            probe = [
+                {"role": "system", "content":
+                    "Extraia UM fato duradouro sobre o usuário desta troca (preferência, "
+                    "pessoa, rotina, meta, detalhe pessoal). Se não houver nada digno de "
+                    "memória de longo prazo, responda exatamente 'NADA'. Seja conciso."},
+                {"role": "user", "content": f"Usuário: {user_text}\nAssistente: {reply}"},
+            ]
+            fact = (await self.brain.chat(probe, temperature=0.1, max_tokens=80)).strip()
+            if fact and fact.upper() != "NADA" and len(fact) > 8:
+                await self.memory.remember(
+                    db, owner_id, fact, kind="fact", importance=0.6, source="auto_learned"
+                )
+        except Exception as e:  # noqa: BLE001 — never let learning break the reply
+            logger.debug("auto-learn skipped: %s", e)
+
+    # ---------- public API ----------
+
+    async def respond(
+        self, db: Session, owner_id: str, user_text: str,
+        conversation_id: Optional[str] = None, device_id: Optional[str] = None,
+    ) -> Tuple[str, str]:
+        """Return (reply_text, conversation_id)."""
+        conv = self._get_or_create_conversation(db, owner_id, conversation_id, device_id)
+        messages = await self._build_messages(db, owner_id, conv, user_text)
+        reply = await self.brain.chat(messages)
+        self._persist_turn(db, conv, "owner", user_text)
+        self._persist_turn(db, conv, "assistant", reply)
+        await self._auto_learn(db, owner_id, user_text, reply)
+        return reply, conv.id
+
+    async def respond_stream(
+        self, db: Session, owner_id: str, user_text: str,
+        conversation_id: Optional[str] = None, device_id: Optional[str] = None,
+    ) -> AsyncIterator[dict]:
+        """Yield {'conversation_id'|'chunk'|'done'} events; persists at the end."""
+        conv = self._get_or_create_conversation(db, owner_id, conversation_id, device_id)
+        messages = await self._build_messages(db, owner_id, conv, user_text)
+        yield {"conversation_id": conv.id}
+        parts: List[str] = []
+        async for chunk in self.brain.stream_chat(messages):
+            parts.append(chunk)
+            yield {"chunk": chunk}
+        reply = "".join(parts)
+        self._persist_turn(db, conv, "owner", user_text)
+        self._persist_turn(db, conv, "assistant", reply)
+        await self._auto_learn(db, owner_id, user_text, reply)
+        yield {"done": True}

@@ -1,32 +1,30 @@
-# Project Context
+# Contexto do Projeto
 
-## Mission
+## Missão
 
-Build Sexta-Feira OS as a proactive personal AI assistant that transforms mobile productivity through context-aware voice interaction, persistent memory, and automation.
+Construir o **Sexta-Feira** como um *segundo cérebro* pessoal: um kernel cognitivo
+que roda **inteiramente na máquina do dono**, aprende com ele e serve só a ele —
+no espírito de um Alfred / JARVIS. Íntimo, privado, absoluto.
 
-## Owner vision
+## Princípios (inegociáveis)
 
-The product owner envisions a smart companion that is always accessible, deeply personal, and capable of managing daily workflows with a single spoken command. Sexta-Feira OS should feel intuitive, reliable, and extensible enough to evolve into future wearable experiences.
+- **Local-only.** Todo raciocínio e embedding rodam via Ollama, na máquina do dono. Nenhum LLM externo, nenhuma nuvem, nenhum dado sai do host.
+- **Dono único.** Uma só conta. Sem cadastro aberto. Dispositivos são pareados explicitamente.
+- **Multilocal — um cérebro, vários corpos.** Celular, carro, óculos, relógio, desktop conectam ao mesmo cérebro pela rede privada do dono.
+- **Memória de verdade.** Fatos, preferências e histórico persistem localmente (SQLite + embeddings locais) e sobrevivem a reinícios.
+- **Ele aprende.** A história do dono vira dataset para fine-tuning (LoRA); o modelo fica cada vez mais *dele*.
+- **Privacidade por construção.** Sem telemetria. Sem rastreamento. Acesso remoto só por túnel privado (Tailscale/WireGuard), nunca internet pública.
 
-## Guiding principles
+## O que NÃO é
 
-- User first: every feature should save time, reduce friction, or improve clarity.
-- Privacy-aware: user memory and context must be managed securely and transparently.
-- Modular by design: separate mobile UI, backend intelligence, and integration layers.
-- Iterative delivery: launch a strong MVP quickly, then expand features based on real usage.
-- AI-enabled, not AI-dependent: use AI to augment automation and decision-making while preserving control.
+- Não é SaaS. Não é multiusuário. Não conversa com OpenAI/Claude/Gemini.
+- Não pretende treinar um modelo de fronteira (500B+) do zero — isso custa dezenas
+  de milhões e exigiria data-center, quebrando a privacidade. O caminho é **partir de
+  um modelo aberto local e especializá-lo nos dados do dono**.
 
-## Target outcomes
+## Objetivos de longo prazo
 
-- A polished native Android app with voice assistant capabilities.
-- A backend architecture that supports persistent memory and multi-AI orchestration.
-- A flexible automation engine for routines, reminders, and AI-triggered actions.
-- A foundation that can be extended to smart glasses and wearable contexts.
-
-## Long-term goals
-
-1. Activate a multi-modal assistant across Android and wearable devices.
-2. Support seamless integration with third-party AI services and automation platforms.
-3. Build a memory model that retains preferences, habits, and personal context over time.
-4. Deliver an assistant that can anticipate needs, suggest actions, and execute tasks autonomously.
-5. Maintain an open architecture for future modules such as home automation, calendar coordination, and vision-assisted workflows.
+1. Um cérebro local que anticipa, lembra e executa — sempre sob controle do dono.
+2. Presença ambiente: mesmo cérebro acessível do celular ao carro aos óculos.
+3. Aprendizado contínuo: memória agora, fine-tuning periódico depois.
+4. Camada de percepção de baixa latência (o runtime Rust em `src/`, futuro) para os corpos ambientes.

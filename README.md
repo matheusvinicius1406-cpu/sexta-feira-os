@@ -1,153 +1,110 @@
-# Sexta-Feira OS 🎯
+# Sexta-Feira OS 🧠
 
-**A production-ready AI personal assistant platform for the discerning user.**
+**Seu segundo cérebro pessoal — local, privado e só seu.**
 
-Sexta-Feira OS is an elite-level personal AI assistant inspired by JARVIS and FRIDAY. It delivers a native Android experience with voice-first interaction, persistent contextual memory, intelligent automation, and multi-AI orchestration. Built for a single owner who demands privacy, control, and sophistication.
+Sexta-Feira não é um chatbot de nuvem. É um *kernel cognitivo* que roda inteiramente
+na sua máquina, no espírito de um Alfred / JARVIS: leal, íntimo e discreto. Ele
+lembra do que importa, aprende com você e serve só a você. **Nenhuma palavra sua
+sai deste host — não há OpenAI, Claude, Gemini nem qualquer LLM externo.**
 
-## Vision
+## Princípios inegociáveis
 
-Create a personal digital brain that anticipates intent, remembers context, automates routines, and evolves with the user—across mobile devices, cloud infrastructure, and future wearable experiences.
+- 🔒 **Local-only** — o raciocínio e os embeddings rodam via **Ollama**, na sua máquina. Zero nuvem.
+- 👤 **Dono único** — uma só conta, sua. Sem cadastro aberto. Dispositivos são *pareados* por você.
+- 🧩 **Multilocal (um cérebro, vários corpos)** — celular, tela do carro, óculos, relógio conectam ao mesmo cérebro pela sua rede privada.
+- 💾 **Memória de verdade** — fatos, preferências e conversas persistem em SQLite com embeddings locais.
+- 📚 **Ele aprende com você** — sua história vira dataset para *fine-tuning* (LoRA); o modelo fica cada vez mais *seu*.
+- 🕵️ **Sem telemetria** — nada é rastreado, nada é enviado.
 
-## Key Differentiators
-
-✨ **Voice-First & Natural** — Expressive voice commands and intelligent responses powered by multiple AI providers  
-💾 **Persistent Memory** — Long-term context retention, habit tracking, and personalized intelligence  
-🚀 **Modular Architecture** — Clean layered design supporting rapid iteration and AI provider swaps  
-⚙️ **Automation Engine** — Intelligent task scheduling, trigger-based workflows, and device orchestration  
-🔒 **Private & Secure** — JWT authentication, local fallbacks, and future-proof encryption  
-👓 **Future-Ready** — Designed for seamless expansion into smart glasses and edge computing  
-
-## Tech Stack
-
-| Component | Technology | Purpose |
-|-----------|-----------|---------|
-| **Mobile** | Kotlin + Jetpack Compose + Material 3 | Native Android UI with modern patterns |
-| **Backend** | Python + FastAPI | High-performance async REST API |
-| **Database** | PostgreSQL + SQLite | Production-grade + local fallbacks |
-| **Authentication** | JWT + OAuth2-ready | Secure session and token management |
-| **AI Orchestration** | Modular adapters | OpenAI, Claude, Gemini, local models |
-| **DevOps** | Docker + Docker Compose | Containerized, reproducible deployments |
-
-## Project Structure
+## Como funciona (arquitetura)
 
 ```
-sexta-feira-os/
-├── mobile-android/          # Kotlin Android app (Compose, MVVM)
-│   ├── app/                 # Main app module
-│   ├── core/                # Shared utilities & infrastructure
-│   └── build.gradle.kts     # Gradle configuration
-├── backend-core/            # FastAPI backend service
-│   ├── app/                 # Application layers
-│   │   ├── api/             # REST endpoint routers
-│   │   ├── core/            # Config & dependencies
-│   │   ├── models/          # Database ORM models
-│   │   ├── schemas/         # Pydantic request/response schemas
-│   │   ├── services/        # Business logic
-│   │   ├── memory/          # Memory & context management
-│   │   ├── ai/              # AI provider orchestration
-│   │   └── auth/            # Authentication & authorization
-│   ├── main.py              # FastAPI entry point
-│   ├── requirements.txt      # Python dependencies
-│   └── Dockerfile           # Docker image definition
-├── docs/                    # Architecture & design documentation
-├── scripts/                 # Utility scripts & deployment tools
-├── shared/                  # Shared models, constants across services
-├── docker-compose.yml       # Local development environment
-├── .env.example             # Environment configuration template
-└── README.md               # This file
+  Corpos (celular, carro, óculos, relógio, desktop)
+        │  HTTP privado (LAN / túnel WireGuard) — nunca internet pública
+        ▼
+  ┌─────────────────────── KERNEL (sua máquina) ───────────────────────┐
+  │  FastAPI  →  Cognition  →  LocalBrain ──► Ollama (raciocínio+embed) │
+  │                  │                                                   │
+  │                  └─► PersistentMemory ──► SQLite (segundo cérebro)   │
+  └────────────────────────────────────────────────────────────────────┘
+        │  quando você quiser ensiná-lo:
+        ▼
+  export_training_data.py → dataset.jsonl → finetune_lora.py → modelo SEU no Ollama
 ```
 
-## Quick Start
+O único backend de inferência é o **Ollama local**. Se um dia você treinar o seu
+próprio modelo, basta apontar `BRAIN_MODEL` para ele — nada mais muda.
 
-### Prerequisites
-
-- Python 3.10+
-- Node.js / Android SDK (for mobile)
-- Docker & Docker Compose (recommended)
-
-### Run Backend Locally
+## Início rápido
 
 ```bash
+# 1. Ollama (o cérebro local) — instala e roda 100% na sua máquina
+curl -fsSL https://ollama.com/install.sh | sh
+ollama pull llama3.2
+ollama pull nomic-embed-text
+
+# 2. Kernel
+cp .env.template .env          # edite OWNER_EMAIL / OWNER_PASSWORD / DEVICE_PAIRING_CODE
 cd backend-core
+python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
-cp ../.env.example ../.env
-# Edit .env with your API keys
-python -m uvicorn app.main:app --reload
-# Backend available at http://localhost:8000
+python -m app.main             # http://127.0.0.1:8000
+
+# 3. Conversar
+curl -s localhost:8000/api/v1/health
+# login → pegue o token → POST /api/v1/chat {"message": "..."}
 ```
 
-### Run with Docker Compose
+Ou use `scripts/setup.sh` para fazer tudo isso de uma vez.
 
-```bash
-docker-compose up -d
-# PostgreSQL: localhost:5432
-# Backend: http://localhost:8000
-# Redis: localhost:6379
+## API (v1)
+
+| Método | Rota | O quê |
+|---|---|---|
+| `GET` | `/api/v1/health` | status + se o cérebro está online |
+| `POST` | `/api/v1/auth/login` | login do dono (email+senha) |
+| `POST` | `/api/v1/auth/devices/pair` | parear um corpo (celular/carro/óculos/relógio) |
+| `GET` | `/api/v1/auth/devices` | listar/gerir dispositivos pareados |
+| `POST` | `/api/v1/chat` | conversar (com memória + histórico) |
+| `POST` | `/api/v1/chat/stream` | conversar em streaming (SSE) |
+| `POST` | `/api/v1/memory` | ensinar um fato ao cérebro |
+| `POST` | `/api/v1/memory/recall` | buscar na memória (semântico) |
+| `GET`/`DELETE` | `/api/v1/memory[/{id}]` | revisar / esquecer |
+
+## Ensinar o Sexta-Feira (fine-tuning)
+
+O que torna a IA *sua* não é o tamanho — é **seus dados + sua memória + sua voz**.
+Loop de aprendizado (offline, numa máquina com GPU):
+
+1. Viva com o kernel: converse e ensine fatos (`POST /api/v1/memory`).
+2. `python scripts/export_training_data.py` → gera `data/dataset.jsonl` a partir da SUA história.
+3. `python scripts/finetune_lora.py` → treina um *adapter* LoRA sobre um modelo aberto.
+4. Exporte para GGUF, `ollama create sexta`, e ponha `BRAIN_MODEL=sexta` no `.env`.
+
+> Sobre "criar minha IA de 500B do zero": treinar um modelo de fronteira do zero custa
+> dezenas de milhões e exige data-center — o que quebraria sua privacidade. O caminho
+> real e privado é **partir de um modelo aberto e especializá-lo nos seus dados**. Você
+> já roda, localmente, um modelo com bilhões de parâmetros; o fine-tuning o torna seu.
+
+## Estrutura
+
+```
+backend-core/app/
+  brain/        engine.py (Ollama)  memory.py (2º cérebro)  cognition.py (loop)  teach.py (dataset)
+  api/routers/  health  auth(login+pareamento)  chat  memory
+  auth/  core/  db/  models/
+backend-core/tests/    testes ponta a ponta (pytest)
+scripts/        setup.sh  export_training_data.py  finetune_lora.py
+mobile-android/ app cliente (um dos "corpos")
+src/            [experimental] runtime de percepção em Rust p/ ambiente (óculos/carro) — futuro, ainda não plugado
 ```
 
-### Android Development
+## Privacidade & acesso remoto
 
-```bash
-cd mobile-android
-# Open in Android Studio or build with Gradle
-./gradlew assembleDebug
-```
+Padrão = `loopback` (só esta máquina). Para usar do celular/carro em casa, `ACCESS_MODE=lan`.
+Para te acompanhar fora de casa **sem** expor à internet pública, use um túnel privado
+(**Tailscale/WireGuard**) e `ACCESS_MODE=tunnel`. O kernel nunca deve ficar aberto na web.
 
-## Documentation
+## Licença
 
-- **[PROJECT_CONTEXT.md](./PROJECT_CONTEXT.md)** — Mission, principles, long-term vision
-- **[ROADMAP.md](./ROADMAP.md)** — 90-day MVP launch plan with milestones
-- **[TASKS.md](./TASKS.md)** — Current actionable priorities
-- **[docs/architecture.md](./docs/architecture.md)** — System design & integration patterns
-- **[docs/setup.md](./docs/setup.md)** — Detailed environment setup guide
-- **[docs/api.md](./docs/api.md)** — REST API endpoint documentation
-
-## Development Status
-
-✅ **Foundation Phase** — Production-grade project structure, Docker setup, and development scaffolds ready.  
-🔄 **MVP Phase** — Core Android screens, backend authentication, memory store, and basic AI integration in progress.  
-📋 **Coming Soon** — Voice input pipeline, automation engine, multi-provider orchestration.
-
-## Environment Setup
-
-1. Copy `.env.example` to `.env`:
-   ```bash
-   cp .env.example .env
-   ```
-
-2. Update with your configuration:
-   - Database credentials
-   - AI provider API keys
-   - JWT secret (generate a random one)
-   - CORS origins for development
-
-3. For Docker: `docker-compose up -d`
-
-## Architecture Principles
-
-- **Clean Architecture** — Separation of concerns via layered modules
-- **DRY (Don't Repeat Yourself)** — Shared utilities in `/shared` and `/core`
-- **SOLID Principles** — Dependency injection, interface-based design
-- **Async-First** — FastAPI async patterns for high concurrency
-- **Provider Abstraction** — Swap AI providers without core changes
-
-## Contributing
-
-This project follows startup-grade engineering standards:
-
-- Clear commit messages describing the "why"
-- Feature branches for all work (`feature/feature-name`)
-- Code review before merge to `main`
-- Documentation updates alongside code changes
-- Keep `/docs` current with architectural decisions
-
-## License
-
-MIT License — See [LICENSE](./LICENSE) file for details.
-
----
-
-**Built with ❤️ for an AI-powered future.**
-
-*For detailed setup instructions, see [docs/setup.md](./docs/setup.md)*  
-*For architecture deep-dives, see [docs/architecture.md](./docs/architecture.md)*
+MIT — veja [LICENSE](./LICENSE). É seu. Use como quiser.

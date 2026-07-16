@@ -1,228 +1,96 @@
 """
-Dependency Injection - Initialize and wire all components
+Dependency wiring for the kernel. One brain, one memory, one cognition loop.
+Also bootstraps the single owner on first boot from environment variables.
 """
+from __future__ import annotations
+
 import logging
+import uuid
 from typing import Optional
 
+from app.auth.jwt import hash_password
+from app.brain.cognition import Cognition
+from app.brain.engine import LocalBrain
+from app.brain.memory import PersistentMemory
 from app.core.config import settings
-from app.infrastructure.ai.providers import AIProviderType
-from app.infrastructure.ai.orchestrator import AIOrchestrator, ProviderFactory
-from app.infrastructure.ai.tools import create_default_tool_executor
-from app.infrastructure.memory.semantic import (
-    EmbeddingService, InMemoryStore, RetrievalPipeline
-)
-from app.application.use_cases.conversation import ConversationPipeline
-from app.infrastructure.voice.audio import AudioPipeline
+from app.db.database import SessionLocal
+from app.models.models import Owner
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("sexta-feira.di")
 
 
-class ServiceContainer:
-    """Central service container for dependency injection"""
-    
-    def __init__(self):
-        self.ai_orchestrator: Optional[AIOrchestrator] = None
-        self.embedding_service: Optional[EmbeddingService] = None
-        self.memory_store: Optional[InMemoryStore] = None
-        self.retrieval_pipeline: Optional[RetrievalPipeline] = None
-        self.conversation_pipeline: Optional[ConversationPipeline] = None
-        self.tool_executor = None
-        self.audio_pipeline: Optional[AudioPipeline] = None
-        self._initialized = False
-    
-    async def initialize(self) -> None:
-        """Initialize all services"""
-        if self._initialized:
-            logger.info("Services already initialized")
+class Kernel:
+    """Holds the singletons that make up the running brain."""
+
+    def __init__(self) -> None:
+        self.brain: Optional[LocalBrain] = None
+        self.memory: Optional[PersistentMemory] = None
+        self.cognition: Optional[Cognition] = None
+        self._ready = False
+
+    async def start(self) -> None:
+        if self._ready:
             return
-        
-        logger.info("Initializing service container...")
-        
-        # 1. Initialize embedding service
-        logger.info("Initializing embedding service...")
-        self.embedding_service = EmbeddingService()
-        await self.embedding_service.initialize()
-        
-        # 2. Initialize memory store
-        logger.info("Initializing memory store...")
-        self.memory_store = InMemoryStore(self.embedding_service)
-        
-        # 3. Initialize retrieval pipeline
-        logger.info("Initializing retrieval pipeline...")
-        self.retrieval_pipeline = RetrievalPipeline(
-            self.memory_store,
-            self.embedding_service
-        )
-        
-        # 4. Initialize tool executor
-        logger.info("Initializing tool executor...")
-        self.tool_executor = create_default_tool_executor()
-        
-        # 4.5. Initialize audio pipeline
-        logger.info("Initializing audio pipeline...")
-        self.audio_pipeline = AudioPipeline()
-        await self.audio_pipeline.initialize()
-        
-        # 5. Initialize AI Orchestrator with providers
-        logger.info("Initializing AI orchestrator...")
-        self.ai_orchestrator = self._create_ai_orchestrator()
-        
-        # 6. Initialize conversation pipeline
-        logger.info("Initializing conversation pipeline...")
-        from app.infrastructure.repositories.conversation import SQLConversationRepository
-        from app.db.database import SessionLocal
-        
-        # For now, use in-memory. In production, use SQLConversationRepository
-        class InMemoryConversationRepository:
-            async def create_session(self, user_id, metadata=None):
-                from app.application.use_cases.conversation import ConversationSession
-                from datetime import datetime
-                import uuid
-                return ConversationSession(
-                    id=str(uuid.uuid4()),
-                    user_id=user_id,
-                    created_at=datetime.utcnow(),
-                    updated_at=datetime.utcnow(),
-                    messages=[],
-                    metadata=metadata or {}
-                )
-            
-            async def get_session(self, conversation_id, user_id):
-                return None
-            
-            async def save_session(self, session):
-                pass
-            
-            async def list_conversations(self, user_id, limit=20):
-                return []
-        
-        self.conversation_pipeline = ConversationPipeline(
-            ai_orchestrator=self.ai_orchestrator,
-            memory_service=self.retrieval_pipeline,
-            conversation_repository=InMemoryConversationRepository()
-        )
-        
-        self._initialized = True
-        logger.info("✅ All services initialized successfully")
-    
-    def _create_ai_orchestrator(self) -> AIOrchestrator:
-        """Create and configure AI orchestrator with providers"""
-        providers = []
-        
-        # Primary provider
-        primary_type = AIProviderType(settings.default_ai_provider)
-        
-        if primary_type == AIProviderType.GEMINI and settings.gemini_api_key:
-            primary = ProviderFactory.create_provider(
-                AIProviderType.GEMINI,
-                api_key=settings.gemini_api_key,
-                model=settings.ai_model_gemini
-            )
-        elif primary_type == AIProviderType.OPENAI and settings.openai_api_key:
-            primary = ProviderFactory.create_provider(
-                AIProviderType.OPENAI,
-                api_key=settings.openai_api_key,
-                model=settings.ai_model_openai
-            )
-        elif primary_type == AIProviderType.CLAUDE and settings.claude_api_key:
-            primary = ProviderFactory.create_provider(
-                AIProviderType.CLAUDE,
-                api_key=settings.claude_api_key,
-                model=settings.ai_model_claude
-            )
-        elif primary_type == AIProviderType.OLLAMA and settings.ollama_endpoint:
-            primary = ProviderFactory.create_provider(
-                AIProviderType.OLLAMA,
-                endpoint=settings.ollama_endpoint
-            )
+        self.brain = LocalBrain()
+        self.memory = PersistentMemory(self.brain)
+        self.cognition = Cognition(self.brain, self.memory)
+        self._ready = True
+
+        if await self.brain.health():
+            logger.info("🧠 Local brain online (%s)", settings.brain_model)
         else:
-            raise ValueError(f"Primary provider {primary_type} not configured")
-        
-        logger.info(f"Primary provider: {primary_type.value}")
-        
-        # Fallback providers
-        fallback = []
-        
-        if settings.openai_api_key and primary_type != AIProviderType.OPENAI:
-            fallback.append(ProviderFactory.create_provider(
-                AIProviderType.OPENAI,
-                api_key=settings.openai_api_key,
-                model=settings.ai_model_openai
-            ))
-            logger.info("Added OpenAI as fallback")
-        
-        if settings.claude_api_key and primary_type != AIProviderType.CLAUDE:
-            fallback.append(ProviderFactory.create_provider(
-                AIProviderType.CLAUDE,
-                api_key=settings.claude_api_key,
-                model=settings.ai_model_claude
-            ))
-            logger.info("Added Claude as fallback")
-        
-        if settings.ollama_endpoint and primary_type != AIProviderType.OLLAMA:
-            fallback.append(ProviderFactory.create_provider(
-                AIProviderType.OLLAMA,
-                endpoint=settings.ollama_endpoint
-            ))
-            logger.info("Added Ollama as fallback")
-        
-        orchestrator = AIOrchestrator(
-            default_provider=primary,
-            fallback_providers=fallback
-        )
-        
-        return orchestrator
-    
-    async def health_check(self) -> dict:
-        """Check service health"""
-        health = {
-            "initialized": self._initialized,
-            "embedding_service": "ok" if self.embedding_service else "offline",
-            "memory_store": "ok" if self.memory_store else "offline",
-            "ai_orchestrator": "unknown"
-        }
-        
-        if self.ai_orchestrator:
-            try:
-                if await self.ai_orchestrator.default_provider.health_check():
-                    health["ai_orchestrator"] = "ok"
-                else:
-                    health["ai_orchestrator"] = "unhealthy"
-            except Exception as e:
-                health["ai_orchestrator"] = f"error: {e}"
-        
-        return health
+            logger.warning(
+                "🧠 Local brain OFFLINE at %s — start it with `ollama serve` and "
+                "`ollama pull %s` / `ollama pull %s`. The API will boot; chat will "
+                "error until the brain is up.",
+                settings.ollama_endpoint, settings.brain_model, settings.embedding_model,
+            )
+        self._bootstrap_owner()
+
+    def _bootstrap_owner(self) -> None:
+        """Create the one owner if none exists yet (idempotent)."""
+        db = SessionLocal()
+        try:
+            if db.query(Owner).count() > 0:
+                return
+            if not settings.owner_password:
+                logger.warning(
+                    "No owner yet and OWNER_PASSWORD is unset — set OWNER_EMAIL / "
+                    "OWNER_PASSWORD in .env to create your account, then restart."
+                )
+                return
+            owner = Owner(
+                id=str(uuid.uuid4()),
+                email=settings.owner_email,
+                name=settings.owner_name,
+                hashed_password=hash_password(settings.owner_password),
+                is_active=True,
+            )
+            db.add(owner)
+            db.commit()
+            logger.info("👤 Owner created: %s", settings.owner_email)
+        finally:
+            db.close()
+
+    async def stop(self) -> None:
+        if self.brain:
+            await self.brain.aclose()
 
 
-# Global container instance
-_container: Optional[ServiceContainer] = None
+_kernel = Kernel()
 
 
-def get_container() -> ServiceContainer:
-    """Get or create global service container"""
-    global _container
-    if _container is None:
-        _container = ServiceContainer()
-    return _container
+def get_kernel() -> Kernel:
+    return _kernel
 
 
-async def initialize_services() -> None:
-    """Initialize all services (call from app startup)"""
-    container = get_container()
-    await container.initialize()
+def get_cognition() -> Cognition:
+    if not _kernel.cognition:
+        raise RuntimeError("Kernel not started")
+    return _kernel.cognition
 
 
-def get_conversation_pipeline() -> ConversationPipeline:
-    """Get conversation pipeline for dependency injection"""
-    container = get_container()
-    if not container.conversation_pipeline:
-        raise RuntimeError("Services not initialized. Call initialize_services() first.")
-    return container.conversation_pipeline
-
-
-def get_ai_orchestrator() -> AIOrchestrator:
-    """Get AI orchestrator for dependency injection"""
-    container = get_container()
-    if not container.ai_orchestrator:
-        raise RuntimeError("Services not initialized. Call initialize_services() first.")
-    return container.ai_orchestrator
+def get_memory() -> PersistentMemory:
+    if not _kernel.memory:
+        raise RuntimeError("Kernel not started")
+    return _kernel.memory

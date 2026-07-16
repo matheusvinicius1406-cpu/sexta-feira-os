@@ -1,77 +1,56 @@
 """
-Shared constants and models used across mobile and backend
+Shared constants used across the kernel and its bodies (clients).
+Single local brain — no cloud providers exist in this product.
 """
 
-# AI Provider Constants
-class AIProvider:
-    OPENAI = "openai"
-    CLAUDE = "claude"
-    GEMINI = "gemini"
-    
-    AVAILABLE = [OPENAI, CLAUDE, GEMINI]
+# Device kinds — the "bodies" of the one brain
+class DeviceKind:
+    PHONE = "phone"
+    CAR = "car"
+    GLASSES = "glasses"
+    WATCH = "watch"
+    DESKTOP = "desktop"
+    GENERIC = "generic"
+
+    AVAILABLE = [PHONE, CAR, GLASSES, WATCH, DESKTOP, GENERIC]
 
 
-# Message Types
-class MessageType:
-    TEXT = "text"
-    VOICE = "voice"
-    IMAGE = "image"
-    MEDIA = "media"
+# Message roles
+class Role:
+    OWNER = "owner"
+    ASSISTANT = "assistant"
+    SYSTEM = "system"
 
 
-# Response Status
-class ResponseStatus:
-    SUCCESS = "success"
-    ERROR = "error"
-    PENDING = "pending"
-    PROCESSING = "processing"
+# Memory kinds
+class MemoryKind:
+    FACT = "fact"
+    PREFERENCE = "preference"
+    PERSON = "person"
+    ROUTINE = "routine"
+    NOTE = "note"
 
 
-# Feature Flags
-class Features:
-    VOICE_ENABLED = True
-    MEMORY_ENABLED = True
-    AUTOMATION_ENABLED = True
-    MULTI_AI_ENABLED = True
-    OFFLINE_MODE_ENABLED = True
+# Access modes (privacy)
+class AccessMode:
+    LOOPBACK = "loopback"   # só esta máquina
+    LAN = "lan"             # rede local
+    TUNNEL = "tunnel"       # via WireGuard/Tailscale, ainda privado
 
 
-# Memory Categories
-class MemoryCategory:
-    PROFILE = "profile"
-    PREFERENCES = "preferences"
-    HABITS = "habits"
-    INTERACTIONS = "interactions"
-    AUTOMATIONS = "automations"
-    GENERAL = "general"
-
-
-# API Versions
+# API
 API_VERSION = "v1"
 API_BASE_PATH = f"/api/{API_VERSION}"
 
-
-# Timeout Constants (in seconds)
-API_TIMEOUT = 30
-VOICE_TIMEOUT = 60
-AUDIO_CHUNK_TIMEOUT = 10
+# Limits
+MAX_MESSAGE_LENGTH = 8000
+DEFAULT_MEMORY_TOP_K = 6
 
 
-# Database Constants
-DEFAULT_PAGE_SIZE = 50
-MAX_PAGE_SIZE = 1000
-MAX_MESSAGE_LENGTH = 2000
-MAX_MEMORY_VALUE_LENGTH = 50000
-
-
-# Error Codes
+# Error codes
 class ErrorCode:
     INVALID_CREDENTIALS = "invalid_credentials"
-    TOKEN_EXPIRED = "token_expired"
     INVALID_TOKEN = "invalid_token"
-    USER_NOT_FOUND = "user_not_found"
-    USER_ALREADY_EXISTS = "user_already_exists"
-    INVALID_REQUEST = "invalid_request"
+    DEVICE_NOT_PAIRED = "device_not_paired"
+    BRAIN_UNAVAILABLE = "brain_unavailable"
     SERVER_ERROR = "server_error"
-    AI_ERROR = "ai_error"
-    DATABASE_ERROR = "database_error"

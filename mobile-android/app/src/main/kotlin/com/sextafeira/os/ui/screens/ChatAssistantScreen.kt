@@ -33,7 +33,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
-import androidx.lifecycle.compose.collectAsStateFlow
+import androidx.compose.runtime.collectAsState
 import com.sextafeira.os.viewmodel.ChatViewModel
 
 @Composable
@@ -45,9 +45,9 @@ fun ChatAssistantScreen(
     var isListening by remember { mutableStateOf(false) }
     
     // Collect state from ViewModel
-    val messages by viewModel.messages.collectAsStateFlow()
-    val isLoading by viewModel.isLoading.collectAsStateFlow()
-    val error by viewModel.error.collectAsStateFlow()
+    val messages by viewModel.messages.collectAsState()
+    val isLoading by viewModel.isLoading.collectAsState()
+    val error by viewModel.error.collectAsState()
     
     Column(
         modifier = Modifier

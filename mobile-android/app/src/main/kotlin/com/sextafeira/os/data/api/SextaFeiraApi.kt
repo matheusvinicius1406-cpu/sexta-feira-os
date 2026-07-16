@@ -2,66 +2,52 @@ package com.sextafeira.os.data.api
 
 import retrofit2.http.Body
 import retrofit2.http.GET
-import retrofit2.http.POST
 import retrofit2.http.Header
+import retrofit2.http.POST
 
 /**
- * HTTP DTOs for API communication with Sexta-Feira OS Backend
+ * HTTP DTOs + Retrofit interface for the local kernel (API v1).
  */
 
 data class LoginRequest(
     val email: String,
-    val password: String
+    val password: String,
 )
 
 data class LoginResponse(
     val access_token: String,
-    val user_id: String,
-    val token_type: String = "bearer"
+    val token_type: String,
+    val owner_id: String,
 )
 
-data class JarvisChatRequest(
+data class ChatRequest(
     val message: String,
     val conversation_id: String? = null,
-    val stream: Boolean = false
+    val device_id: String? = null,
 )
 
-data class JarvisChatResponse(
-    val response: String,
-    val provider: String,
-    val conversation_id: String? = null,
-    val metadata: Map<String, Any> = emptyMap()
+data class ChatResponse(
+    val reply: String,
+    val conversation_id: String,
 )
 
-data class JarvisStatus(
+data class HealthResponse(
     val status: String,
-    val version: String,
-    val gemini_ready: Boolean,
-    val memory_ready: Boolean
+    val brain_online: Boolean,
+    val brain_model: String,
 )
 
-/**
- * Retrofit API Interface for Jarvis Android Integration
- */
 interface SextaFeiraApi {
-    
-    // Health & Status endpoints
-    @GET("/api/v1/health")
-    suspend fun health(): Map<String, String>
-    
-    @GET("/api/v1/jarvis/status")
-    suspend fun jarvisStatus(
-        @Header("Authorization") token: String
-    ): JarvisStatus
-    
-    // Authentication
-    @POST("/api/v1/auth/login")
+
+    @GET("api/v1/health")
+    suspend fun health(): HealthResponse
+
+    @POST("api/v1/auth/login")
     suspend fun login(@Body request: LoginRequest): LoginResponse
-    
-    // Jarvis Chat (main endpoint for Android)
-    @POST("/api/v1/jarvis/chat")
-    suspend fun jarvisChat(
-        @Body request: JarvisChatRequest,
-        @Header("Authorization") token: String
-    ): JarvisChatResponse
+
+    @POST("api/v1/chat")
+    suspend fun chat(
+        @Body request: ChatRequest,
+        @Header("Authorization") authorization: String,
+    ): ChatResponse
 }
