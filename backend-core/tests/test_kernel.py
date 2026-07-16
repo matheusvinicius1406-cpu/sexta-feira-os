@@ -347,3 +347,115 @@ def test_brain_can_call_tools(client, owner_headers):
         assert any("dentista" in m["content"].lower() for m in mems)
     finally:
         brain.chat_with_tools = original
+
+
+# ---------------- action protocol (the brain's hands on devices) ----------------
+
+def _pair_phone(client, name: str):
+    r = client.post("/api/v1/auth/devices/pair",
+                    json={"pairing_code": "pair-code-123", "device_name": name, "device_kind": "phone"})
+    assert r.status_code == 200
+    return r.json()["device_token"], r.json()["device_id"]
+
+
+def test_actions_require_auth(client):
+    r = client.post("/api/v1/actions/dispatch", json={"device": "celular", "action": "open_app"})
+    assert r.status_code == 403
+
+
+def test_dispatch_to_unknown_device(client, owner_headers):
+    r = client.post("/api/v1/actions/dispatch",
+                    json={"device": "geladeira", "action": "open_app", "params": {}},
+                    headers=owner_headers)
+    assert r.status_code == 200
+    assert r.json()["ok"] is False
+
+
+def test_action_flow_polling(client, owner_headers):
+    dtoken, _ = _pair_phone(client, "phone-poll")
+    dheaders = {"Authorization": f"Bearer {dtoken}"}
+
+    # Owner dispatches to the phone (offline => queued).
+    r = client.post("/api/v1/actions/dispatch",
+                    json={"device": "phone-poll", "action": "open_app", "params": {"app": "whatsapp"}},
+                    headers=owner_headers)
+    assert r.json()["ok"] is True and r.json()["delivered"] is False
+    cmd_id = r.json()["command_id"]
+
+    # Device polls and gets it.
+    pending = client.get("/api/v1/actions/pending", headers=dheaders).json()
+    assert any(c["id"] == cmd_id and c["action"] == "open_app"
+               and c["params"] == {"app": "whatsapp"} for c in pending)
+
+    # Device reports the result -> command done.
+    rr = client.post(f"/api/v1/actions/{cmd_id}/result",
+                     json={"status": "done", "result": {"opened": True}}, headers=dheaders)
+    assert rr.status_code == 200
+    history = client.get("/api/v1/actions", headers=owner_headers).json()
+    assert any(c["id"] == cmd_id and c["status"] == "done" for c in history)
+
+
+def test_action_websocket_live_delivery(client, owner_headers):
+    dtoken, _ = _pair_phone(client, "phone-ws")
+
+    # Queue a command while the device is offline.
+    r = client.post("/api/v1/actions/dispatch",
+                    json={"device": "phone-ws", "action": "navigate", "params": {"to": "faculdade"}},
+                    headers=owner_headers)
+    cmd_id = r.json()["command_id"]
+
+    # Device connects: receives the backlog command, then reports its result.
+    with client.websocket_connect(f"/api/v1/actions/stream?token={dtoken}") as ws:
+        msg = ws.receive_json()
+        assert msg["type"] == "command" and msg["id"] == cmd_id and msg["action"] == "navigate"
+        ws.send_json({"type": "result", "id": cmd_id, "status": "done", "result": {"ok": True}})
+        ack = ws.receive_json()  # wait for server to process (deterministic)
+        assert ack["type"] == "ack" and ack["ok"] is True
+
+    history = client.get("/api/v1/actions", headers=owner_headers).json()
+    assert any(c["id"] == cmd_id and c["status"] == "done" for c in history)
+
+
+def test_websocket_rejects_bad_token(client):
+    import contextlib
+
+    from starlette.websockets import WebSocketDisconnect
+
+    with contextlib.suppress(WebSocketDisconnect), \
+            client.websocket_connect("/api/v1/actions/stream?token=garbage") as ws:
+        # A bad token must not yield a usable channel; receiving should fail/close.
+        with contextlib.suppress(Exception):
+            ws.receive_json()
+
+
+def test_brain_dispatches_device_action(client, owner_headers):
+    """The brain, from a sentence, decides to act on a device (device_action tool)."""
+    from app.core.di import get_kernel
+
+    _pair_phone(client, "phone-tool")
+    brain = get_kernel().cognition.brain
+    original = brain.chat_with_tools
+    state = {"n": 0}
+
+    async def fake_tools(messages, tools=None, **_kwargs):
+        state["n"] += 1
+        if state["n"] == 1:
+            return {
+                "role": "assistant", "content": "",
+                "tool_calls": [
+                    {"function": {"name": "device_action",
+                                  "arguments": {"device": "phone-tool", "action": "open_app",
+                                                "params": {"app": "spotify"}}}}
+                ],
+            }
+        return {"role": "assistant", "content": "Abrindo o Spotify no seu celular."}
+
+    brain.chat_with_tools = fake_tools
+    try:
+        r = client.post("/api/v1/chat", json={"message": "abre o spotify"}, headers=owner_headers)
+        assert r.status_code == 200
+        assert "Spotify" in r.json()["reply"]
+        history = client.get("/api/v1/actions", headers=owner_headers).json()
+        assert any(c["action"] == "open_app" and c["params"] == {"app": "spotify"} for c in history)
+    finally:
+        brain.chat_with_tools = original

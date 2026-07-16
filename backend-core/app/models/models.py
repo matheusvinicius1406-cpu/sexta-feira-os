@@ -127,3 +127,25 @@ class MemoryLink(Base):
     weight = Column(Float, default=1.0)                 # strength of the connection
     origin = Column(String, default="semantic")        # semantic|wikilink|manual|llm
     created_at = Column(DateTime, default=_now)
+
+
+class DeviceCommand(Base):
+    """
+    An ACTION the brain dispatched to a body (phone/computer/car...) to execute.
+    The kernel is a transport: it carries {action, params} to the device; the
+    device defines what each action means. Fire-and-forget, with a persisted queue
+    so a briefly-offline device still picks up its commands on reconnect.
+    """
+    __tablename__ = "device_commands"
+
+    id = Column(String, primary_key=True, index=True)
+    owner_id = Column(String, ForeignKey("owner.id", ondelete="CASCADE"), index=True, nullable=False)
+    device_id = Column(String, ForeignKey("devices.id", ondelete="CASCADE"), index=True, nullable=False)
+    action = Column(String, nullable=False)            # "open_app" | "call" | "navigate" | ...
+    params = Column(Text, nullable=True)               # JSON-encoded arguments
+    status = Column(String, default="pending", index=True)  # pending|delivered|done|failed
+    result = Column(Text, nullable=True)               # JSON-encoded result from the device
+    error = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=_now, index=True)
+    delivered_at = Column(DateTime, nullable=True)
+    completed_at = Column(DateTime, nullable=True)

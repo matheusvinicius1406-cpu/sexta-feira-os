@@ -51,6 +51,15 @@ os dispara por Webhook. Degrada com 503 se o n8n estiver fora. É assim que o Se
 **age** no mundo (milhares de integrações). Endpoints em `api/routers/automation.py`.
 O n8n sobe junto no `docker-compose.yml`, só em loopback.
 
+### 3c-bis. Protocolo de Ação (`app/action`) — as mãos em cada corpo
+Transporte de ações do cérebro para os dispositivos. `ActionService` persiste um comando
+`{action, params}` para o corpo alvo (resolvido por sinônimo — "celular"→phone — ou nome)
+e o entrega: em tempo real pelo `CommandBus` (WebSocket) se online, ou pela fila (polling)
+quando reconecta. O dispositivo reporta o resultado. **Fire-and-forget** — nunca bloqueia.
+O *vocabulário* de ações é do dispositivo, não do kernel (extensível sem mudar o kernel).
+Endpoints em `api/routers/action.py` (`/actions/dispatch`, `/actions/stream` WS,
+`/actions/pending`, `/actions/{id}/result`).
+
 ### 3d. Tool-calling agêntico (`app/brain/tools.py`) — pensar → agir
 `ToolKit` expõe ao cérebro ferramentas que ele decide usar sozinho durante a conversa
 (`remember`, `recall`, `run_automation`) via tool-calling nativo do Ollama. O laço vive

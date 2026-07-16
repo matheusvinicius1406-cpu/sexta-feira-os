@@ -81,6 +81,10 @@ Ou use `scripts/setup.sh` para fazer tudo isso de uma vez.
 | `GET` | `/api/v1/automations` | lista seus workflows do n8n |
 | `POST` | `/api/v1/automations/trigger` | dispara um workflow (o Sexta-Feira **age**) |
 | `GET` | `/api/v1/automations/status` | o n8n local está no ar? |
+| `POST` | `/api/v1/actions/dispatch` | manda um corpo (celular/PC) executar uma ação |
+| `WS` | `/api/v1/actions/stream?token=…` | canal ao vivo do dispositivo (recebe ações, reporta) |
+| `GET` | `/api/v1/actions/pending` | fila do dispositivo (fallback por polling) |
+| `POST` | `/api/v1/actions/{id}/result` | o dispositivo reporta o resultado |
 
 ### Voz local (offline)
 

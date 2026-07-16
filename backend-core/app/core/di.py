@@ -7,6 +7,8 @@ from __future__ import annotations
 import logging
 import uuid
 
+from app.action.bus import CommandBus
+from app.action.service import ActionService
 from app.auth.jwt import hash_password
 from app.automation.n8n import N8nClient
 from app.brain.cognition import Cognition
@@ -30,6 +32,8 @@ class Kernel:
         self.cognition: Cognition | None = None
         self.voice: VoiceBox | None = None
         self.automations: N8nClient | None = None
+        self.action_bus: CommandBus | None = None
+        self.actions: ActionService | None = None
         self._ready = False
 
     async def start(self) -> None:
@@ -38,9 +42,12 @@ class Kernel:
         self.brain = LocalBrain()
         self.memory = PersistentMemory(self.brain)
         self.automations = N8nClient()
+        self.action_bus = CommandBus()
+        self.actions = ActionService(self.action_bus)
         self.voice = VoiceBox()
         self.cognition = Cognition(
-            self.brain, self.memory, ToolKit(self.memory, self.automations)
+            self.brain, self.memory,
+            ToolKit(self.memory, self.automations, self.actions),
         )
         self._ready = True
 
@@ -116,3 +123,15 @@ def get_automations() -> N8nClient:
     if not _kernel.automations:
         raise RuntimeError("Kernel not started")
     return _kernel.automations
+
+
+def get_action_service() -> ActionService:
+    if not _kernel.actions:
+        raise RuntimeError("Kernel not started")
+    return _kernel.actions
+
+
+def get_action_bus() -> CommandBus:
+    if not _kernel.action_bus:
+        raise RuntimeError("Kernel not started")
+    return _kernel.action_bus

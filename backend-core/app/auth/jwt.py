@@ -94,3 +94,27 @@ def get_current_owner(
     if not owner or not owner.is_active:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Owner not found or inactive")
     return owner
+
+
+def device_from_token(token: str, db: Session) -> Device | None:
+    """Resolve a live (non-revoked) device from a device-audience token, or None."""
+    payload = decode_token(token)
+    if not payload or payload.get("aud") != "device":
+        return None
+    device = db.query(Device).filter(Device.id == payload.get("device_id")).first()
+    if not device or device.revoked:
+        return None
+    return device
+
+
+def get_current_device(
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    db: Session = Depends(get_db),
+) -> Device:
+    """Require a paired-device token (for device-only endpoints)."""
+    device = device_from_token(credentials.credentials, db)
+    if not device:
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Device token required")
+    device.last_seen_at = datetime.now(UTC)
+    db.commit()
+    return device

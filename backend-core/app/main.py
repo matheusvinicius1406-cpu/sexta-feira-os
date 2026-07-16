@@ -18,7 +18,15 @@ import logging  # noqa: E402
 from fastapi import FastAPI  # noqa: E402
 from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
 
-from app.api.routers import auth, automation, chat, health, memory, voice  # noqa: E402
+from app.api.routers import (  # noqa: E402
+    action,
+    auth,
+    automation,
+    chat,
+    health,
+    memory,
+    voice,
+)
 from app.core.config import settings  # noqa: E402
 from app.core.di import get_kernel  # noqa: E402
 from app.db.migrations import run_migrations  # noqa: E402
@@ -58,6 +66,7 @@ app.include_router(chat.router)
 app.include_router(memory.router)
 app.include_router(voice.router)
 app.include_router(automation.router)
+app.include_router(action.router)
 
 
 @app.get("/")

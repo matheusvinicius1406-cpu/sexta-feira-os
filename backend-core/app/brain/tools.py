@@ -22,9 +22,10 @@ logger = logging.getLogger("sexta-feira.tools")
 
 
 class ToolKit:
-    def __init__(self, memory, automations):
+    def __init__(self, memory, automations, actions=None):
         self.memory = memory
         self.automations = automations
+        self.actions = actions  # ActionService | None
 
     async def specs(self) -> list[dict]:
         """OpenAI/Ollama-style tool schemas. Injects live automation names as a hint."""
@@ -84,6 +85,27 @@ class ToolKit:
                     },
                 },
             },
+            {
+                "type": "function",
+                "function": {
+                    "name": "device_action",
+                    "description": (
+                        "Manda um dispositivo do dono EXECUTAR uma ação nativa. Use para "
+                        "'abrir app', 'ligar', 'navegar', etc. O 'device' é o corpo alvo "
+                        "('celular', 'computador', 'carro') e 'action'/'params' descrevem o que fazer. "
+                        "Ex.: action='open_app', params={'app':'whatsapp'}."
+                    ),
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "device": {"type": "string", "description": "corpo alvo: celular, computador, carro..."},
+                            "action": {"type": "string", "description": "a ação nativa a executar"},
+                            "params": {"type": "object", "description": "parâmetros da ação"},
+                        },
+                        "required": ["device", "action"],
+                    },
+                },
+            },
         ]
 
     async def dispatch(self, name: str, args: dict[str, Any], db: Session, owner_id: str) -> str:
@@ -105,6 +127,21 @@ class ToolKit:
             if name == "run_automation":
                 out = await self.automations.trigger(args.get("webhook", ""), args.get("payload") or {})
                 return "Automação disparada." if out.get("ok") else f"Falha na automação: {out.get('error', '?')}"
+            if name == "device_action":
+                if not self.actions:
+                    return "Ações em dispositivos não estão disponíveis."
+                out = await self.actions.dispatch(
+                    db, owner_id, args.get("device", ""),
+                    args.get("action", ""), args.get("params") or {},
+                )
+                if not out.get("ok"):
+                    return out.get("error", "Não consegui enviar a ação.")
+                dest = out.get("device", "dispositivo")
+                return (
+                    f"Ação enviada para {dest}."
+                    if out.get("delivered")
+                    else f"Ação enfileirada para {dest} (vai executar quando ele conectar)."
+                )
             return f"Ferramenta desconhecida: {name}"
         except Exception as e:  # noqa: BLE001 — a tool failure must not crash the turn
             logger.warning("tool '%s' failed: %s", name, e)

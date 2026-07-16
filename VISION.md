@@ -55,10 +55,11 @@ Auto-aprende fatos após cada conversa (✅). Pipeline de **fine-tuning (LoRA)**
 absorver o seu jeito de falar/escrever está pronto e documentado, mas **ainda não rodado**.
 *Falta:* rodar o treino nos seus dados; aprender rotina/horários/locais como sinais.
 
-### 🤖 Execução de ações — 🔧 parcial (o cérebro decide; faltam as mãos)
+### 🤖 Execução de ações — 🔧 parcial (cérebro + transporte prontos; falta o executor no corpo)
 Tool-calling agêntico (✅): de uma frase, o cérebro escolhe e dispara `remember`,
-`recall`, `run_automation` (n8n). *Falta:* **executores por dispositivo** para as ações
-nativas abaixo.
+`recall`, `run_automation` (n8n) e `device_action`. O **Protocolo de Ação** (✅) já leva
+`{action, params}` ao corpo alvo (fila persistida + WebSocket ao vivo + resultado). *Falta:*
+o **agente nativo em cada corpo** (Android/Desktop) que de fato executa a ação recebida.
 
 ### 📱 Controle do celular (ligar, apps, câmera, notificações) — 📋 planejado
 Exige um **Agente Android**: recebe ordens do cérebro (WebSocket) e executa via Intents /
