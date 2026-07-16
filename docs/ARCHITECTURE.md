@@ -30,9 +30,10 @@ agindo através de um corpo pareado.
   **chat** e **embeddings**. Cliente httpx compartilhado (pooling). Sem nuvem.
 - `memory.py` — `PersistentMemory`: **grafo de conhecimento**. Cada memória é um nó;
   arestas (`MemoryLink`) conectam nós via `[[wikilinks]]`, similaridade semântica
-  (embeddings locais) e ligações manuais. A recuperação faz *seed* por similaridade
-  e **expande pelas arestas** (backlinks incluídos) — pensamento em rede à la Obsidian.
-  Tudo no SQLite, sobrevive a reinícios.
+  (embeddings locais) e ligações manuais. As arestas automáticas são **nomeadas pelo
+  cérebro** ("trabalha em", "gosta de"...) — não só "related". A recuperação faz *seed*
+  por similaridade e **expande pelas arestas** (backlinks incluídos) — pensamento em
+  rede à la Obsidian. Tudo no SQLite, sobrevive a reinícios.
 - `cognition.py` — o loop: persona + memória recuperada + histórico + mensagem →
   resposta; persiste os turnos; auto-aprende um fato durável (best-effort).
 - `teach.py` — transforma história + memórias em dataset de fine-tuning.

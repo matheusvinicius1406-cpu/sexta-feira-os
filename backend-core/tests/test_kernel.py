@@ -223,3 +223,37 @@ def test_speak_degrades_gracefully(client, owner_headers):
 
 def test_voice_endpoints_require_auth(client):
     assert client.get("/api/v1/voice/status").status_code == 403
+
+
+# ---------------- knowledge graph: smart relation labels ----------------
+
+def test_auto_links_get_named_relations(client, owner_headers):
+    """
+    When the brain is available, a semantic auto-link is NAMED (e.g. 'trabalha em')
+    instead of the generic 'related'. Deterministic via stubbed embed + chat.
+    """
+    from app.core.di import get_kernel
+
+    kernel = get_kernel()
+    orig_embed = kernel.memory.brain.embed
+    orig_chat = kernel.memory.brain.chat
+
+    async def fake_embed(_text: str):
+        return [1.0, 0.0]  # everything is mutually similar -> auto-links
+
+    async def fake_chat(_messages, **_kwargs):
+        return "trabalha em"
+
+    kernel.memory.brain.embed = fake_embed
+    kernel.memory.brain.chat = fake_chat
+    try:
+        client.post("/api/v1/memory", json={"content": "Sou engenheiro"},
+                    headers=owner_headers)
+        b = client.post("/api/v1/memory", json={"content": "Trabalho na Acme"},
+                        headers=owner_headers).json()["id"]
+        nb = client.get(f"/api/v1/memory/{b}/neighbours", headers=owner_headers).json()
+        relations = [link["relation"] for link in nb["links"]]
+        assert "trabalha em" in relations
+    finally:
+        kernel.memory.brain.embed = orig_embed
+        kernel.memory.brain.chat = orig_chat

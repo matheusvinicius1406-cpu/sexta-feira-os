@@ -108,8 +108,29 @@ class PersistentMemory:
         if not mem.embedding:
             return
         for target, sim in self._semantic_neighbours(db, owner_id, mem, settings.graph_autolink_k):
-            self.link(db, owner_id, mem.id, target.id, relation="related",
+            relation = await self._label_relation(mem, target)
+            self.link(db, owner_id, mem.id, target.id, relation=relation,
                       weight=round(sim, 4), origin="semantic")
+
+    async def _label_relation(self, source: Memory, target: Memory) -> str:
+        """Ask the local brain to name the connection (best-effort; 'related' on failure)."""
+        if not settings.graph_relation_labels:
+            return "related"
+        try:
+            prompt = [
+                {"role": "system", "content":
+                    "Nomeie em 1 a 3 palavras a relação entre A e B, do ponto de vista "
+                    "do dono (ex.: 'trabalha em', 'gosta de', 'mora em', 'é amigo de'). "
+                    "Responda SÓ a relação, em minúsculas, sem pontuação. Se não houver "
+                    "relação clara, responda 'related'."},
+                {"role": "user", "content": f"A: {source.content}\nB: {target.content}"},
+            ]
+            raw = await self.brain.chat(prompt, temperature=0.1, max_tokens=12)
+            label = raw.strip().splitlines()[0].strip().strip(".").lower() if raw else ""
+            return label[:40] or "related"
+        except Exception as e:  # noqa: BLE001 — labeling must never break remembering
+            logger.debug("relation labeling skipped: %s", e)
+            return "related"
 
     def _semantic_neighbours(
         self, db: Session, owner_id: str, mem: Memory, k: int

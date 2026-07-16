@@ -92,6 +92,10 @@ class Settings(BaseSettings):
     graph_link_min_similarity: float = float(os.getenv("GRAPH_LINK_MIN_SIMILARITY", "0.55"))
     graph_expand_hops: int = int(os.getenv("GRAPH_EXPAND_HOPS", "1"))
     graph_expand_decay: float = float(os.getenv("GRAPH_EXPAND_DECAY", "0.55"))
+    # Let the brain NAME each auto-link ("trabalha em", "gosta de"...) instead of
+    # a generic "related". Costs one small local LLM call per new edge; falls
+    # back to "related" if the brain is offline.
+    graph_relation_labels: bool = os.getenv("GRAPH_RELATION_LABELS", "true").lower() == "true"
 
     # ============ Voice (local, offline) ============
     # Hearing (STT) and speaking (TTS) run on YOUR machine. Voice is an optional
