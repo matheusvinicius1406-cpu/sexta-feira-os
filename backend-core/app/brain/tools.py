@@ -47,6 +47,11 @@ class ToolKit:
         self.actions = actions        # ActionService | None
         self.scheduler = scheduler    # Scheduler | None
         self.connectors = connectors  # ConnectorService | None
+        self.subagents = None         # SubAgentRunner | None (wired after construction)
+
+    async def specs_subset(self, allowed: list[str]) -> list[dict]:
+        """The tool specs restricted to `allowed` names — used for sub-agents."""
+        return [s for s in await self.specs() if s["function"]["name"] in allowed]
 
     async def specs(self) -> list[dict]:
         """OpenAI/Ollama-style tool schemas. Injects live automation names as a hint."""
@@ -204,6 +209,25 @@ class ToolKit:
                     },
                 },
             },
+            {
+                "type": "function",
+                "function": {
+                    "name": "delegate",
+                    "description": (
+                        "Delega uma sub-tarefa focada a um sub-agente especialista (que roda "
+                        "localmente e devolve um resultado). Use para pesquisa/planejamento "
+                        "que valha isolar. Ex.: role='pesquisador', task='resuma X da memória'."
+                    ),
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "role": {"type": "string", "description": "o papel do sub-agente"},
+                            "task": {"type": "string", "description": "a tarefa a delegar"},
+                        },
+                        "required": ["role", "task"],
+                    },
+                },
+            },
         ]
 
     async def dispatch(self, name: str, args: dict[str, Any], db: Session, owner_id: str) -> str:
@@ -283,6 +307,13 @@ class ToolKit:
                 data = out.get("data")
                 text = data if isinstance(data, str) else json.dumps(data, ensure_ascii=False)
                 return f"Resultado ({out.get('status')}): {text[:1500]}"
+            if name == "delegate":
+                if not self.subagents:
+                    return "Sub-agentes indisponíveis."
+                result = await self.subagents.run(
+                    db, owner_id, args.get("role", "assistente"), args.get("task", "")
+                )
+                return f"Sub-agente ({args.get('role', 'assistente')}): {result[:1500]}"
             return f"Ferramenta desconhecida: {name}"
         except Exception as e:  # noqa: BLE001 — a tool failure must not crash the turn
             logger.warning("tool '%s' failed: %s", name, e)

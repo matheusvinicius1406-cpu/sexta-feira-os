@@ -16,6 +16,7 @@ from app.automation.n8n import N8nClient
 from app.brain.cognition import Cognition
 from app.brain.engine import LocalBrain
 from app.brain.memory import PersistentMemory
+from app.brain.subagents import SubAgentRunner
 from app.brain.tools import ToolKit
 from app.connectors.service import ConnectorService
 from app.connectors.vault import Vault
@@ -55,11 +56,12 @@ class Kernel:
         self.scheduler = Scheduler(self.actions)
         self.connectors = ConnectorService(Vault())
         self.voice = VoiceBox()
-        self.cognition = Cognition(
-            self.brain, self.memory,
-            ToolKit(self.memory, self.automations, self.actions,
-                    self.scheduler, self.connectors),
+        toolkit = ToolKit(
+            self.memory, self.automations, self.actions, self.scheduler, self.connectors
         )
+        if settings.subagents_enabled:
+            toolkit.subagents = SubAgentRunner(self.brain, toolkit)
+        self.cognition = Cognition(self.brain, self.memory, toolkit)
         self._ready = True
 
         if settings.scheduler_enabled:

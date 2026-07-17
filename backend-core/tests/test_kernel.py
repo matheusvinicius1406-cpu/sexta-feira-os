@@ -681,3 +681,50 @@ def test_brain_calls_api_capability(client, owner_headers):
     finally:
         brain.chat_with_tools = orig_chat
         conn._client.request = orig_req
+
+
+# ---------------- sub-agents (the brain delegates to local helpers) ----------------
+
+def test_subagent_toolset_is_restricted():
+    import asyncio
+
+    from app.core.config import settings
+    from app.core.di import get_kernel
+
+    toolkit = get_kernel().cognition.toolkit
+    subset = asyncio.run(toolkit.specs_subset(settings.subagent_allowed_tools))
+    names = {s["function"]["name"] for s in subset}
+    assert names <= set(settings.subagent_allowed_tools)
+    # irreversible/real-world tools and delegation are NOT available to sub-agents
+    assert "delegate" not in names
+    assert "device_action" not in names
+    assert "run_automation" not in names
+
+
+def test_brain_delegates_to_subagent(client, owner_headers):
+    from app.core.di import get_kernel
+
+    brain = get_kernel().cognition.brain
+    original = brain.chat_with_tools
+
+    async def fake_tools(messages, tools=None, **_kwargs):
+        system = messages[0]["content"] if messages else ""
+        if "sub-agente" in system:                      # the sub-agent: answer directly
+            return {"role": "assistant", "content": "Resumo do pesquisador: OK."}
+        if any(m.get("role") == "tool" for m in messages):   # main brain got the result
+            return {"role": "assistant", "content": "Deleguei e concluí a pesquisa."}
+        return {                                         # main brain: delegate first
+            "role": "assistant", "content": "",
+            "tool_calls": [{"function": {"name": "delegate",
+                                         "arguments": {"role": "pesquisador",
+                                                       "task": "resuma o tema X"}}}],
+        }
+
+    brain.chat_with_tools = fake_tools
+    try:
+        r = client.post("/api/v1/chat", json={"message": "pesquisa o tema X pra mim"},
+                        headers=owner_headers)
+        assert r.status_code == 200
+        assert "conclu" in r.json()["reply"].lower()
+    finally:
+        brain.chat_with_tools = original

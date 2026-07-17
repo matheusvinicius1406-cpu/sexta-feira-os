@@ -75,6 +75,13 @@ injection. Segredos ficam num **cofre Fernet** (`vault.py`), criptografados em r
 nunca retornados pela API. Endpoints em `api/routers/connectors.py`. Escala para
 milhares de APIs sem mudar o kernel. Seed inicial: `scripts/seed_connectors.py`.
 
+### 3c-5. Sub-agentes (`app/brain/subagents.py`) — o cérebro cria auxiliares
+`SubAgentRunner`: o cérebro pode `delegate(role, task)` a um sub-agente que roda no
+**mesmo modelo local**, com um **toolset restrito** (`SUBAGENT_ALLOWED_TOOLS`, por padrão
+só consulta/conhecimento — nada irreversível), faz sua parte e devolve um resultado
+conciso. Sub-agentes **não podem delegar** (sem recursão) e são owner-scoped — não
+violam o "só meu". É o mesmo laço de ferramentas, isolado e limitado.
+
 ### 3d. Tool-calling agêntico (`app/brain/tools.py`) — pensar → agir
 `ToolKit` expõe ao cérebro ferramentas que ele decide usar sozinho durante a conversa
 (`remember`, `recall`, `run_automation`) via tool-calling nativo do Ollama. O laço vive

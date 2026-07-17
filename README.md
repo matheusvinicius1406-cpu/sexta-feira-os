@@ -17,6 +17,7 @@ sai deste host — não há OpenAI, Claude, Gemini nem qualquer LLM externo.**
 - 🤖 **Ele age sozinho** — do celular, por voz: "me lembra do dentista amanhã" → o cérebro decide e dispara a automação/ação/lembrete certo (tool-calling), sem terminal.
 - ⏰ **Ele lembra na hora certa** — agenda lembretes e ações no tempo ("me lembra disso daqui a 2 meses") e dispara sozinho quando chega a hora.
 - 🔌 **Ele executa (quase) tudo** — um sistema de **conectores de API**: você cadastra capacidades (uma vez), o cérebro as chama pelo nome. Chaves de API ficam **criptografadas** e o cérebro só chama o que você definiu (sem URL arbitrária).
+- 🧑‍🤝‍🧑 **Ele cria auxiliares** — o cérebro **delega** sub-tarefas a **sub-agentes** locais (pesquisador, planejador…), com ferramentas restritas (consultam, não agem no mundo) — tudo local e privado.
 - 📚 **Ele aprende com você** — sua história vira dataset para *fine-tuning* (LoRA); o modelo fica cada vez mais *seu*.
 - 🕵️ **Sem telemetria** — nada é rastreado, nada é enviado.
 

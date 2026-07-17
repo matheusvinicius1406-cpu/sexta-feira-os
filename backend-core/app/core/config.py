@@ -72,6 +72,18 @@ class Settings(BaseSettings):
     # during a normal conversation — driven by voice/chat from the phone, no terminal.
     tools_enabled: bool = os.getenv("TOOLS_ENABLED", "true").lower() == "true"
     tool_max_rounds: int = int(os.getenv("TOOL_MAX_ROUNDS", "4"))
+    # Sub-agents: the brain can delegate a sub-task to a focused helper that runs
+    # on the SAME local model with a RESTRICTED toolset (query/knowledge only by
+    # default — irreversible real-world actions stay with the main brain). Local
+    # and owner-scoped, so it never breaks 'só meu'. Sub-agents can't delegate
+    # further (no recursion).
+    subagents_enabled: bool = os.getenv("SUBAGENTS_ENABLED", "true").lower() == "true"
+    subagent_max_rounds: int = int(os.getenv("SUBAGENT_MAX_ROUNDS", "3"))
+    subagent_allowed_tools: list[str] = [
+        t.strip() for t in os.getenv(
+            "SUBAGENT_ALLOWED_TOOLS", "recall,list_capabilities,call_api"
+        ).split(",") if t.strip()
+    ]
     # Scheduler: fire reminders / timed actions when due. Background loop; the
     # firing logic itself is a pure method (run_due) so it's easy to test.
     scheduler_enabled: bool = os.getenv("SCHEDULER_ENABLED", "true").lower() == "true"

@@ -93,6 +93,11 @@ milhares de APIs. *Falta:* catálogo grande semeado + busca na web como capacida
 Wearables e casa entram via **conectores/n8n**. Saúde: sugere hábitos e quando procurar
 profissional; **nunca** diagnostica.
 
+### 🧑‍🤝‍🧑 Sub-agentes (Jarvis cria auxiliares) — 🔧 base pronta
+O cérebro **delega** sub-tarefas a sub-agentes locais especializados (✅), com toolset
+restrito (consultam, não agem no mundo) e sem recursão — local e owner-scoped. *Falta:*
+sub-agentes persistentes/nomeados e um "conselho" que delibera.
+
 ### 🎭 Personalidade — ✅ configurável
 Persona (leal, natural, proativa, discreta) definida em config; lembra do contexto.
 
