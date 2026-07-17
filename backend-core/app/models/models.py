@@ -171,3 +171,43 @@ class ScheduledTask(Base):
     status = Column(String, default="pending", index=True)  # pending|fired|cancelled
     created_at = Column(DateTime, default=_now, index=True)
     fired_at = Column(DateTime, nullable=True)
+
+
+class Secret(Base):
+    """
+    An owner secret (API key/token), ENCRYPTED at rest (Fernet). Never returned by
+    the API — only its name. This is what keeps 'é só meu' true for connectors.
+    """
+    __tablename__ = "secrets"
+
+    id = Column(String, primary_key=True, index=True)
+    owner_id = Column(String, ForeignKey("owner.id", ondelete="CASCADE"), index=True, nullable=False)
+    name = Column(String, nullable=False, index=True)
+    value_encrypted = Column(Text, nullable=False)
+    created_at = Column(DateTime, default=_now)
+    updated_at = Column(DateTime, default=_now, onupdate=_now)
+
+
+class Capability(Base):
+    """
+    A CONNECTOR: one owner-defined API call the brain can invoke by name ("execute
+    everything"). The brain never calls arbitrary URLs — only these curated
+    capabilities — so there's no SSRF from prompt injection. Templates ({param},
+    {secret:NAME}) are filled at call time; secrets come from the encrypted vault.
+    """
+    __tablename__ = "capabilities"
+
+    id = Column(String, primary_key=True, index=True)
+    owner_id = Column(String, ForeignKey("owner.id", ondelete="CASCADE"), index=True, nullable=False)
+    name = Column(String, nullable=False, index=True)         # unique per owner
+    description = Column(Text, nullable=False)
+    category = Column(String, default="general")
+    method = Column(String, default="GET")
+    url = Column(Text, nullable=False)                        # may contain {param}
+    query = Column(Text, nullable=True)                       # JSON dict of key->template
+    headers = Column(Text, nullable=True)                     # JSON dict (may use {secret:NAME})
+    body = Column(Text, nullable=True)                        # JSON template (for POST/PUT)
+    params_schema = Column(Text, nullable=True)               # JSON list of {name,description,required}
+    enabled = Column(Boolean, default=True, nullable=False)
+    created_at = Column(DateTime, default=_now)
+    updated_at = Column(DateTime, default=_now, onupdate=_now)

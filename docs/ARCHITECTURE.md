@@ -67,6 +67,14 @@ vencem, pelo Protocolo de Ação (um lembrete vira uma ação `notify` no celula
 `SCHEDULER_ENABLED`) só o chama no intervalo. Suporta recorrência. Endpoints em
 `api/routers/schedule.py`.
 
+### 3c-4. Conectores de API (`app/connectors`) — executar (quase) tudo
+Registro de **capacidades**: cada uma é uma chamada de API que o dono define (método,
+url, query, headers, body — com templates `{param}` e `{secret:NOME}`). O cérebro
+invoca **por nome** (`call_api`), nunca uma URL arbitrária → sem SSRF por prompt
+injection. Segredos ficam num **cofre Fernet** (`vault.py`), criptografados em repouso,
+nunca retornados pela API. Endpoints em `api/routers/connectors.py`. Escala para
+milhares de APIs sem mudar o kernel. Seed inicial: `scripts/seed_connectors.py`.
+
 ### 3d. Tool-calling agêntico (`app/brain/tools.py`) — pensar → agir
 `ToolKit` expõe ao cérebro ferramentas que ele decide usar sozinho durante a conversa
 (`remember`, `recall`, `run_automation`) via tool-calling nativo do Ollama. O laço vive

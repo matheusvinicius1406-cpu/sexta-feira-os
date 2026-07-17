@@ -23,6 +23,7 @@ from app.api.routers import (  # noqa: E402
     auth,
     automation,
     chat,
+    connectors,
     health,
     memory,
     schedule,
@@ -69,6 +70,7 @@ app.include_router(voice.router)
 app.include_router(automation.router)
 app.include_router(action.router)
 app.include_router(schedule.router)
+app.include_router(connectors.router)
 
 
 @app.get("/")

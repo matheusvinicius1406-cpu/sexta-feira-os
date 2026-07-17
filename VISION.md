@@ -84,10 +84,14 @@ agendadas no tempo** já funcionam (✅ agendador: "me lembra disso daqui a 2 me
 dispara sozinho na hora). Flashcards, montar lab, cronogramas viram **tools/automações**.
 *Escopo:* só ambientes próprios e autorizados.
 
-### ❤️ Saúde & wearables · 🏠 Casa inteligente · 🌐 Internet — 📋 planejado
-Wearables e casa entram via **conectores/n8n**; busca na web vira uma **tool**
-(a busca consulta a internet por escolha sua — não é vazamento do cérebro). Saúde:
-sugere hábitos e quando procurar profissional; **nunca** diagnostica.
+### 🌐 Internet / APIs ("executar tudo") — 🔧 base pronta
+**Sistema de conectores** (✅): o dono cadastra capacidades de API e o cérebro as
+executa por nome; chaves criptografadas (cofre Fernet), sem URL arbitrária. Escala p/
+milhares de APIs. *Falta:* catálogo grande semeado + busca na web como capacidade padrão.
+
+### ❤️ Saúde & wearables · 🏠 Casa inteligente — 📋 planejado
+Wearables e casa entram via **conectores/n8n**. Saúde: sugere hábitos e quando procurar
+profissional; **nunca** diagnostica.
 
 ### 🎭 Personalidade — ✅ configurável
 Persona (leal, natural, proativa, discreta) definida em config; lembra do contexto.

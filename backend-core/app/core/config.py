@@ -128,6 +128,16 @@ class Settings(BaseSettings):
     n8n_api_key: str = os.getenv("N8N_API_KEY", "")   # n8n Public API key (for listing)
     n8n_webhook_prefix: str = os.getenv("N8N_WEBHOOK_PREFIX", "webhook")  # or 'webhook-test'
 
+    # ============ Connectors (API capabilities) ============
+    # The brain can invoke owner-defined API "capabilities" to execute anything.
+    # Secrets (API keys) are ENCRYPTED at rest with VAULT_KEY (a Fernet key). If
+    # unset, an ephemeral key is generated per boot (secrets won't survive a
+    # restart) — set VAULT_KEY in production. Generate one with:
+    #   python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+    vault_key: str = os.getenv("VAULT_KEY", "")
+    connectors_timeout_seconds: float = float(os.getenv("CONNECTORS_TIMEOUT_SECONDS", "30"))
+    connectors_max_response_kb: int = int(os.getenv("CONNECTORS_MAX_RESPONSE_KB", "256"))
+
     # ============ Privacy ============
     # Loopback-only origins. The kernel refuses cross-origin browser calls.
     cors_origins: list[str] = [

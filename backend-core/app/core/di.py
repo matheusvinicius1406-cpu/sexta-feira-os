@@ -17,6 +17,8 @@ from app.brain.cognition import Cognition
 from app.brain.engine import LocalBrain
 from app.brain.memory import PersistentMemory
 from app.brain.tools import ToolKit
+from app.connectors.service import ConnectorService
+from app.connectors.vault import Vault
 from app.core.config import settings
 from app.db.database import SessionLocal
 from app.models.models import Owner
@@ -38,6 +40,7 @@ class Kernel:
         self.action_bus: CommandBus | None = None
         self.actions: ActionService | None = None
         self.scheduler: Scheduler | None = None
+        self.connectors: ConnectorService | None = None
         self._scheduler_task: asyncio.Task | None = None
         self._ready = False
 
@@ -50,10 +53,12 @@ class Kernel:
         self.action_bus = CommandBus()
         self.actions = ActionService(self.action_bus)
         self.scheduler = Scheduler(self.actions)
+        self.connectors = ConnectorService(Vault())
         self.voice = VoiceBox()
         self.cognition = Cognition(
             self.brain, self.memory,
-            ToolKit(self.memory, self.automations, self.actions, self.scheduler),
+            ToolKit(self.memory, self.automations, self.actions,
+                    self.scheduler, self.connectors),
         )
         self._ready = True
 
@@ -121,6 +126,8 @@ class Kernel:
             await self.brain.aclose()
         if self.automations:
             await self.automations.aclose()
+        if self.connectors:
+            await self.connectors.aclose()
 
 
 _kernel = Kernel()
@@ -170,3 +177,9 @@ def get_scheduler() -> Scheduler:
     if not _kernel.scheduler:
         raise RuntimeError("Kernel not started")
     return _kernel.scheduler
+
+
+def get_connectors() -> ConnectorService:
+    if not _kernel.connectors:
+        raise RuntimeError("Kernel not started")
+    return _kernel.connectors

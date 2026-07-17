@@ -41,11 +41,12 @@ def _compute_due(args: dict) -> datetime | None:
 
 
 class ToolKit:
-    def __init__(self, memory, automations, actions=None, scheduler=None):
+    def __init__(self, memory, automations, actions=None, scheduler=None, connectors=None):
         self.memory = memory
         self.automations = automations
-        self.actions = actions      # ActionService | None
-        self.scheduler = scheduler  # Scheduler | None
+        self.actions = actions        # ActionService | None
+        self.scheduler = scheduler    # Scheduler | None
+        self.connectors = connectors  # ConnectorService | None
 
     async def specs(self) -> list[dict]:
         """OpenAI/Ollama-style tool schemas. Injects live automation names as a hint."""
@@ -170,6 +171,39 @@ class ToolKit:
                     },
                 },
             },
+            {
+                "type": "function",
+                "function": {
+                    "name": "list_capabilities",
+                    "description": (
+                        "Lista as capacidades de API disponíveis (buscáveis) que você pode "
+                        "chamar para consultar/agir no mundo. Use ANTES de call_api para "
+                        "descobrir o nome e os parâmetros certos."
+                    ),
+                    "parameters": {
+                        "type": "object",
+                        "properties": {"query": {"type": "string", "description": "filtro opcional"}},
+                    },
+                },
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "call_api",
+                    "description": (
+                        "Executa uma capacidade de API definida pelo dono, pelo nome "
+                        "(descubra com list_capabilities). Passe 'params' conforme o schema dela."
+                    ),
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "capability": {"type": "string", "description": "nome da capacidade"},
+                            "params": {"type": "object", "description": "parâmetros da chamada"},
+                        },
+                        "required": ["capability"],
+                    },
+                },
+            },
         ]
 
     async def dispatch(self, name: str, args: dict[str, Any], db: Session, owner_id: str) -> str:
@@ -229,6 +263,26 @@ class ToolKit:
                     params=args.get("params") or {},
                 )
                 return f"Ação agendada para {due.isoformat(timespec='minutes')}."
+            if name == "list_capabilities":
+                if not self.connectors:
+                    return "Conectores indisponíveis."
+                caps = self.connectors.list_capabilities(db, owner_id, args.get("query"))
+                if not caps:
+                    return "Nenhuma capacidade de API cadastrada ainda."
+                return "Capacidades disponíveis:\n" + "\n".join(
+                    f"- {c['name']}: {c['description']}" for c in caps[:40]
+                )
+            if name == "call_api":
+                if not self.connectors:
+                    return "Conectores indisponíveis."
+                out = await self.connectors.invoke(
+                    db, owner_id, args.get("capability", ""), args.get("params") or {}
+                )
+                if not out.get("ok"):
+                    return f"Falha na API: {out.get('error') or out.get('status')}"
+                data = out.get("data")
+                text = data if isinstance(data, str) else json.dumps(data, ensure_ascii=False)
+                return f"Resultado ({out.get('status')}): {text[:1500]}"
             return f"Ferramenta desconhecida: {name}"
         except Exception as e:  # noqa: BLE001 — a tool failure must not crash the turn
             logger.warning("tool '%s' failed: %s", name, e)

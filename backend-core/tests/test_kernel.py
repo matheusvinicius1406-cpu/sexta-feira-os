@@ -568,3 +568,116 @@ def test_brain_schedules_reminder(client, owner_headers):
         assert any("estudar redes" in (t["text"] or "") for t in scheduled)
     finally:
         brain.chat_with_tools = original
+
+
+# ---------------- connectors (the API capability system) ----------------
+
+def test_connectors_require_auth(client):
+    assert client.get("/api/v1/connectors").status_code == 403
+
+
+def test_capability_crud(client, owner_headers):
+    r = client.post("/api/v1/connectors",
+                    json={"name": "hora", "description": "hora certa", "url": "https://x/time"},
+                    headers=owner_headers)
+    assert r.status_code == 200
+    assert any(c["name"] == "hora"
+               for c in client.get("/api/v1/connectors", headers=owner_headers).json())
+    assert client.get("/api/v1/connectors/hora", headers=owner_headers).json()["url"] == "https://x/time"
+    assert client.delete("/api/v1/connectors/hora", headers=owner_headers).status_code == 200
+
+
+def test_secret_is_encrypted_at_rest(client, owner_headers):
+    from app.db.database import SessionLocal
+    from app.models.models import Secret
+
+    client.post("/api/v1/connectors/secrets",
+                json={"name": "TKN", "value": "plain-value-xyz"}, headers=owner_headers)
+    db = SessionLocal()
+    try:
+        s = db.query(Secret).filter(Secret.name == "TKN").first()
+        assert s is not None
+        assert "plain-value-xyz" not in s.value_encrypted   # stored encrypted, not plaintext
+    finally:
+        db.close()
+    # the API exposes only NAMES, never values
+    assert "TKN" in client.get("/api/v1/connectors/secrets", headers=owner_headers).json()["names"]
+
+
+def test_call_unknown_capability_is_graceful(client, owner_headers):
+    r = client.post("/api/v1/connectors/nope/call", json={"params": {}}, headers=owner_headers)
+    assert r.status_code == 200 and r.json()["ok"] is False
+
+
+def test_connector_invoke_renders_param_and_secret(client, owner_headers):
+    import httpx
+
+    from app.core.di import get_kernel
+
+    conn = get_kernel().connectors
+    captured: dict = {}
+
+    async def fake_request(method, url, params=None, headers=None, json=None, timeout=None):
+        captured.update(method=method, url=url, params=params, headers=headers)
+        return httpx.Response(200, json={"echo": "ok"})
+
+    original = conn._client.request
+    conn._client.request = fake_request
+    try:
+        client.post("/api/v1/connectors/secrets",
+                    json={"name": "WKEY", "value": "super-secret-123"}, headers=owner_headers)
+        client.post("/api/v1/connectors", json={
+            "name": "weather", "description": "clima", "method": "GET",
+            "url": "https://api.example.com/weather/{city}",
+            "query": {"units": "metric"},
+            "headers": {"Authorization": "Bearer {secret:WKEY}"},
+            "params_schema": [{"name": "city", "required": True}],
+        }, headers=owner_headers)
+
+        r = client.post("/api/v1/connectors/weather/call",
+                        json={"params": {"city": "Recife"}}, headers=owner_headers)
+        assert r.status_code == 200
+        assert r.json()["ok"] is True and r.json()["data"] == {"echo": "ok"}
+        # templating: param filled into the URL, secret injected into the header
+        assert captured["url"] == "https://api.example.com/weather/Recife"
+        assert captured["headers"]["Authorization"] == "Bearer super-secret-123"
+        assert captured["params"] == {"units": "metric"}
+    finally:
+        conn._client.request = original
+
+
+def test_brain_calls_api_capability(client, owner_headers):
+    import httpx
+
+    from app.core.di import get_kernel
+
+    kernel = get_kernel()
+    conn = kernel.connectors
+    client.post("/api/v1/connectors",
+                json={"name": "dolar", "description": "cotação do dólar", "url": "https://x/usd"},
+                headers=owner_headers)
+
+    async def fake_request(method, url, params=None, headers=None, json=None, timeout=None):
+        return httpx.Response(200, json={"usd": 5.1})
+
+    orig_req = conn._client.request
+    conn._client.request = fake_request
+    brain = kernel.cognition.brain
+    orig_chat = brain.chat_with_tools
+    state = {"n": 0}
+
+    async def fake_tools(messages, tools=None, **_kwargs):
+        state["n"] += 1
+        if state["n"] == 1:
+            return {"role": "assistant", "content": "",
+                    "tool_calls": [{"function": {"name": "call_api",
+                                                 "arguments": {"capability": "dolar", "params": {}}}}]}
+        return {"role": "assistant", "content": "O dólar está em 5.1."}
+
+    brain.chat_with_tools = fake_tools
+    try:
+        r = client.post("/api/v1/chat", json={"message": "quanto está o dólar?"}, headers=owner_headers)
+        assert r.status_code == 200 and "5.1" in r.json()["reply"]
+    finally:
+        brain.chat_with_tools = orig_chat
+        conn._client.request = orig_req
