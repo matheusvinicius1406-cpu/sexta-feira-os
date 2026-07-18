@@ -42,7 +42,7 @@ def _compute_due(args: dict) -> datetime | None:
 
 class ToolKit:
     def __init__(self, memory, automations, actions=None, scheduler=None,
-                 connectors=None, world=None, planning=None):
+                 connectors=None, world=None, planning=None, decision=None):
         self.memory = memory
         self.automations = automations
         self.actions = actions        # ActionService | None
@@ -50,6 +50,7 @@ class ToolKit:
         self.connectors = connectors  # ConnectorService | None
         self.world = world            # WorldModel | None — the present + owner model
         self.planning = planning      # PlanningEngine | None — goals + decomposition
+        self.decision = decision      # DecisionEngine | None — choose under constraints
         self.subagents = None         # SubAgentRunner | None (wired after construction)
 
     async def specs_subset(self, allowed: list[str]) -> list[dict]:
@@ -280,6 +281,18 @@ class ToolKit:
             {
                 "type": "function",
                 "function": {
+                    "name": "decide_next",
+                    "description": (
+                        "Pergunta ao motor de decisão QUAL objetivo focar agora. Ele pondera "
+                        "prioridade, prazo e andamento (e adapta à energia inferida do dono), "
+                        "escolhe de forma determinística e explica o porquê. Sem argumentos."
+                    ),
+                    "parameters": {"type": "object", "properties": {}},
+                },
+            },
+            {
+                "type": "function",
+                "function": {
                     "name": "remember_context",
                     "description": (
                         "Atualiza o estado do AGORA (World Model): um fato do presente por "
@@ -458,6 +471,13 @@ class ToolKit:
                     return "Planejamento indisponível."
                 g = await self.planning.complete(db, owner_id, args.get("goal_id", ""))
                 return f"Objetivo concluído: {g.title}" if g else "Objetivo não encontrado."
+            if name == "decide_next":
+                if not self.decision:
+                    return "Motor de decisão indisponível."
+                d = await self.decision.decide_next_goal(db, owner_id)
+                if not d:
+                    return "Nenhum objetivo elegível para focar agora."
+                return f"Focar em: {d.chosen_label}. {d.rationale}"
             if name == "remember_context":
                 if not self.world:
                     return "World Model indisponível."

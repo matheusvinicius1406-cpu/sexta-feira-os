@@ -271,6 +271,26 @@ class GoalDependency(Base):
     created_at = Column(DateTime, default=_now)
 
 
+class Decision(Base):
+    """
+    A DECISION the Decision Engine made — choosing among alternatives under
+    constraints/policies. Persisted so we can always answer "por que o JARVIS
+    fez X?": it records the question, the policy used, the chosen option, a
+    human rationale and the full scored alternatives. Auditable by design.
+    """
+    __tablename__ = "decisions"
+
+    id = Column(String, primary_key=True, index=True)
+    owner_id = Column(String, ForeignKey("owner.id", ondelete="CASCADE"), index=True, nullable=False)
+    question = Column(String, nullable=False, index=True)     # e.g. "next_goal"
+    policy = Column(String, default="default")               # which policy weighted the score
+    chosen_id = Column(String, nullable=True)                # id of the chosen option (e.g. a goal)
+    chosen_label = Column(String, nullable=True)
+    rationale = Column(Text, nullable=True)                  # why, in plain words
+    options = Column(Text, nullable=True)                    # JSON: the scored alternatives
+    created_at = Column(DateTime, default=_now, index=True)
+
+
 class Event(Base):
     """
     An EVENT on the kernel's event bus — the Event-Driven backbone. Something that
