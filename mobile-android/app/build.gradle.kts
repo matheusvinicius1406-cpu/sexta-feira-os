@@ -51,7 +51,7 @@ android {
     }
 
     composeOptions {
-        kotlinCompilerExtensionVersion = "1.5.3"
+        kotlinCompilerExtensionVersion = rootProject.extra.get("composeCompilerExtensionVersion") as String
     }
 
     packagingOptions {

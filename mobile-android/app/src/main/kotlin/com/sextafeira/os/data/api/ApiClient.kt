@@ -1,5 +1,6 @@
 package com.sextafeira.os.data.api
 
+import com.sextafeira.os.data.network.AuthInterceptor
 import okhttp3.OkHttpClient
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
@@ -20,23 +21,28 @@ object ApiClient {
     @Volatile
     var baseUrl: String = "http://10.0.2.2:8000/"
 
-    private val http: OkHttpClient = OkHttpClient.Builder()
-        .connectTimeout(15, TimeUnit.SECONDS)
-        .readTimeout(120, TimeUnit.SECONDS)   // local models can take a moment
-        .build()
-
     @Volatile
     private var cached: Pair<String, SextaFeiraApi>? = null
+
+    /** Build API instance with a custom OkHttpClient (used by Hilt). */
+    fun buildApi(client: OkHttpClient): SextaFeiraApi {
+        return Retrofit.Builder()
+            .baseUrl(baseUrl)
+            .client(client)
+            .addConverterFactory(GsonConverterFactory.create())
+            .build()
+            .create(SextaFeiraApi::class.java)
+    }
 
     val api: SextaFeiraApi
         get() {
             cached?.let { (url, svc) -> if (url == baseUrl) return svc }
-            val svc = Retrofit.Builder()
-                .baseUrl(baseUrl)
-                .client(http)
-                .addConverterFactory(GsonConverterFactory.create())
+            val http = OkHttpClient.Builder()
+                .connectTimeout(15, TimeUnit.SECONDS)
+                .readTimeout(120, TimeUnit.SECONDS)
+                .addInterceptor(AuthInterceptor())
                 .build()
-                .create(SextaFeiraApi::class.java)
+            val svc = buildApi(http)
             cached = baseUrl to svc
             return svc
         }
@@ -52,7 +58,14 @@ object Session {
     var ownerId: String? = null
         private set
 
+    /** Set memory only (no DataStore persist). Use SessionManager.save() for persistence. */
     fun set(token: String, ownerId: String) {
+        this.token = token
+        this.ownerId = ownerId
+    }
+
+    /** Set memory only (called by SessionManager when loading from DataStore). */
+    fun restore(token: String, ownerId: String) {
         this.token = token
         this.ownerId = ownerId
     }

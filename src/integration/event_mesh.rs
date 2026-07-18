@@ -64,18 +64,20 @@ impl EventMesh {
         }
 
         match self.tx.send(event) {
-            Ok(_) => {
+            Ok(remaining) => {
+                // `send` returns the number of remaining slots when successful.
+                // Low remaining capacity ≈ backpressure building up.
                 self.events_sent.fetch_add(1, Ordering::Relaxed);
+                if remaining < self.capacity / 4 {
+                    self.backpressure_high.fetch_add(1, Ordering::Relaxed);
+                }
                 Ok(())
             }
-            Err(_) => {
+            Err(e) => {
+                // broadcast::SendError — all receivers lagged behind.
                 self.events_dropped.fetch_add(1, Ordering::Relaxed);
-                if subscriber_count > self.capacity / 2 {
-                    self.backpressure_high.fetch_add(1, Ordering::Relaxed);
-                    Err(EventError::BackpressureTriggered)
-                } else {
-                    Err(EventError::SendFailed)
-                }
+                self.backpressure_high.fetch_add(1, Ordering::Relaxed);
+                Err(EventError::BackpressureTriggered)
             }
         }
     }
