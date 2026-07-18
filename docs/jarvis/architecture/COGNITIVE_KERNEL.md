@@ -37,7 +37,7 @@ O Kernel é composto por motores modulares e substituíveis, cada um com contrat
 | **Memory Interface** | porta para a Memória Persistente | `MEMORY_ARCHITECTURE.md` |
 | **Planning Engine** | objetivos → planos → subtarefas | `[PARCIAL]` — existe (ADR-0003): prioridade, prazo, dependências, progresso, decomposição |
 | **Reasoning (LLM adapter)** | mecanismo de raciocínio acionável e trocável | este |
-| **Decision Engine** | escolha sob restrições e políticas | este / futuro |
+| **Decision Engine** | escolha sob restrições e políticas | `[PARCIAL]` — existe (ADR-0004): scoring ponderado, política adaptável ao dono, auditável |
 | **Task Scheduler** | executar/pausar/repriorizar/reagendar | `EVENT_ARCHITECTURE.md` |
 | **Tool Dispatcher** | selecionar, despachar, validar, registrar ferramentas | `API_ECOSYSTEM.md` |
 | **Sub-Agent Coordinator** | delegar a agentes e consolidar | `AGENT_SYSTEM.md` |

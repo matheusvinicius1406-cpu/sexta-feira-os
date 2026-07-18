@@ -22,6 +22,7 @@ from app.connectors.service import ConnectorService
 from app.connectors.vault import Vault
 from app.core.config import settings
 from app.db.database import SessionLocal
+from app.decision.service import DecisionEngine
 from app.events.bus import EventBus
 from app.events.projector import WorldModelProjector
 from app.models.models import Owner
@@ -42,6 +43,7 @@ class Kernel:
         self.world: WorldModel | None = None
         self.events: EventBus | None = None
         self.planning: PlanningEngine | None = None
+        self.decision: DecisionEngine | None = None
         self.cognition: Cognition | None = None
         self.voice: VoiceBox | None = None
         self.automations: N8nClient | None = None
@@ -62,6 +64,9 @@ class Kernel:
         # Every event has a chance to update the present (World Model).
         self.events.subscribe("*", WorldModelProjector(self.world).handle, "world-model-projector")
         self.planning = PlanningEngine(world=self.world, events=self.events)
+        self.decision = DecisionEngine(
+            planning=self.planning, world=self.world, events=self.events
+        )
         self.automations = N8nClient()
         self.action_bus = CommandBus()
         self.actions = ActionService(self.action_bus)
@@ -70,7 +75,7 @@ class Kernel:
         self.voice = VoiceBox()
         toolkit = ToolKit(
             self.memory, self.automations, self.actions, self.scheduler,
-            self.connectors, self.world, self.planning,
+            self.connectors, self.world, self.planning, self.decision,
         )
         if settings.subagents_enabled:
             toolkit.subagents = SubAgentRunner(self.brain, toolkit)
@@ -180,6 +185,12 @@ def get_planning() -> PlanningEngine:
     if not _kernel.planning:
         raise RuntimeError("Kernel not started")
     return _kernel.planning
+
+
+def get_decision() -> DecisionEngine:
+    if not _kernel.decision:
+        raise RuntimeError("Kernel not started")
+    return _kernel.decision
 
 
 def get_voice() -> VoiceBox:
