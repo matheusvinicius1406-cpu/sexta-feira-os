@@ -22,6 +22,8 @@ from app.connectors.service import ConnectorService
 from app.connectors.vault import Vault
 from app.core.config import settings
 from app.db.database import SessionLocal
+from app.events.bus import EventBus
+from app.events.projector import WorldModelProjector
 from app.models.models import Owner
 from app.schedule.service import Scheduler
 from app.voice.box import VoiceBox
@@ -37,6 +39,7 @@ class Kernel:
         self.brain: LocalBrain | None = None
         self.memory: PersistentMemory | None = None
         self.world: WorldModel | None = None
+        self.events: EventBus | None = None
         self.cognition: Cognition | None = None
         self.voice: VoiceBox | None = None
         self.automations: N8nClient | None = None
@@ -53,10 +56,13 @@ class Kernel:
         self.brain = LocalBrain()
         self.memory = PersistentMemory(self.brain)
         self.world = WorldModel()
+        self.events = EventBus()
+        # Every event has a chance to update the present (World Model).
+        self.events.subscribe("*", WorldModelProjector(self.world).handle, "world-model-projector")
         self.automations = N8nClient()
         self.action_bus = CommandBus()
         self.actions = ActionService(self.action_bus)
-        self.scheduler = Scheduler(self.actions)
+        self.scheduler = Scheduler(self.actions, events=self.events)
         self.connectors = ConnectorService(Vault())
         self.voice = VoiceBox()
         toolkit = ToolKit(
@@ -159,6 +165,12 @@ def get_world() -> WorldModel:
     if not _kernel.world:
         raise RuntimeError("Kernel not started")
     return _kernel.world
+
+
+def get_events() -> EventBus:
+    if not _kernel.events:
+        raise RuntimeError("Kernel not started")
+    return _kernel.events
 
 
 def get_voice() -> VoiceBox:

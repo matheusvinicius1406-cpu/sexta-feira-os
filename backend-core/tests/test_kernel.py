@@ -4,40 +4,9 @@ End-to-end tests for the private local kernel.
 These run without Ollama: chat degrades gracefully to 503, and memory is
 stored without an embedding. They prove the auth + memory + device + privacy
 surface actually works. Run with:  pytest -q
+
+Shared env + `client`/`owner_headers` fixtures live in conftest.py.
 """
-import os
-import uuid
-
-import pytest
-from fastapi.testclient import TestClient
-
-# Configure an isolated, ephemeral kernel BEFORE importing the app.
-os.environ.update(
-    ENVIRONMENT="development",
-    LOG_LEVEL="CRITICAL",
-    OWNER_EMAIL="owner@test.local",
-    OWNER_NAME="Test Owner",
-    OWNER_PASSWORD="a-strong-test-password",
-    DEVICE_PAIRING_CODE="pair-code-123",
-    SCHEDULER_ENABLED="false",  # tests drive run_due() directly, deterministically
-    DATABASE_URL=f"sqlite:////tmp/sexta_test_{uuid.uuid4().hex}.db",
-)
-
-from app.main import app  # noqa: E402
-
-
-@pytest.fixture(scope="module")
-def client():
-    with TestClient(app) as c:
-        yield c
-
-
-@pytest.fixture(scope="module")
-def owner_headers(client):
-    r = client.post("/api/v1/auth/login",
-                    json={"email": "owner@test.local", "password": "a-strong-test-password"})
-    assert r.status_code == 200
-    return {"Authorization": f"Bearer {r.json()['access_token']}"}
 
 
 def test_health(client):

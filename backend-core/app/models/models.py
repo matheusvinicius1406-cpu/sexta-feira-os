@@ -234,6 +234,34 @@ class UserAttribute(Base):
     updated_at = Column(DateTime, default=_now, onupdate=_now, index=True)
 
 
+class Event(Base):
+    """
+    An EVENT on the kernel's event bus — the Event-Driven backbone. Something that
+    HAPPENED ('usuario.acordou', 'localizacao.mudou', 'agendamento.venceu'), from a
+    source (device/sensor/scheduler/owner/kernel). Events are IMMUTABLE facts of the
+    past: we persist them as a first-class audit trail, assign a per-owner sequence
+    for ordering, and only ever update processing status — never the payload.
+    Each event may update the World Model (via subscribers).
+    """
+    __tablename__ = "events"
+    __table_args__ = (
+        UniqueConstraint("owner_id", "idempotency_key", name="uq_events_owner_idem"),
+    )
+
+    id = Column(String, primary_key=True, index=True)
+    owner_id = Column(String, ForeignKey("owner.id", ondelete="CASCADE"), index=True, nullable=False)
+    type = Column(String, nullable=False, index=True)         # dotted name: "localizacao.mudou"
+    source = Column(String, default="kernel")                 # device:<id>|sensor|scheduler|owner|kernel
+    payload = Column(Text, nullable=True)                     # JSON-encoded data
+    correlation_id = Column(String, nullable=True, index=True)  # ties a flow together
+    idempotency_key = Column(String, nullable=True)           # dedupe (unique per owner when set)
+    sequence = Column(Integer, default=0, index=True)         # per-owner monotonic order
+    status = Column(String, default="received", index=True)   # received|processed|failed
+    error = Column(Text, nullable=True)                       # subscriber failures (still auditable)
+    created_at = Column(DateTime, default=_now, index=True)
+    processed_at = Column(DateTime, nullable=True)
+
+
 class Capability(Base):
     """
     A CONNECTOR: one owner-defined API call the brain can invoke by name ("execute
