@@ -25,6 +25,7 @@ from app.db.database import SessionLocal
 from app.events.bus import EventBus
 from app.events.projector import WorldModelProjector
 from app.models.models import Owner
+from app.planning.service import PlanningEngine
 from app.schedule.service import Scheduler
 from app.voice.box import VoiceBox
 from app.world.service import WorldModel
@@ -40,6 +41,7 @@ class Kernel:
         self.memory: PersistentMemory | None = None
         self.world: WorldModel | None = None
         self.events: EventBus | None = None
+        self.planning: PlanningEngine | None = None
         self.cognition: Cognition | None = None
         self.voice: VoiceBox | None = None
         self.automations: N8nClient | None = None
@@ -59,6 +61,7 @@ class Kernel:
         self.events = EventBus()
         # Every event has a chance to update the present (World Model).
         self.events.subscribe("*", WorldModelProjector(self.world).handle, "world-model-projector")
+        self.planning = PlanningEngine(world=self.world, events=self.events)
         self.automations = N8nClient()
         self.action_bus = CommandBus()
         self.actions = ActionService(self.action_bus)
@@ -67,7 +70,7 @@ class Kernel:
         self.voice = VoiceBox()
         toolkit = ToolKit(
             self.memory, self.automations, self.actions, self.scheduler,
-            self.connectors, self.world,
+            self.connectors, self.world, self.planning,
         )
         if settings.subagents_enabled:
             toolkit.subagents = SubAgentRunner(self.brain, toolkit)
@@ -171,6 +174,12 @@ def get_events() -> EventBus:
     if not _kernel.events:
         raise RuntimeError("Kernel not started")
     return _kernel.events
+
+
+def get_planning() -> PlanningEngine:
+    if not _kernel.planning:
+        raise RuntimeError("Kernel not started")
+    return _kernel.planning
 
 
 def get_voice() -> VoiceBox:

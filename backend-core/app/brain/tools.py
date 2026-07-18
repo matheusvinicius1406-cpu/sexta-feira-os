@@ -42,13 +42,14 @@ def _compute_due(args: dict) -> datetime | None:
 
 class ToolKit:
     def __init__(self, memory, automations, actions=None, scheduler=None,
-                 connectors=None, world=None):
+                 connectors=None, world=None, planning=None):
         self.memory = memory
         self.automations = automations
         self.actions = actions        # ActionService | None
         self.scheduler = scheduler    # Scheduler | None
         self.connectors = connectors  # ConnectorService | None
         self.world = world            # WorldModel | None — the present + owner model
+        self.planning = planning      # PlanningEngine | None — goals + decomposition
         self.subagents = None         # SubAgentRunner | None (wired after construction)
 
     async def specs_subset(self, allowed: list[str]) -> list[dict]:
@@ -214,6 +215,71 @@ class ToolKit:
             {
                 "type": "function",
                 "function": {
+                    "name": "create_goal",
+                    "description": (
+                        "Cria um OBJETIVO no motor de planejamento (o sistema trabalha por "
+                        "objetivos). Use para metas do dono. 'priority' maior = mais importante."
+                    ),
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "title": {"type": "string", "description": "o objetivo"},
+                            "description": {"type": "string"},
+                            "priority": {"type": "number", "description": "prioridade (1-5, maior = mais)"},
+                        },
+                        "required": ["title"],
+                    },
+                },
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "decompose_goal",
+                    "description": (
+                        "Divide um objetivo grande em subtarefas (sub-objetivos filhos). "
+                        "Passe 'goal_id' e a lista 'subtasks'. O progresso do pai é a média dos filhos."
+                    ),
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "goal_id": {"type": "string"},
+                            "subtasks": {"type": "array", "items": {"type": "string"}},
+                        },
+                        "required": ["goal_id", "subtasks"],
+                    },
+                },
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "list_goals",
+                    "description": "Lista os objetivos do dono (por prioridade). Filtro opcional por status.",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "status": {"type": "string", "description": "pending|active|blocked|done|cancelled"},
+                        },
+                    },
+                },
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "complete_goal",
+                    "description": (
+                        "Marca um objetivo como concluído (progresso 100%). Desbloqueia objetivos "
+                        "que dependiam dele. Passe 'goal_id'."
+                    ),
+                    "parameters": {
+                        "type": "object",
+                        "properties": {"goal_id": {"type": "string"}},
+                        "required": ["goal_id"],
+                    },
+                },
+            },
+            {
+                "type": "function",
+                "function": {
                     "name": "remember_context",
                     "description": (
                         "Atualiza o estado do AGORA (World Model): um fato do presente por "
@@ -358,6 +424,40 @@ class ToolKit:
                 data = out.get("data")
                 text = data if isinstance(data, str) else json.dumps(data, ensure_ascii=False)
                 return f"Resultado ({out.get('status')}): {text[:1500]}"
+            if name == "create_goal":
+                if not self.planning:
+                    return "Planejamento indisponível."
+                g = await self.planning.create_goal(
+                    db, owner_id, args.get("title", ""),
+                    description=args.get("description"),
+                    priority=int(args.get("priority", 2) or 2),
+                )
+                return f"Objetivo criado: {g.title} (id {g.id})"
+            if name == "decompose_goal":
+                if not self.planning:
+                    return "Planejamento indisponível."
+                subs = args.get("subtasks") or []
+                if isinstance(subs, str):
+                    subs = [subs]
+                children = await self.planning.decompose(
+                    db, owner_id, args.get("goal_id", ""), list(subs)
+                )
+                return f"Objetivo dividido em {len(children)} subtarefas."
+            if name == "list_goals":
+                if not self.planning:
+                    return "Planejamento indisponível."
+                goals = self.planning.list_goals(db, owner_id, args.get("status"))
+                if not goals:
+                    return "Nenhum objetivo."
+                return "Objetivos:\n" + "\n".join(
+                    f"- [{g.status}] {g.title} ({int(g.progress * 100)}%) id={g.id}"
+                    for g in goals[:40]
+                )
+            if name == "complete_goal":
+                if not self.planning:
+                    return "Planejamento indisponível."
+                g = await self.planning.complete(db, owner_id, args.get("goal_id", ""))
+                return f"Objetivo concluído: {g.title}" if g else "Objetivo não encontrado."
             if name == "remember_context":
                 if not self.world:
                     return "World Model indisponível."

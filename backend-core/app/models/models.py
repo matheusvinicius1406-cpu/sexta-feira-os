@@ -234,6 +234,43 @@ class UserAttribute(Base):
     updated_at = Column(DateTime, default=_now, onupdate=_now, index=True)
 
 
+class Goal(Base):
+    """
+    A GOAL the system works toward — the Planning Engine's unit. Goals have a
+    priority, an optional deadline, progress, a history (via events), and can be
+    decomposed into sub-goals (self-reference via parent_id). A goal is 'blocked'
+    while any of its dependencies (GoalDependency) is not done.
+    """
+    __tablename__ = "goals"
+
+    id = Column(String, primary_key=True, index=True)
+    owner_id = Column(String, ForeignKey("owner.id", ondelete="CASCADE"), index=True, nullable=False)
+    parent_id = Column(String, ForeignKey("goals.id", ondelete="CASCADE"), nullable=True, index=True)
+    title = Column(String, nullable=False)
+    description = Column(Text, nullable=True)
+    priority = Column(Integer, default=2, index=True)         # higher = more important
+    status = Column(String, default="pending", index=True)   # pending|active|blocked|done|cancelled
+    progress = Column(Float, default=0.0)                     # 0.0 - 1.0
+    due_at = Column(DateTime, nullable=True, index=True)
+    created_at = Column(DateTime, default=_now, index=True)
+    updated_at = Column(DateTime, default=_now, onupdate=_now)
+    completed_at = Column(DateTime, nullable=True)
+
+
+class GoalDependency(Base):
+    """A directed edge: `goal_id` depends on `depends_on_id` (must finish first)."""
+    __tablename__ = "goal_dependencies"
+    __table_args__ = (
+        UniqueConstraint("goal_id", "depends_on_id", name="uq_goal_dep"),
+    )
+
+    id = Column(String, primary_key=True, index=True)
+    owner_id = Column(String, ForeignKey("owner.id", ondelete="CASCADE"), index=True, nullable=False)
+    goal_id = Column(String, ForeignKey("goals.id", ondelete="CASCADE"), index=True, nullable=False)
+    depends_on_id = Column(String, ForeignKey("goals.id", ondelete="CASCADE"), index=True, nullable=False)
+    created_at = Column(DateTime, default=_now)
+
+
 class Event(Base):
     """
     An EVENT on the kernel's event bus — the Event-Driven backbone. Something that
