@@ -2,8 +2,14 @@
 # The kernel lives in backend-core/; most targets operate there.
 
 VENV := backend-core/.venv
-PY := $(VENV)/bin/python
-PIP := $(VENV)/bin/pip
+# Cross-platform venv paths: Linux/Mac uses bin/, Windows uses Scripts/
+ifeq ($(OS),Windows_NT)
+  PY := $(VENV)/Scripts/python
+  PIP := $(VENV)/Scripts/pip
+else
+  PY := $(VENV)/bin/python
+  PIP := $(VENV)/bin/pip
+endif
 
 .PHONY: help setup install run test lint fmt migrate revision brain clean
 
@@ -19,7 +25,7 @@ help:
 	@echo "  make brain     - baixa os modelos locais no Ollama"
 
 setup:
-	cd backend-core && python3 -m venv .venv && ./.venv/bin/pip install -q -U pip -r requirements.txt ruff
+	cd backend-core && python3 -m venv .venv && $(PIP) install -q -U pip -r requirements.txt ruff
 	@test -f .env || cp .env.template .env
 	@echo "OK. Edite .env (OWNER_*/DEVICE_PAIRING_CODE) e rode: make brain && make run"
 

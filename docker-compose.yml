@@ -50,7 +50,7 @@ services:
       OLLAMA_ENDPOINT: http://ollama:11434
       N8N_ENDPOINT: http://n8n:5678
       DATABASE_URL: sqlite:////data/sexta_feira_os.db
-      ACCESS_MODE: ${ACCESS_MODE:-lan}   # 'lan' p/ o compose alcançar entre containers
+      ACCESS_MODE: ${ACCESS_MODE:-loopback}   # loopback = só esta máquina; 'lan' = rede local
     volumes:
       - ./data:/data                     # sua memória persistente (fica no host)
     ports:

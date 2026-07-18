@@ -10,14 +10,16 @@
 - ✅ **Pipeline de ensino**: exportar história → dataset → fine-tuning LoRA → modelo seu no Ollama.
 - ✅ Testes ponta a ponta (pytest) + degradação graciosa quando o cérebro está offline.
 - ✅ App Android: login real, sessão, chat contra o kernel (URL configurável).
+- ✅ Persistir o token no Android (DataStore) e auto-login (`SessionManager`).
+- ✅ Streaming token-a-token no app (SSE via `/api/v1/chat/stream`).
+- ✅ CI (GitHub Actions): pytest + lint + build Android a cada push.
+- ✅ Hilt/DI no app + API client cobrindo os 24 endpoints do kernel.
 
 ## Próximo (curto prazo)
 
 - [ ] Tela de Configurações no Android: endereço do kernel + pareamento por código/QR.
-- [ ] Persistir o token no Android (DataStore) e auto-login.
-- [ ] Streaming token-a-token no app (consumir `/api/v1/chat/stream`).
 - [ ] Curadoria de memória no app (ver/editar/esquecer o que ele sabe).
-- [ ] CI (GitHub Actions): rodar pytest + lint a cada push.
+- [ ] Testes pytest para os routers novos (memory, schedule, action, connectors).
 
 ## Médio prazo
 
