@@ -27,6 +27,7 @@ from app.api.routers import (  # noqa: E402
     decision,
     events,
     health,
+    learning,
     memory,
     planning,
     schedule,
@@ -74,6 +75,7 @@ app.include_router(world.router)
 app.include_router(events.router)
 app.include_router(planning.router)
 app.include_router(decision.router)
+app.include_router(learning.router)
 app.include_router(voice.router)
 app.include_router(automation.router)
 app.include_router(action.router)

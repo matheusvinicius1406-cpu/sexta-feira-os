@@ -42,7 +42,7 @@ O Kernel é composto por motores modulares e substituíveis, cada um com contrat
 | **Tool Dispatcher** | selecionar, despachar, validar, registrar ferramentas | `API_ECOSYSTEM.md` |
 | **Sub-Agent Coordinator** | delegar a agentes e consolidar | `AGENT_SYSTEM.md` |
 | **Security Guard** | aplicar Zero Trust e políticas | `../engineering/SECURITY_POLICY.md` |
-| **Learning Hook** | registrar aprendizado pós-ação | este / futuro |
+| **Learning Engine** | observar → avaliar → registrar → adaptar | `[PARCIAL]` — existe (ADR-0005): lições → memória, dificuldade recorrente → User Model, eventos |
 
 O **Reasoning (LLM adapter)** é a única parte ligada a um modelo, e é um adaptador: trocar
 o modelo troca só este adaptador, preservando todo o resto.

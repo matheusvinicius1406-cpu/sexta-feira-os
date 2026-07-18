@@ -291,6 +291,32 @@ class Decision(Base):
     created_at = Column(DateTime, default=_now, index=True)
 
 
+class Learning(Base):
+    """
+    A LEARNING — the durable takeaway from an outcome (North Star: "Aprendizado
+    Contínuo"). After acting, the system observes the result, evaluates its
+    quality, and registers a lesson that feeds Memory and the User Model, so the
+    Kernel behaves better next time. Ties to what produced it via `ref_id`
+    (a decision/goal/event). Auditable trail of how the brain improved.
+
+    Design of the trace -> learn -> evaluate loop is adapted (in our own code) from
+    the Apache-2.0 OpenJarvis learning orchestrator; see ADR-0005.
+    """
+    __tablename__ = "learnings"
+
+    id = Column(String, primary_key=True, index=True)
+    owner_id = Column(String, ForeignKey("owner.id", ondelete="CASCADE"), index=True, nullable=False)
+    kind = Column(String, default="outcome", index=True)     # outcome|feedback|correction|insight
+    tag = Column(String, nullable=True, index=True)          # topic, for recurrence detection
+    ref_id = Column(String, nullable=True)                   # linked decision/goal/event id
+    context = Column(Text, nullable=False)                   # what was attempted / happened
+    observation = Column(Text, nullable=True)                # the observed result
+    quality = Column(Float, default=0.5)                     # 0.0 (bad) .. 1.0 (good)
+    lesson = Column(Text, nullable=True)                     # the durable takeaway
+    source = Column(String, default="kernel")
+    created_at = Column(DateTime, default=_now, index=True)
+
+
 class Event(Base):
     """
     An EVENT on the kernel's event bus — the Event-Driven backbone. Something that
