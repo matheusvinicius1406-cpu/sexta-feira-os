@@ -28,6 +28,7 @@ from app.api.routers import (  # noqa: E402
     memory,
     schedule,
     voice,
+    world,
 )
 from app.core.config import settings  # noqa: E402
 from app.core.di import get_kernel  # noqa: E402
@@ -66,6 +67,7 @@ app.include_router(health.router)
 app.include_router(auth.router)
 app.include_router(chat.router)
 app.include_router(memory.router)
+app.include_router(world.router)
 app.include_router(voice.router)
 app.include_router(automation.router)
 app.include_router(action.router)

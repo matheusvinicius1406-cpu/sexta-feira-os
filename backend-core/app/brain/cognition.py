@@ -28,10 +28,11 @@ logger = logging.getLogger("sexta-feira.cognition")
 
 
 class Cognition:
-    def __init__(self, brain: LocalBrain, memory: PersistentMemory, toolkit=None):
+    def __init__(self, brain: LocalBrain, memory: PersistentMemory, toolkit=None, world=None):
         self.brain = brain
         self.memory = memory
         self.toolkit = toolkit  # ToolKit | None — enables agentic actions
+        self.world = world      # WorldModel | None — the present + the owner model
 
     # ---------- conversation helpers ----------
 
@@ -64,6 +65,14 @@ class Cognition:
         # memories so connected knowledge comes along (Obsidian-style).
         memories = await self.memory.recall_graph(db, owner_id, user_text)
         system = settings.brain_persona
+        # The present + the owner model: no request ever starts from zero.
+        if self.world is not None:
+            digest = self.world.context_digest(db, owner_id)
+            if digest:
+                system += (
+                    "\n\nEstado atual e o que você sabe do agora "
+                    "(considere sempre; inferências são marcadas):\n" + digest
+                )
         if memories:
             recalled = "\n".join(f"- {m.content}" for m in memories)
             system += (

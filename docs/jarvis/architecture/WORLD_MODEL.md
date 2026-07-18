@@ -1,8 +1,11 @@
 # World Model
 
 > Como o JARVIS representa a **realidade atual**. Deriva da Constituição (Artigo V) e do
-> `NORTH_STAR.md`. Estado: `[FUTURO/PARCIAL]` — hoje o contexto é implícito no histórico;
-> este documento define o modelo explícito a ser construído.
+> `NORTH_STAR.md`. Estado: `[PARCIAL]` — o estado explícito existe (ver **ADR-0001**):
+> armazenamentos tipados `WorldFact` (o presente) e `UserAttribute` (o dono), escopados ao
+> dono, injetados na cognição a cada turno via `context_digest`, e curáveis em
+> `/api/v1/world`. Ainda `[FUTURO]`: atualização por **eventos** e sincronização
+> **distribuída** entre corpos (próximas etapas).
 
 ## O que é
 
