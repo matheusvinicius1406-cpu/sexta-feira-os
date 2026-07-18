@@ -41,12 +41,14 @@ def _compute_due(args: dict) -> datetime | None:
 
 
 class ToolKit:
-    def __init__(self, memory, automations, actions=None, scheduler=None, connectors=None):
+    def __init__(self, memory, automations, actions=None, scheduler=None,
+                 connectors=None, world=None):
         self.memory = memory
         self.automations = automations
         self.actions = actions        # ActionService | None
         self.scheduler = scheduler    # Scheduler | None
         self.connectors = connectors  # ConnectorService | None
+        self.world = world            # WorldModel | None — the present + owner model
         self.subagents = None         # SubAgentRunner | None (wired after construction)
 
     async def specs_subset(self, allowed: list[str]) -> list[dict]:
@@ -212,6 +214,55 @@ class ToolKit:
             {
                 "type": "function",
                 "function": {
+                    "name": "remember_context",
+                    "description": (
+                        "Atualiza o estado do AGORA (World Model): um fato do presente por "
+                        "chave (ex.: key='foco_atual', value='estudando cálculo'). Use para "
+                        "localização, foco, trabalho ativo, objetivos correntes. Marque "
+                        "is_inference=true quando for inferência (humor/energia)."
+                    ),
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "key": {"type": "string", "description": "nome canônico do fato do presente"},
+                            "value": {"type": "string", "description": "o valor atual"},
+                            "category": {
+                                "type": "string",
+                                "description": "environment|user_state|active_work|goals|context|capabilities|other",
+                            },
+                            "is_inference": {"type": "boolean", "description": "true se for inferido, não observado"},
+                        },
+                        "required": ["key", "value"],
+                    },
+                },
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "remember_about_me",
+                    "description": (
+                        "Atualiza o modelo do DONO ao longo do tempo (User Model): um traço "
+                        "durável por chave (ex.: key='estilo_programacao', value='prefere "
+                        "Python, tipado'). Use para objetivos, hábitos, preferências, estilo, "
+                        "projetos. Diferente de 'remember', que guarda um fato solto."
+                    ),
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "key": {"type": "string", "description": "nome canônico do traço do dono"},
+                            "value": {"type": "string", "description": "o valor do traço"},
+                            "category": {
+                                "type": "string",
+                                "description": "goals|habits|preferences|style|knowledge|social|projects|other",
+                            },
+                        },
+                        "required": ["key", "value"],
+                    },
+                },
+            },
+            {
+                "type": "function",
+                "function": {
                     "name": "delegate",
                     "description": (
                         "Delega uma sub-tarefa focada a um sub-agente especialista (que roda "
@@ -307,6 +358,23 @@ class ToolKit:
                 data = out.get("data")
                 text = data if isinstance(data, str) else json.dumps(data, ensure_ascii=False)
                 return f"Resultado ({out.get('status')}): {text[:1500]}"
+            if name == "remember_context":
+                if not self.world:
+                    return "World Model indisponível."
+                f = self.world.set_fact(
+                    db, owner_id, args.get("key", ""), args.get("value", ""),
+                    category=args.get("category", "other"), source="tool",
+                    is_inference=bool(args.get("is_inference", False)),
+                )
+                return f"Estado atualizado: {f.key} = {f.value}"
+            if name == "remember_about_me":
+                if not self.world:
+                    return "User Model indisponível."
+                a = self.world.set_attribute(
+                    db, owner_id, args.get("key", ""), args.get("value", ""),
+                    category=args.get("category", "other"), source="tool",
+                )
+                return f"Anotado sobre você: {a.key} = {a.value}"
             if name == "delegate":
                 if not self.subagents:
                     return "Sub-agentes indisponíveis."

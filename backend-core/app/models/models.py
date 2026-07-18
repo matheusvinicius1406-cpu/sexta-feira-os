@@ -18,6 +18,7 @@ from sqlalchemy import (
     Integer,
     String,
     Text,
+    UniqueConstraint,
 )
 from sqlalchemy.orm import relationship
 
@@ -186,6 +187,51 @@ class Secret(Base):
     value_encrypted = Column(Text, nullable=False)
     created_at = Column(DateTime, default=_now)
     updated_at = Column(DateTime, default=_now, onupdate=_now)
+
+
+class WorldFact(Base):
+    """
+    A single truth about the PRESENT — the living 'now' the Kernel consults on
+    every decision (the World Model). Upserted by (owner, key), so there is one
+    current value per key ("localizacao", "foco_atual", "dispositivos_online").
+    Inferences (mood, energy) are flagged as such, never stated as hard fact.
+    Distinct from Memory: memory keeps the past; the World Model keeps the now.
+    """
+    __tablename__ = "world_facts"
+    __table_args__ = (UniqueConstraint("owner_id", "key", name="uq_world_facts_owner_key"),)
+
+    id = Column(String, primary_key=True, index=True)
+    owner_id = Column(String, ForeignKey("owner.id", ondelete="CASCADE"), index=True, nullable=False)
+    key = Column(String, nullable=False, index=True)          # canonical name of the fact
+    value = Column(Text, nullable=False)                       # current value (text/JSON)
+    category = Column(String, default="other", index=True)    # environment|user_state|active_work|goals|context|capabilities|other
+    source = Column(String, default="kernel")                 # kernel|tool|device|owner|inferred
+    confidence = Column(Float, default=1.0)                   # 0.0 - 1.0
+    is_inference = Column(Boolean, default=False, nullable=False)  # inferred, not observed
+    created_at = Column(DateTime, default=_now)
+    updated_at = Column(DateTime, default=_now, onupdate=_now, index=True)
+
+
+class UserAttribute(Base):
+    """
+    A durable trait of the OWNER modelled over time (the User Model): goals,
+    habits, preferences, study/coding style, recurring difficulties, projects.
+    Upserted by (owner, key). Fed by memory and interactions so the brain
+    understands its one owner deeply — always under 'só meu'.
+    """
+    __tablename__ = "user_attributes"
+    __table_args__ = (UniqueConstraint("owner_id", "key", name="uq_user_attributes_owner_key"),)
+
+    id = Column(String, primary_key=True, index=True)
+    owner_id = Column(String, ForeignKey("owner.id", ondelete="CASCADE"), index=True, nullable=False)
+    key = Column(String, nullable=False, index=True)
+    value = Column(Text, nullable=False)
+    category = Column(String, default="other", index=True)    # goals|habits|preferences|style|knowledge|social|projects|other
+    source = Column(String, default="kernel")                 # kernel|tool|owner|inferred
+    confidence = Column(Float, default=1.0)
+    is_inference = Column(Boolean, default=False, nullable=False)
+    created_at = Column(DateTime, default=_now)
+    updated_at = Column(DateTime, default=_now, onupdate=_now, index=True)
 
 
 class Capability(Base):

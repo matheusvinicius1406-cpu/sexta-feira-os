@@ -25,6 +25,7 @@ from app.db.database import SessionLocal
 from app.models.models import Owner
 from app.schedule.service import Scheduler
 from app.voice.box import VoiceBox
+from app.world.service import WorldModel
 
 logger = logging.getLogger("sexta-feira.di")
 
@@ -35,6 +36,7 @@ class Kernel:
     def __init__(self) -> None:
         self.brain: LocalBrain | None = None
         self.memory: PersistentMemory | None = None
+        self.world: WorldModel | None = None
         self.cognition: Cognition | None = None
         self.voice: VoiceBox | None = None
         self.automations: N8nClient | None = None
@@ -50,6 +52,7 @@ class Kernel:
             return
         self.brain = LocalBrain()
         self.memory = PersistentMemory(self.brain)
+        self.world = WorldModel()
         self.automations = N8nClient()
         self.action_bus = CommandBus()
         self.actions = ActionService(self.action_bus)
@@ -57,11 +60,12 @@ class Kernel:
         self.connectors = ConnectorService(Vault())
         self.voice = VoiceBox()
         toolkit = ToolKit(
-            self.memory, self.automations, self.actions, self.scheduler, self.connectors
+            self.memory, self.automations, self.actions, self.scheduler,
+            self.connectors, self.world,
         )
         if settings.subagents_enabled:
             toolkit.subagents = SubAgentRunner(self.brain, toolkit)
-        self.cognition = Cognition(self.brain, self.memory, toolkit)
+        self.cognition = Cognition(self.brain, self.memory, toolkit, world=self.world)
         self._ready = True
 
         if settings.scheduler_enabled:
@@ -149,6 +153,12 @@ def get_memory() -> PersistentMemory:
     if not _kernel.memory:
         raise RuntimeError("Kernel not started")
     return _kernel.memory
+
+
+def get_world() -> WorldModel:
+    if not _kernel.world:
+        raise RuntimeError("Kernel not started")
+    return _kernel.world
 
 
 def get_voice() -> VoiceBox:
