@@ -5,40 +5,14 @@ Deterministic: they never touch Ollama. They prove the Kernel's sense of NOW and
 of its owner is stored, upserted by key, owner-scoped, inspectable, forgettable,
 and that inferences are labelled in the digest the Kernel injects.
 """
-import os
 import uuid
 
 import pytest
-from fastapi.testclient import TestClient
 
-# Standalone-safe: configure an isolated kernel if no test set it up already.
-os.environ.setdefault("ENVIRONMENT", "development")
-os.environ.setdefault("LOG_LEVEL", "CRITICAL")
-os.environ.setdefault("OWNER_EMAIL", "owner@test.local")
-os.environ.setdefault("OWNER_NAME", "Test Owner")
-os.environ.setdefault("OWNER_PASSWORD", "a-strong-test-password")
-os.environ.setdefault("SCHEDULER_ENABLED", "false")
-os.environ.setdefault("DATABASE_URL", f"sqlite:////tmp/sexta_world_{uuid.uuid4().hex}.db")
+from app.db.database import SessionLocal
+from app.world.service import WorldModel
 
-from app.db.database import SessionLocal  # noqa: E402
-from app.main import app  # noqa: E402
-from app.world.service import WorldModel  # noqa: E402
-
-
-@pytest.fixture(scope="module")
-def client():
-    with TestClient(app) as c:
-        yield c
-
-
-@pytest.fixture(scope="module")
-def owner_headers(client):
-    r = client.post(
-        "/api/v1/auth/login",
-        json={"email": os.environ["OWNER_EMAIL"], "password": os.environ["OWNER_PASSWORD"]},
-    )
-    assert r.status_code == 200
-    return {"Authorization": f"Bearer {r.json()['access_token']}"}
+# Shared env + `client`/`owner_headers` fixtures live in conftest.py.
 
 
 # ---------- API: world facts (the present) ----------

@@ -1,9 +1,12 @@
 # Arquitetura Orientada a Eventos
 
 > A espinha dorsal de comunicação do JARVIS. Deriva de `ARCHITECTURAL_PRINCIPLES.md`
-> (event-driven) e do `NORTH_STAR.md`. Estado: `[PARCIAL]` — já há canais em tempo real
-> (WebSocket para dispositivos) e um agendador; o barramento de eventos unificado é a
-> evolução.
+> (event-driven) e do `NORTH_STAR.md`. Estado: `[PARCIAL]` — o **EventBus** existe (ver
+> **ADR-0002**): eventos persistidos (trilha de auditoria), `sequence` por dono,
+> idempotência, degradação graciosa, assinatura por `exato`/`prefixo.*`/`*`, projeção no
+> World Model, e o Scheduler publicando `agendamento.venceu` (tempo → evento); exposto em
+> `/api/v1/events`. Ainda `[FUTURO]`: despacho **assíncrono** (fila/broker atrás do mesmo
+> contrato) e sincronização **distribuída** entre corpos.
 
 ## Princípio
 

@@ -33,8 +33,9 @@ def _aware(dt: datetime) -> datetime:
 
 
 class Scheduler:
-    def __init__(self, actions: ActionService):
+    def __init__(self, actions: ActionService, events=None):
         self.actions = actions
+        self.events = events  # EventBus | None — time becomes events (agendamento.venceu)
 
     # ---------- create / manage ----------
 
@@ -91,9 +92,24 @@ class Scheduler:
                 await self._fire(db, task)
             except Exception as e:  # noqa: BLE001 — one bad task must not stop the rest
                 logger.warning("scheduled task %s failed to fire: %s", task.id, e)
+            await self._emit_due_event(db, task, now)
             self._advance(db, task, now)
             fired += 1
         return fired
+
+    async def _emit_due_event(self, db: Session, task: ScheduledTask, now: datetime) -> None:
+        """Time becomes an event: publish 'agendamento.venceu' (best-effort)."""
+        if not self.events:
+            return
+        try:
+            await self.events.publish(
+                db, task.owner_id, "agendamento.venceu",
+                {"task_id": task.id, "kind": task.kind, "text": task.text},
+                source="scheduler",
+                idempotency_key=f"sched:{task.id}:{now.isoformat()}",
+            )
+        except Exception as e:  # noqa: BLE001 — the bus must not break firing
+            logger.debug("could not emit agendamento.venceu: %s", e)
 
     async def _fire(self, db: Session, task: ScheduledTask) -> None:
         if task.kind == "action" and task.action:
