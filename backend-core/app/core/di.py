@@ -25,6 +25,7 @@ from app.db.database import SessionLocal
 from app.decision.service import DecisionEngine
 from app.events.bus import EventBus
 from app.events.projector import WorldModelProjector
+from app.learning.service import LearningEngine
 from app.models.models import Owner
 from app.planning.service import PlanningEngine
 from app.schedule.service import Scheduler
@@ -44,6 +45,7 @@ class Kernel:
         self.events: EventBus | None = None
         self.planning: PlanningEngine | None = None
         self.decision: DecisionEngine | None = None
+        self.learning: LearningEngine | None = None
         self.cognition: Cognition | None = None
         self.voice: VoiceBox | None = None
         self.automations: N8nClient | None = None
@@ -67,6 +69,9 @@ class Kernel:
         self.decision = DecisionEngine(
             planning=self.planning, world=self.world, events=self.events
         )
+        self.learning = LearningEngine(
+            memory=self.memory, world=self.world, events=self.events
+        )
         self.automations = N8nClient()
         self.action_bus = CommandBus()
         self.actions = ActionService(self.action_bus)
@@ -75,7 +80,7 @@ class Kernel:
         self.voice = VoiceBox()
         toolkit = ToolKit(
             self.memory, self.automations, self.actions, self.scheduler,
-            self.connectors, self.world, self.planning, self.decision,
+            self.connectors, self.world, self.planning, self.decision, self.learning,
         )
         if settings.subagents_enabled:
             toolkit.subagents = SubAgentRunner(self.brain, toolkit)
@@ -191,6 +196,12 @@ def get_decision() -> DecisionEngine:
     if not _kernel.decision:
         raise RuntimeError("Kernel not started")
     return _kernel.decision
+
+
+def get_learning() -> LearningEngine:
+    if not _kernel.learning:
+        raise RuntimeError("Kernel not started")
+    return _kernel.learning
 
 
 def get_voice() -> VoiceBox:

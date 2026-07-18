@@ -42,7 +42,7 @@ def _compute_due(args: dict) -> datetime | None:
 
 class ToolKit:
     def __init__(self, memory, automations, actions=None, scheduler=None,
-                 connectors=None, world=None, planning=None, decision=None):
+                 connectors=None, world=None, planning=None, decision=None, learning=None):
         self.memory = memory
         self.automations = automations
         self.actions = actions        # ActionService | None
@@ -51,6 +51,7 @@ class ToolKit:
         self.world = world            # WorldModel | None — the present + owner model
         self.planning = planning      # PlanningEngine | None — goals + decomposition
         self.decision = decision      # DecisionEngine | None — choose under constraints
+        self.learning = learning      # LearningEngine | None — observe → learn → adapt
         self.subagents = None         # SubAgentRunner | None (wired after construction)
 
     async def specs_subset(self, allowed: list[str]) -> list[dict]:
@@ -281,6 +282,39 @@ class ToolKit:
             {
                 "type": "function",
                 "function": {
+                    "name": "record_learning",
+                    "description": (
+                        "Registra um aprendizado depois de uma ação/resultado (ciclo de "
+                        "aprendizado contínuo). 'quality' de 0.0 (ruim) a 1.0 (ótimo); 'lesson' "
+                        "é a lição durável (vai para a memória); 'tag' agrupa o tema."
+                    ),
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "context": {"type": "string", "description": "o que foi tentado/aconteceu"},
+                            "observation": {"type": "string", "description": "o resultado observado"},
+                            "quality": {"type": "number", "description": "0.0 a 1.0"},
+                            "lesson": {"type": "string", "description": "a lição durável a lembrar"},
+                            "tag": {"type": "string", "description": "tema (para detectar recorrência)"},
+                        },
+                        "required": ["context"],
+                    },
+                },
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "recall_lessons",
+                    "description": "Lista os aprendizados recentes (opcionalmente por 'tag').",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {"tag": {"type": "string"}},
+                    },
+                },
+            },
+            {
+                "type": "function",
+                "function": {
                     "name": "decide_next",
                     "description": (
                         "Pergunta ao motor de decisão QUAL objetivo focar agora. Ele pondera "
@@ -471,6 +505,25 @@ class ToolKit:
                     return "Planejamento indisponível."
                 g = await self.planning.complete(db, owner_id, args.get("goal_id", ""))
                 return f"Objetivo concluído: {g.title}" if g else "Objetivo não encontrado."
+            if name == "record_learning":
+                if not self.learning:
+                    return "Aprendizado indisponível."
+                entry = await self.learning.record(
+                    db, owner_id, args.get("context", ""),
+                    observation=args.get("observation"),
+                    quality=float(args.get("quality", 0.5) or 0.5),
+                    lesson=args.get("lesson"), tag=args.get("tag"), source="tool",
+                )
+                return f"Aprendizado registrado (qualidade {entry.quality})."
+            if name == "recall_lessons":
+                if not self.learning:
+                    return "Aprendizado indisponível."
+                rows = self.learning.lessons(db, owner_id, tag=args.get("tag"))
+                if not rows:
+                    return "Nenhum aprendizado ainda."
+                return "Aprendizados:\n" + "\n".join(
+                    f"- {r.lesson or r.context} (q={r.quality})" for r in rows[:30]
+                )
             if name == "decide_next":
                 if not self.decision:
                     return "Motor de decisão indisponível."
