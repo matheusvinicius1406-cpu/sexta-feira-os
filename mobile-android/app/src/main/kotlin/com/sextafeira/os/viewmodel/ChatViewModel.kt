@@ -70,13 +70,13 @@ class ChatViewModel @Inject constructor(
             _error.value = null
 
             val streamSuccess = try {
-                chatStream(content, bearer)
+                chatStream(content)
             } catch (_: Exception) {
                 false
             }
 
             if (!streamSuccess) {
-                chatNonStreaming(content, bearer)
+                chatNonStreaming(content)
             } else {
                 // Streaming succeeded — the placeholder was filled inline
                 _streamingMessageId.value = null
@@ -89,7 +89,7 @@ class ChatViewModel @Inject constructor(
 
     // ── Streaming via OkHttp direct POST to /api/v1/chat/stream ──
 
-    private suspend fun chatStream(content: String, bearer: String): Boolean {
+    private suspend fun chatStream(content: String): Boolean {
         val baseUrl = com.sextafeira.os.data.api.ApiClient.baseUrl.trimEnd('/')
         val url = "$baseUrl/api/v1/chat/stream"
 
@@ -173,11 +173,10 @@ class ChatViewModel @Inject constructor(
 
     // ── Fallback non-streaming ──
 
-    private suspend fun chatNonStreaming(content: String, bearer: String) {
+    private suspend fun chatNonStreaming(content: String) {
         try {
             val response = api.chat(
                 ChatRequest(message = content, conversationId = conversationId),
-                bearer,
             )
             conversationId = response.conversationId
             _messages.value = _messages.value + ChatMessage(

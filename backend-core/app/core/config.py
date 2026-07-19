@@ -8,6 +8,7 @@ Design principles (do not violate):
 """
 import os
 import secrets
+from pathlib import Path
 
 from pydantic_settings import BaseSettings
 
@@ -137,11 +138,26 @@ class Settings(BaseSettings):
     n8n_endpoint: str = "http://127.0.0.1:5678"
     n8n_api_key: str = ""  # n8n Public API key (for listing)
     n8n_webhook_prefix: str = "webhook"  # or 'webhook-test'
+    # Shared secret for n8n → Kernel callback authentication.
+    # n8n workflows send this in the X-N8N-Callback-Secret header when calling
+    # POST /api/v1/automations/callback. Generate with:
+    #   python -c "import secrets; print(secrets.token_urlsafe(32))"
+    n8n_callback_secret: str = ""
 
     # ============ Connectors (API capabilities) ============
     vault_key: str = ""
     connectors_timeout_seconds: float = 30
     connectors_max_response_kb: int = 256
+
+    # ============ Obsidian vault sync ============
+    # Path to your Obsidian vault directory. When set, the brain can import
+    # your .md notes as knowledge graph nodes with [[wikilink]] edges.
+    obsidian_vault_path: str = ""
+    # Polling interval in seconds for the vault watcher (auto-sync).
+    obsidian_watch_interval: int = 30
+    # Max notes to pull directly from the vault during cognition (recall direto).
+    # Set to 0 to disable direct vault recall.
+    obsidian_vault_recall_max_notes: int = 10
 
     # ============ Privacy ============
     # Loopback-only origins. The kernel refuses cross-origin browser calls.
@@ -154,7 +170,7 @@ class Settings(BaseSettings):
     telemetry_enabled: bool = False  # hard off. Non-negotiable.
 
     class Config:
-        env_file = ".env"
+        env_file = str(Path(__file__).resolve().parents[3] / ".env")
         case_sensitive = False
         extra = "ignore"
 

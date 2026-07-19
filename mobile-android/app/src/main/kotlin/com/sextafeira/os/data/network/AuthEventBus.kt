@@ -1,26 +1,32 @@
 package com.sextafeira.os.data.network
 
-import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.SharedFlow
-import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.receiveAsFlow
 
 /**
- * Global event bus for authentication-related events.
- *
- * The [AuthInterceptor] fires [SessionExpired] when the kernel returns 401.
- * The navigation layer observes this flow and redirects to the Login screen.
+ * Sealed hierarchy of authentication events.
  */
 sealed class AuthEvent {
-    /** The kernel rejected the current token — likely expired or invalidated by restart. */
+    /** The session token expired or was rejected by the server. */
     data object SessionExpired : AuthEvent()
 }
 
+/**
+ * Simple event bus that emits [AuthEvent]s.
+ *
+ * The UI observes this via [AuthEventBus.events] and reacts accordingly
+ * (e.g. redirect to login screen on session expiry).
+ */
 object AuthEventBus {
-    private val _events = MutableSharedFlow<AuthEvent>(extraBufferCapacity = 3)
-    val events: SharedFlow<AuthEvent> = _events.asSharedFlow()
 
-    /** Called by [AuthInterceptor] when HTTP 401 is detected. */
-    fun onSessionExpired() {
-        _events.tryEmit(AuthEvent.SessionExpired)
+    private val _events = Channel<AuthEvent>(Channel.BUFFERED)
+
+    /** Flow of auth events that the UI layer can collect. */
+    val events: Flow<AuthEvent> = _events.receiveAsFlow()
+
+    /** Emit an event to the bus (e.g. from [AuthInterceptor]). */
+    fun emit(event: AuthEvent) {
+        _events.trySend(event)
     }
 }

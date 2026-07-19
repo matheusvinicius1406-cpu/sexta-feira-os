@@ -1,0 +1,271 @@
+{
+  "name": "🤖 Sub-Agente IA (Ollama + Kernel)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "sexta-ai-agent",
+        "responseMode": "onReceived",
+        "responseData": "allEntries",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "Webhook (gatilho)",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [250, 300],
+      "webhookId": "sexta-ai-agent"
+    },
+    {
+      "parameters": {
+        "url": "http://host.docker.internal:8000/api/v1/automations/callback",
+        "authentication": "none",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "action",
+              "value": "recall"
+            },
+            {
+              "name": "params",
+              "value": "{\n  \"query\": \"={{ $json.body.message }}\"\n}"
+            }
+          ]
+        },
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-N8N-Callback-Secret",
+              "value": "={{ $env.N8N_CALLBACK_SECRET }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "recall-memory",
+      "name": "1. Buscar na Memória",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [450, 300]
+    },
+    {
+      "parameters": {
+        "url": "http://host.docker.internal:8000/api/v1/automations/callback",
+        "authentication": "none",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "action",
+              "value": "world"
+            },
+            {
+              "name": "params",
+              "value": "{}"
+            }
+          ]
+        },
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-N8N-Callback-Secret",
+              "value": "={{ $env.N8N_CALLBACK_SECRET }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "id": "get-world",
+      "name": "2. Ler Contexto Atual",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [450, 500]
+    },
+    {
+      "parameters": {
+        "url": "http://localhost:11434/api/chat",
+        "authentication": "none",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "model",
+              "value": "llama3.2"
+            },
+            {
+              "name": "messages",
+              "value": "[\n  {\n    \"role\": \"system\",\n    \"content\": \"Você é um sub-agente especialista da Sexta-Feira. Responda com base no contexto fornecido (memória + estado atual). Seja conciso e direto.\"\n  },\n  {\n    \"role\": \"user\",\n    \"content\": \"Pergunta do usuário: {{ $json.body.message }}\\n\\nMemória recuperada: {{ $('1. Buscar na Memória').item.json.results }}\\n\\nEstado atual: {{ $('2. Ler Contexto Atual').item.json.state }}\"\n  }\n]"
+            },
+            {
+              "name": "stream",
+              "value": false
+            },
+            {
+              "name": "options",
+              "value": "{\n  \"temperature\": 0.7,\n  \"num_predict\": 1024\n}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "id": "ollama-reason",
+      "name": "3. Raciocinar (Ollama)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [650, 300]
+    },
+    {
+      "parameters": {
+        "keepOnlySet": true,
+        "values": {
+          "string": [
+            {
+              "name": "reply",
+              "value": "={{ $json.json.message.content }}"
+            },
+            {
+              "name": "sources",
+              "value": "={{ $('1. Buscar na Memória').item.json.results ? $('1. Buscar na Memória').item.json.results.length + ' registros na memória' : 'sem memória' }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "format-reply",
+      "name": "4. Formatar Resposta",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [850, 300]
+    },
+    {
+      "parameters": {
+        "url": "http://host.docker.internal:8000/api/v1/automations/callback",
+        "authentication": "none",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "action",
+              "value": "remember"
+            },
+            {
+              "name": "params",
+              "value": "={\n  \"content\": \"Usuário perguntou: \" + $json.body.message + \" - Respondi: \" + $json.json.message.content,\n  \"kind\": \"conversa\",\n  \"source\": \"automation\"\n}"
+            }
+          ]
+        },
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-N8N-Callback-Secret",
+              "value": "={{ $env.N8N_CALLBACK_SECRET }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "id": "save-memory",
+      "name": "5. Salvar na Memória",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [850, 500]
+    },
+    {
+      "parameters": {
+        "keepOnlySet": true,
+        "values": {
+          "string": [
+            {
+              "name": "reply",
+              "value": "={{ $('4. Formatar Resposta').item.json.reply }}"
+            },
+            {
+              "name": "sources",
+              "value": "={{ $('4. Formatar Resposta').item.json.sources }}"
+            },
+            {
+              "name": "saved_to_memory",
+              "value": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "final-response",
+      "name": "6. Resposta Final",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [1050, 300]
+    }
+  ],
+  "connections": {
+    "Webhook (gatilho)": {
+      "main": [
+        [
+          { "node": "1. Buscar na Memória", "type": "main", "index": 0 },
+          { "node": "2. Ler Contexto Atual", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "1. Buscar na Memória": {
+      "main": [
+        [
+          { "node": "3. Raciocinar (Ollama)", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "2. Ler Contexto Atual": {
+      "main": [
+        [
+          { "node": "3. Raciocinar (Ollama)", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "3. Raciocinar (Ollama)": {
+      "main": [
+        [
+          { "node": "4. Formatar Resposta", "type": "main", "index": 0 },
+          { "node": "5. Salvar na Memória", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "4. Formatar Resposta": {
+      "main": [
+        [
+          { "node": "6. Resposta Final", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "5. Salvar na Memória": {
+      "main": []
+    },
+    "6. Resposta Final": {
+      "main": []
+    }
+  },
+  "settings": {},
+  "staticData": null,
+  "tags": [],
+  "pinData": {}
+}
