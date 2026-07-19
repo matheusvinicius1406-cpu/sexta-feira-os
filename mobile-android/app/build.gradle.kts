@@ -76,6 +76,8 @@ dependencies {
     implementation("androidx.compose.material3:material3:${rootProject.extra.get("composeMaterialVersion")}")
     implementation("androidx.compose.runtime:runtime-livedata:${rootProject.extra.get("composeVersion")}")
     implementation("androidx.compose.ui:ui-tooling-preview:${rootProject.extra.get("composeVersion")}")
+    // Extended Material Icons (AutoAwesome, Bolt, Bookmark, ContentCopy, Lightbulb, etc.)
+    implementation("androidx.compose.material:material-icons-extended:${rootProject.extra.get("composeVersion")}")
     debugImplementation("androidx.compose.ui:ui-tooling:${rootProject.extra.get("composeVersion")}")
     debugImplementation("androidx.compose.ui:ui-test-manifest:${rootProject.extra.get("composeVersion")}")
 

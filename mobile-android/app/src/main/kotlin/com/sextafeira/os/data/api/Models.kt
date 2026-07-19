@@ -103,11 +103,56 @@ data class DeviceInfo(
 
 // ── Memory ──────────────────────────────────────────────
 
+/** Full memory node as returned by GET /api/v1/memory (list) and POST /recall. */
 data class MemoryItem(
     val id: String,
     val title: String? = null,
     val content: String? = null,
+    val kind: String = "fact",
+    val importance: Double = 0.5,
+    val source: String? = null,
+    @SerializedName("created_at") val createdAt: String? = null,
     val similarity: Double? = null,
+)
+
+/** Request body for POST /api/v1/memory (teach the kernel a new fact). */
+data class TeachRequest(
+    val content: String,
+    val title: String? = null,
+    val kind: String = "fact",
+    val importance: Double = 0.5,
+)
+
+/** Request body for POST /api/v1/memory/recall (search). */
+data class RecallRequest(
+    val query: String,
+    val networked: Boolean = true,
+    @SerializedName("top_k") val topK: Int? = null,
+)
+
+/** Full graph response from GET /api/v1/memory/graph. */
+data class GraphResponse(
+    val nodes: List<GraphNode> = emptyList(),
+    val edges: List<GraphEdge> = emptyList(),
+)
+
+data class GraphNode(
+    val id: String,
+    val title: String? = null,
+    val kind: String = "fact",
+    val importance: Double = 0.5,
+)
+
+data class GraphEdge(
+    val source: String,
+    val target: String,
+    val relation: String = "related",
+    val weight: Double = 1.0,
+)
+
+/** Response from DELETE /api/v1/memory/{id}. */
+data class ForgetResponse(
+    val forgotten: String,
 )
 
 // ── Reminders ───────────────────────────────────────────

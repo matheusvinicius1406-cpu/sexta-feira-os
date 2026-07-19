@@ -9,11 +9,12 @@ import androidx.navigation.compose.rememberNavController
 import com.sextafeira.os.data.network.AuthEvent
 import com.sextafeira.os.data.network.AuthEventBus
 import com.sextafeira.os.data.session.SessionManager
-import com.sextafeira.os.ui.screens.SplashScreen
-import com.sextafeira.os.ui.screens.LoginScreen
-import com.sextafeira.os.ui.screens.DashboardScreen
 import com.sextafeira.os.ui.screens.ChatAssistantScreen
+import com.sextafeira.os.ui.screens.DashboardScreen
+import com.sextafeira.os.ui.screens.LoginScreen
+import com.sextafeira.os.ui.screens.MemoryCurationScreen
 import com.sextafeira.os.ui.screens.SettingsScreen
+import com.sextafeira.os.ui.screens.SplashScreen
 import kotlinx.coroutines.flow.collectLatest
 
 sealed class Route(val route: String) {
@@ -22,6 +23,7 @@ sealed class Route(val route: String) {
     object Dashboard : Route("dashboard")
     object Chat : Route("chat")
     object Settings : Route("settings")
+    object MemoryCuration : Route("memory")
 }
 
 @Composable
@@ -60,6 +62,9 @@ fun RootNavigation() {
         }
         composable(Route.Settings.route) {
             SettingsScreen(navController)
+        }
+        composable(Route.MemoryCuration.route) {
+            MemoryCurationScreen(navController)
         }
     }
 }

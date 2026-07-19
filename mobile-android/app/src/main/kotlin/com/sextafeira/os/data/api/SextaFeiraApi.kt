@@ -1,6 +1,7 @@
 package com.sextafeira.os.data.api
 
 import retrofit2.http.Body
+import retrofit2.http.DELETE
 import retrofit2.http.GET
 import retrofit2.http.POST
 import retrofit2.http.Path
@@ -52,8 +53,31 @@ interface SextaFeiraApi {
 
     // ── Memory ──────────────────────────────────────────
 
-    @GET("api/v1/memory/recall")
-    suspend fun recall(@Query("query") query: String): List<MemoryItem>
+    /** List all memory nodes (newest first). */
+    @GET("api/v1/memory")
+    suspend fun listMemories(
+        @Query("limit") limit: Int = 200,
+    ): List<MemoryItem>
+
+    /** Teach the kernel a new fact. */
+    @POST("api/v1/memory")
+    suspend fun teachMemory(@Body body: TeachRequest): MemoryItem
+
+    /** Networked recall — semantic search + graph expansion. */
+    @POST("api/v1/memory/recall")
+    suspend fun recallMemory(@Body body: RecallRequest): List<MemoryItem>
+
+    /** Forget (delete) a memory node. */
+    @DELETE("api/v1/memory/{memoryId}")
+    suspend fun forgetMemory(
+        @Path("memoryId") memoryId: String,
+    ): ForgetResponse
+
+    /** Get the full knowledge graph for visualization. */
+    @GET("api/v1/memory/graph")
+    suspend fun memoryGraph(
+        @Query("limit") limit: Int = 500,
+    ): GraphResponse
 
     // ── Obsidian ────────────────────────────────────────
 

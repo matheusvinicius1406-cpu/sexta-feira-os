@@ -1,11 +1,14 @@
 package com.sextafeira.os.di
 
+import android.content.Context
 import com.sextafeira.os.data.api.ApiClient
 import com.sextafeira.os.data.api.SextaFeiraApi
 import com.sextafeira.os.data.network.AuthInterceptor
+import com.sextafeira.os.data.settings.SettingsRepository
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
+import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import okhttp3.OkHttpClient
 import java.util.concurrent.TimeUnit
@@ -41,5 +44,13 @@ object AppModule {
     @Singleton
     fun provideSextaFeiraApi(okHttpClient: OkHttpClient): SextaFeiraApi {
         return ApiClient.buildApi(okHttpClient)
+    }
+
+    @Provides
+    @Singleton
+    fun provideSettingsRepository(
+        @ApplicationContext context: Context,
+    ): SettingsRepository {
+        return SettingsRepository(context)
     }
 }
