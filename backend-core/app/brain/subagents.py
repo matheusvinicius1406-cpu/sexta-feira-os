@@ -37,7 +37,7 @@ class SubAgentRunner:
             {"role": "system", "content": system},
             {"role": "user", "content": task},
         ]
-        tools = self.toolkit.specs_subset(settings.subagent_allowed_tools)
+        tools = await self.toolkit.specs_subset(settings.subagent_allowed_tools)
 
         for _ in range(settings.subagent_max_rounds):
             msg = await self.brain.chat_with_tools(messages, tools=tools)
@@ -50,8 +50,8 @@ class SubAgentRunner:
             for call in tool_calls:
                 fn = call.get("function", {})
                 name = fn.get("name", "")
-                # Hard stop: a sub-agent can never delegate again.
-                if name == "delegate":
+                # Hard stop: a sub-agent can never delegate again (no recursion).
+                if name in ("delegate", "consult_director"):
                     messages.append({"role": "tool", "content": "Sub-agentes não podem delegar."})
                     continue
                 args = fn.get("arguments", {})

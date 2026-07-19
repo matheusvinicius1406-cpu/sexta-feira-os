@@ -25,6 +25,7 @@ from app.connectors.vault import Vault
 from app.core.config import settings
 from app.db.database import SessionLocal
 from app.decision.service import DecisionEngine
+from app.directors.service import DirectorService
 from app.events.bus import EventBus
 from app.events.projector import WorldModelProjector
 from app.learning.service import LearningEngine
@@ -49,6 +50,7 @@ class Kernel:
         self.decision: DecisionEngine | None = None
         self.learning: LearningEngine | None = None
         self.briefing: BriefingService | None = None
+        self.directors: DirectorService | None = None
         self.cognition: Cognition | None = None
         self.voice: VoiceBox | None = None
         self.automations: N8nClient | None = None
@@ -92,6 +94,10 @@ class Kernel:
         )
         if settings.subagents_enabled:
             toolkit.subagents = SubAgentRunner(self.brain, toolkit)
+        self.directors = DirectorService(
+            self.brain, toolkit, self.memory, events=self.events
+        )
+        toolkit.directors = self.directors
         extractor = MemoryExtractor(
             self.brain, self.memory, world=self.world, events=self.events
         )
@@ -221,6 +227,12 @@ def get_briefing() -> BriefingService:
     if not _kernel.briefing:
         raise RuntimeError("Kernel not started")
     return _kernel.briefing
+
+
+def get_directors() -> DirectorService:
+    if not _kernel.directors:
+        raise RuntimeError("Kernel not started")
+    return _kernel.directors
 
 
 def get_voice() -> VoiceBox:

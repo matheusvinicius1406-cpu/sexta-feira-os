@@ -291,6 +291,28 @@ class Decision(Base):
     created_at = Column(DateTime, default=_now, index=True)
 
 
+class Director(Base):
+    """
+    A permanent specialist agent — a "Diretor" (Agent System). Unlike transient
+    sub-agents, Directors persist over time and accumulate expertise in their own
+    specialized memory (Memory rows with source='director:<name>', same graph
+    substrate and privacy policies). They stay subordinate to the Kernel: the
+    restricted toolset and no-recursion rules apply, always owner-scoped.
+    """
+    __tablename__ = "directors"
+    __table_args__ = (UniqueConstraint("owner_id", "name", name="uq_directors_owner_name"),)
+
+    id = Column(String, primary_key=True, index=True)
+    owner_id = Column(String, ForeignKey("owner.id", ondelete="CASCADE"), index=True, nullable=False)
+    name = Column(String, nullable=False, index=True)        # slug: "engenharia"
+    title = Column(String, nullable=False)                    # "Diretor de Engenharia"
+    domain = Column(Text, nullable=False)                     # what this specialist handles
+    allowed_tools = Column(Text, nullable=True)               # JSON list; None = default subset
+    enabled = Column(Boolean, default=True, nullable=False)
+    created_at = Column(DateTime, default=_now)
+    updated_at = Column(DateTime, default=_now, onupdate=_now)
+
+
 class Briefing(Base):
     """
     A BRIEFING — a proactive summary the second brain produces (daily or on

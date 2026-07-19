@@ -55,6 +55,7 @@ class ToolKit:
         self.learning = learning      # LearningEngine | None — observe → learn → adapt
         self.briefing = briefing      # BriefingService | None — the daily report
         self.subagents = None         # SubAgentRunner | None (wired after construction)
+        self.directors = None         # DirectorService | None (wired after construction)
 
     async def specs_subset(self, allowed: list[str]) -> list[dict]:
         """The tool specs restricted to `allowed` names — used for sub-agents."""
@@ -406,6 +407,26 @@ class ToolKit:
                     },
                 },
             },
+            {
+                "type": "function",
+                "function": {
+                    "name": "consult_director",
+                    "description": (
+                        "Delega uma tarefa a um DIRETOR permanente — especialista que acumula "
+                        "expertise entre conversas (engenharia, pesquisa, seguranca, memoria, "
+                        "automacao, aprendizagem, dispositivos). Prefira ao 'delegate' quando "
+                        "o domínio casa com um diretor."
+                    ),
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "director": {"type": "string", "description": "nome do diretor (ex.: engenharia)"},
+                            "task": {"type": "string", "description": "a tarefa a delegar"},
+                        },
+                        "required": ["director", "task"],
+                    },
+                },
+            },
         ]
 
     async def dispatch(self, name: str, args: dict[str, Any], db: Session, owner_id: str) -> str:
@@ -574,6 +595,13 @@ class ToolKit:
                     db, owner_id, args.get("role", "assistente"), args.get("task", "")
                 )
                 return f"Sub-agente ({args.get('role', 'assistente')}): {result[:1500]}"
+            if name == "consult_director":
+                if not self.directors:
+                    return "Diretores indisponíveis."
+                result = await self.directors.delegate(
+                    db, owner_id, args.get("director", ""), args.get("task", "")
+                )
+                return f"Diretor ({args.get('director', '?')}): {result[:1500]}"
             return f"Ferramenta desconhecida: {name}"
         except Exception as e:  # noqa: BLE001 — a tool failure must not crash the turn
             logger.warning("tool '%s' failed: %s", name, e)
