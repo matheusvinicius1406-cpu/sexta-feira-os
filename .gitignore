@@ -61,3 +61,6 @@ logs/
 *.swp
 .DS_Store
 node_modules/
+
+# --- Windows reserved names ---
+nul

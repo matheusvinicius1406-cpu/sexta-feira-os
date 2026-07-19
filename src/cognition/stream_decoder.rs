@@ -107,7 +107,7 @@ impl StreamDecoder {
         self.metrics.record_chunk(chunk.len() as u64);
         self.state = StreamState::Active;
 
-        if self.is_valid_json_chunk(&self.buffer) {
+        if self.is_complete_intent_chunk(&self.buffer) {
             let result = self.buffer.clone();
             self.reset_buffer();
             self.state = StreamState::Complete;
@@ -124,11 +124,11 @@ impl StreamDecoder {
             return Ok(None);
         }
 
-        if !self.is_potentially_valid_json(&self.buffer) {
+        if !self.is_potentially_valid(&self.buffer) {
             self.state = StreamState::Corrupted;
-            self.corrupted_reason = Some("Invalid JSON structure".to_string());
+            self.corrupted_reason = Some("Invalid intent format".to_string());
             return Err(CognitiveError::StreamCorruption(
-                "Invalid JSON structure".to_string(),
+                "Invalid intent format".to_string(),
             ));
         }
 
@@ -163,57 +163,54 @@ impl StreamDecoder {
         self.buffer.clear();
     }
 
-    fn is_valid_json_chunk(&self, text: &str) -> bool {
+    fn is_complete_intent_chunk(&self, text: &str) -> bool {
         let trimmed = text.trim();
-
-        if trimmed.starts_with('{') && trimmed.ends_with('}') {
-            return self.is_potentially_valid_json(trimmed);
-        }
-
-        false
-    }
-
-    fn is_potentially_valid_json(&self, text: &str) -> bool {
-        let trimmed = text.trim();
-
         if trimmed.is_empty() {
             return false;
         }
 
-        let mut brace_count = 0;
-        let mut in_string = false;
-        let mut escape_next = false;
+        // An intent is complete when it has at least the three required fields:
+        // intent_id, tool, source. We can detect this by looking for their
+        // markers at the start of lines (key:value format, not JSON).
+        let mut has_id = false;
+        let mut has_tool = false;
+        let mut has_source = false;
 
-        for ch in trimmed.chars() {
-            if escape_next {
-                escape_next = false;
-                continue;
-            }
-
-            if ch == '\\' {
-                escape_next = true;
-                continue;
-            }
-
-            if ch == '"' {
-                in_string = !in_string;
-                continue;
-            }
-
-            if !in_string {
-                if ch == '{' {
-                    brace_count += 1;
-                } else if ch == '}' {
-                    brace_count -= 1;
-                }
-
-                if brace_count < 0 {
-                    return false;
-                }
+        for line in trimmed.lines() {
+            let line = line.trim();
+            if line.starts_with("intent_id:") {
+                has_id = true;
+            } else if line.starts_with("tool:") {
+                has_tool = true;
+            } else if line.starts_with("source:") {
+                has_source = true;
             }
         }
 
-        brace_count >= 0 && !in_string
+        has_id && has_tool && has_source
+    }
+
+    fn is_potentially_valid(&self, text: &str) -> bool {
+        let trimmed = text.trim();
+        if trimmed.is_empty() {
+            return false;
+        }
+
+        // Check that lines look like valid key:value pairs.
+        let mut has_key_value = false;
+        for line in trimmed.lines() {
+            let line = line.trim();
+            if line.is_empty() {
+                continue;
+            }
+            if line.contains(':') {
+                has_key_value = true;
+            } else {
+                return false;  // line without colon is invalid
+            }
+        }
+
+        has_key_value
     }
 }
 

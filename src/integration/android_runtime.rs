@@ -103,6 +103,7 @@ impl AndroidRuntimeManager {
 
         self.state
             .store(RuntimeState::Initializing.as_u8(), Ordering::Release);
+        self.record_state_transition();
         self.state
             .store(RuntimeState::Running.as_u8(), Ordering::Release);
         self.record_state_transition();
@@ -185,6 +186,7 @@ impl AndroidRuntimeManager {
 
         self.state
             .store(RuntimeState::Stopping.as_u8(), Ordering::Release);
+        self.record_state_transition();
         self.state
             .store(RuntimeState::Stopped.as_u8(), Ordering::Release);
         self.record_state_transition();

@@ -1,9 +1,11 @@
 package com.sextafeira.os.viewmodel
 
 import androidx.lifecycle.ViewModel
+import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import javax.inject.Inject
 
 enum class JarvisState {
     IDLE,
@@ -21,7 +23,8 @@ data class JarvisHudState(
     val lastResponse: String = ""
 )
 
-class JarvisHudViewModel : ViewModel() {
+@HiltViewModel
+class JarvisHudViewModel @Inject constructor() : ViewModel() {
 
     private val _uiState = MutableStateFlow(JarvisHudState())
     val uiState: StateFlow<JarvisHudState> = _uiState.asStateFlow()

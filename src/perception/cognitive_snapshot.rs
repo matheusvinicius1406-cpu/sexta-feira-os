@@ -109,7 +109,8 @@ impl CognitiveSnapshot {
     }
 
     pub fn add_tool_state(&mut self, tool: ToolState) {
-        Arc::get_mut(&mut self.tool_states).map(|m| m.insert(tool.name.clone(), tool));
+        // Use make_mut to handle shared Arcs: clones the inner data on write.
+        Arc::make_mut(&mut self.tool_states).insert(tool.name.clone(), tool);
     }
 
     pub fn get_tool_state(&self, tool_name: &str) -> Option<ToolState> {
@@ -117,7 +118,7 @@ impl CognitiveSnapshot {
     }
 
     pub fn add_symbolic_marker(&mut self, marker: SymbolicMarker) {
-        Arc::get_mut(&mut self.symbolic_markers).map(|m| m.insert(marker.key.clone(), marker));
+        Arc::make_mut(&mut self.symbolic_markers).insert(marker.key.clone(), marker);
     }
 
     pub fn get_symbolic_marker(&self, key: &str) -> Option<SymbolicMarker> {
@@ -134,15 +135,13 @@ impl CognitiveSnapshot {
 
     pub fn cleanup_expired_markers(&mut self) {
         let now = current_time_ns();
-        if let Some(m) = Arc::get_mut(&mut self.symbolic_markers) {
-            m.retain(|_, marker| {
-                if let Some(expires_at) = marker.expires_at_ns {
-                    now < expires_at
-                } else {
-                    true
-                }
-            });
-        }
+        Arc::make_mut(&mut self.symbolic_markers).retain(|_, marker| {
+            if let Some(expires_at) = marker.expires_at_ns {
+                now < expires_at
+            } else {
+                true
+            }
+        });
     }
 
     pub fn merge(&mut self, other: CognitiveSnapshot) {
@@ -161,11 +160,11 @@ impl CognitiveSnapshot {
         }
 
         for (name, tool_state) in other.tool_states.iter() {
-            Arc::get_mut(&mut self.tool_states).map(|m| m.insert(name.clone(), tool_state.clone()));
+            Arc::make_mut(&mut self.tool_states).insert(name.clone(), tool_state.clone());
         }
 
         for (key, marker) in other.symbolic_markers.iter() {
-            Arc::get_mut(&mut self.symbolic_markers).map(|m| m.insert(key.clone(), marker.clone()));
+            Arc::make_mut(&mut self.symbolic_markers).insert(key.clone(), marker.clone());
         }
 
         self.timestamp_ns = current_time_ns();

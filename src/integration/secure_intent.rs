@@ -147,11 +147,11 @@ impl SecureIntent {
         ];
 
         for (key, value) in &self.parameters {
+            let val_upper = value.to_uppercase();
+            let key_upper = key.to_uppercase();
             for marker in &injection_markers {
-                if value.to_uppercase().contains(marker) {
-                    return Err(SecurityError::PromptInjectionDetected);
-                }
-                if key.to_uppercase().contains(marker) {
+                let marker_upper = marker.to_uppercase();
+                if val_upper.contains(&marker_upper) || key_upper.contains(&marker_upper) {
                     return Err(SecurityError::PromptInjectionDetected);
                 }
             }
@@ -190,12 +190,18 @@ impl CapabilityMatrix {
     pub fn grant_capability(
         &mut self,
         source: String,
-        _capability: Capability,
+        capability: Capability,
     ) -> SecurityResult<()> {
         if source.len() > 256 {
             return Err(SecurityError::UntrustedSource(
                 "Source name too long".to_string(),
             ));
+        }
+        // Use make_mut so clone-on-write handles shared Arcs correctly.
+        let perms = Arc::make_mut(&mut self.permissions);
+        let caps = perms.entry(source).or_default();
+        if !caps.contains(&capability) {
+            caps.push(capability);
         }
         Ok(())
     }

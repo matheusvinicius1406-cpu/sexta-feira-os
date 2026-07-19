@@ -1,6 +1,13 @@
 package com.sextafeira.os.ui.screens
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -10,11 +17,14 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material.icons.filled.Send
+import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
@@ -23,15 +33,18 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import androidx.compose.runtime.collectAsState
 import com.sextafeira.os.viewmodel.ChatViewModel
@@ -39,16 +52,39 @@ import com.sextafeira.os.viewmodel.ChatViewModel
 @Composable
 fun ChatAssistantScreen(
     navController: NavHostController,
-    viewModel: ChatViewModel = remember { ChatViewModel() }
+    viewModel: ChatViewModel = hiltViewModel()
 ) {
     var messageInput by remember { mutableStateOf("") }
     var isListening by remember { mutableStateOf(false) }
-    
+
     // Collect state from ViewModel
     val messages by viewModel.messages.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
+    val streamingContent by viewModel.streamingContent.collectAsState()
+    val streamingMessageId by viewModel.streamingMessageId.collectAsState()
     val error by viewModel.error.collectAsState()
-    
+
+    val listState = rememberLazyListState()
+
+    // Auto-scroll to bottom when new messages arrive
+    LaunchedEffect(messages.size, streamingContent) {
+        if (messages.isNotEmpty()) {
+            listState.animateScrollToItem(messages.size - 1)
+        }
+    }
+
+    // Pulse animation for thinking state
+    val infiniteTransition = rememberInfiniteTransition(label = "thinking")
+    val pulseAlpha by infiniteTransition.animateFloat(
+        initialValue = 0.4f,
+        targetValue = 1.0f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(600),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "pulse"
+    )
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -76,9 +112,9 @@ fun ChatAssistantScreen(
                 modifier = Modifier.weight(1f)
             )
         }
-        
+
         // Error Message
-        if (error != null) {
+        AnimatedVisibility(visible = error != null) {
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -86,12 +122,10 @@ fun ChatAssistantScreen(
                     .padding(12.dp)
             ) {
                 Text(
-                    text = error!!,
+                    text = error ?: "",
                     color = MaterialTheme.colorScheme.onError,
                     fontSize = 12.sp,
-                    modifier = Modifier
-                        .align(Alignment.CenterStart)
-                        .weight(1f)
+                    modifier = Modifier.weight(1f)
                 )
                 Button(
                     onClick = { viewModel.clearError() },
@@ -100,116 +134,128 @@ fun ChatAssistantScreen(
                     ),
                     modifier = Modifier.size(80.dp, 28.dp)
                 ) {
-                    Text("Dismiss", fontSize = 10.sp)
+                    Text("OK", fontSize = 10.sp)
                 }
             }
         }
-        
+
         // Messages Area
         LazyColumn(
+            state = listState,
             modifier = Modifier
                 .weight(1f)
                 .fillMaxWidth()
-                .padding(16.dp),
-            verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(12.dp),
-            reverseLayout = false
+                .padding(horizontal = 12.dp, vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            items(messages) { message ->
-                ChatMessageBubble(message)
+            items(messages, key = { it.id }) { message ->
+                val isStreaming = streamingContent != null &&
+                    streamingMessageId == message.id
+                ChatMessageBubble(
+                    message = message.copy(
+                        content = if (isStreaming) message.content + " ▌" else message.content
+                    ),
+                )
             }
-            
-            // Loading indicator
-            if (isLoading && messages.isNotEmpty()) {
+
+            // Loading indicator (shown when waiting for first chunk)
+            if (isLoading && streamingContent.isNullOrEmpty()) {
                 item {
                     Box(
                         modifier = Modifier
-                            .align(Alignment.Start)
-                            .background(
-                                color = MaterialTheme.colorScheme.surfaceVariant,
-                                shape = RoundedCornerShape(12.dp)
-                            )
-                            .padding(12.dp)
+                            .fillMaxWidth()
+                            .padding(vertical = 8.dp),
+                        contentAlignment = Alignment.CenterStart
                     ) {
-                        Text(
-                            text = "⏳ Jarvis is thinking...",
-                            color = MaterialTheme.colorScheme.onSurface,
-                            fontSize = 14.sp
-                        )
+                        Box(
+                            modifier = Modifier
+                                .background(
+                                    color = MaterialTheme.colorScheme.surfaceVariant,
+                                    shape = RoundedCornerShape(16.dp)
+                                )
+                                .padding(horizontal = 16.dp, vertical = 10.dp)
+                                .alpha(pulseAlpha)
+                        ) {
+                            Text(
+                                text = "🤔 pensando...",
+                                color = MaterialTheme.colorScheme.onSurface,
+                                fontSize = 14.sp,
+                            )
+                        }
                     }
                 }
             }
         }
-        
+
         // Input Area
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp)
+                .padding(horizontal = 12.dp, vertical = 8.dp)
         ) {
-            // Microphone Button
-            Box(
-                modifier = Modifier
-                    .align(Alignment.CenterHorizontally)
-                    .size(64.dp)
-                    .background(
-                        color = if (isListening) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
-                        shape = CircleShape
-                    ),
-                contentAlignment = Alignment.Center
-            ) {
-                IconButton(
-                    onClick = { isListening = !isListening },
-                    modifier = Modifier.size(64.dp)
-                ) {
-                    Icon(
-                        Icons.Filled.Mic,
-                        contentDescription = "Microphone",
-                        tint = MaterialTheme.colorScheme.onPrimary,
-                        modifier = Modifier.size(32.dp)
-                    )
-                }
-            }
-            
-            if (isListening) {
-                Text(
-                    text = "🎤 Listening...",
-                    fontSize = 12.sp,
-                    color = MaterialTheme.colorScheme.secondary,
-                    modifier = Modifier
-                        .align(Alignment.CenterHorizontally)
-                        .padding(top = 8.dp)
-                )
-            }
-            
-            // Text Input
+            // Mic / Send row
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 16.dp),
-                verticalAlignment = Alignment.CenterVertically
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
+                // Microphone Button
+                Box(
+                    modifier = Modifier
+                        .size(48.dp)
+                        .background(
+                            color = if (isListening) MaterialTheme.colorScheme.error
+                                    else MaterialTheme.colorScheme.primary.copy(alpha = 0.8f),
+                            shape = CircleShape
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    IconButton(
+                        onClick = { isListening = !isListening },
+                        modifier = Modifier.size(48.dp)
+                    ) {
+                        Icon(
+                            Icons.Filled.Mic,
+                            contentDescription = "Microphone",
+                            tint = MaterialTheme.colorScheme.onPrimary,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+                }
+
+                // Text Input
                 OutlinedTextField(
                     value = messageInput,
                     onValueChange = { messageInput = it },
-                    label = { Text("Message Jarvis...") },
+                    placeholder = { Text("Mensagem para o Jarvis...") },
                     modifier = Modifier.weight(1f),
-                    enabled = !isLoading
+                    enabled = !isLoading,
+                    shape = RoundedCornerShape(24.dp),
+                    singleLine = true,
                 )
-                
+
+                // Send Button
                 Button(
                     onClick = {
-                        if (messageInput.isNotBlank() && !isLoading) {
+                        if (messageInput.isNotBlank()) {
                             viewModel.sendMessage(messageInput)
                             messageInput = ""
                         }
                     },
-                    modifier = Modifier.padding(start = 8.dp),
+                    modifier = Modifier.size(48.dp),
+                    shape = CircleShape,
+                    contentPadding = ButtonDefaults.TextButtonContentPadding,
                     colors = ButtonDefaults.buttonColors(
                         containerColor = MaterialTheme.colorScheme.primary
                     ),
-                    enabled = messageInput.isNotBlank() && !isLoading
+                    enabled = messageInput.isNotBlank() && !isLoading,
                 ) {
-                    Text("Send", fontSize = 12.sp)
+                    Icon(
+                        Icons.Filled.Send,
+                        contentDescription = "Send",
+                        tint = MaterialTheme.colorScheme.onPrimary,
+                        modifier = Modifier.size(20.dp)
+                    )
                 }
             }
         }
@@ -217,28 +263,39 @@ fun ChatAssistantScreen(
 }
 
 @Composable
-private fun ChatMessageBubble(message: com.sextafeira.os.domain.model.ChatMessage) {
+private fun ChatMessageBubble(
+    message: com.sextafeira.os.domain.model.ChatMessage,
+) {
     Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(
-                color = if (message.isFromAssistant) 
-                    MaterialTheme.colorScheme.surfaceVariant 
-                else 
-                    MaterialTheme.colorScheme.primary,
-                shape = RoundedCornerShape(12.dp)
-            )
-            .align(if (message.isFromAssistant) Alignment.Start else Alignment.End)
-            .fillMaxWidth(0.85f)
-            .padding(12.dp)
+        modifier = Modifier.fillMaxWidth(),
+        contentAlignment = if (message.isFromAssistant) Alignment.TopStart else Alignment.TopEnd
     ) {
-        Text(
-            text = message.content,
-            color = if (message.isFromAssistant) 
-                MaterialTheme.colorScheme.onSurface 
-            else 
-                MaterialTheme.colorScheme.onPrimary,
-            fontSize = 14.sp
-        )
+        Box(
+            modifier = Modifier
+                .fillMaxWidth(0.88f)
+                .background(
+                    color = if (message.isFromAssistant)
+                        MaterialTheme.colorScheme.surfaceVariant
+                    else
+                        MaterialTheme.colorScheme.primary,
+                    shape = RoundedCornerShape(
+                        topStart = 16.dp,
+                        topEnd = 16.dp,
+                        bottomStart = if (message.isFromAssistant) 4.dp else 16.dp,
+                        bottomEnd = if (message.isFromAssistant) 16.dp else 4.dp,
+                    )
+                )
+                .padding(horizontal = 14.dp, vertical = 10.dp)
+        ) {
+            Text(
+                text = message.content,
+                color = if (message.isFromAssistant)
+                    MaterialTheme.colorScheme.onSurface
+                else
+                    MaterialTheme.colorScheme.onPrimary,
+                fontSize = 15.sp,
+                lineHeight = 22.sp,
+            )
+        }
     }
 }

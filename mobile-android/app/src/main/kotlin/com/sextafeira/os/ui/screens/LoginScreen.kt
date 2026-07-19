@@ -26,6 +26,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import com.sextafeira.os.ui.navigation.Route
 import com.sextafeira.os.viewmodel.LoginViewModel
@@ -33,7 +34,7 @@ import com.sextafeira.os.viewmodel.LoginViewModel
 @Composable
 fun LoginScreen(
     navController: NavHostController,
-    viewModel: LoginViewModel = remember { LoginViewModel() },
+    viewModel: LoginViewModel = hiltViewModel(),
 ) {
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }

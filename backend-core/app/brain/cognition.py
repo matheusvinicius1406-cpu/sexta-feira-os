@@ -81,6 +81,26 @@ class Cognition:
                 "\n\nO que você já sabe sobre seu dono e como as coisas se conectam "
                 "(use quando for útil, sem repetir mecanicamente):\n" + recalled
             )
+
+        # Direct vault recall — read recently modified .md notes from the vault
+        # and inject them as context. This gives the brain access to notes the
+        # user just wrote, even before they're imported into the graph.
+        if settings.obsidian_vault_path and settings.obsidian_vault_recall_max_notes > 0:
+            try:
+                from app.obsidian.recall import (  # noqa: E402
+                    format_vault_context,
+                    read_recent_vault_notes,
+                )
+                notes = read_recent_vault_notes(
+                    settings.obsidian_vault_path,
+                    max_notes=settings.obsidian_vault_recall_max_notes,
+                )
+                vault_ctx = format_vault_context(notes)
+                if vault_ctx:
+                    system += vault_ctx
+            except Exception as e:  # noqa: BLE001
+                logger.debug("vault recall skipped: %s", e)
+
         messages = [{"role": "system", "content": system}]
         messages.extend(self._recent_history(conv))
         messages.append({"role": "user", "content": user_text})
@@ -94,7 +114,12 @@ class Cognition:
         db.commit()
 
     async def _auto_learn(self, db: Session, owner_id: str, user_text: str, reply: str) -> None:
-        """Distil durable memories from the exchange (best-effort, never breaks the reply)."""
+        """Distil durable memories from the exchange (best-effort, never breaks the reply).
+
+        Uses the MemoryExtractor when present (typed multi-fact). The single-fact
+        fallback also writes the fact as an Obsidian .md note when
+        obsidian_vault_path is configured (auto-export).
+        """
         if not settings.memory_auto_learn:
             return
         try:
@@ -115,6 +140,18 @@ class Cognition:
                 await self.memory.remember(
                     db, owner_id, fact, kind="fact", importance=0.6, source="auto_learned"
                 )
+                # Auto-export: write the learned fact as an Obsidian .md note
+                if settings.obsidian_vault_path:
+                    try:
+                        from app.obsidian.exporter import export_auto_learned_fact  # noqa: E402
+                        export_auto_learned_fact(
+                            vault_path=settings.obsidian_vault_path,
+                            title=fact[:80],
+                            content=fact,
+                            kind="fact",
+                        )
+                    except Exception as export_err:  # noqa: BLE001
+                        logger.debug("auto-export to vault skipped: %s", export_err)
         except Exception as e:  # noqa: BLE001 — never let learning break the reply
             logger.debug("auto-learn skipped: %s", e)
 

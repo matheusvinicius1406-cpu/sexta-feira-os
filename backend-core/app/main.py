@@ -33,6 +33,7 @@ from app.api.routers import (  # noqa: E402
     journal,
     learning,
     memory,
+    obsidian,
     planning,
     schedule,
     timetrack,
@@ -91,6 +92,7 @@ app.include_router(automation.router)
 app.include_router(action.router)
 app.include_router(schedule.router)
 app.include_router(connectors.router)
+app.include_router(obsidian.router)
 
 
 @app.get("/")

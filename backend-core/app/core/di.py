@@ -32,6 +32,7 @@ from app.events.projector import WorldModelProjector
 from app.journal.service import HabitService, JournalService
 from app.learning.service import LearningEngine
 from app.models.models import Owner
+from app.obsidian.watcher import ObsidianWatcher
 from app.planning.service import PlanningEngine
 from app.schedule.service import Scheduler
 from app.timetrack.service import TimeTracker
@@ -66,6 +67,8 @@ class Kernel:
         self.scheduler: Scheduler | None = None
         self.connectors: ConnectorService | None = None
         self._scheduler_task: asyncio.Task | None = None
+        self._obsidian_watcher: ObsidianWatcher | None = None
+        self._obsidian_watcher_task: asyncio.Task | None = None
         self._ready = False
 
     async def start(self) -> None:
@@ -121,6 +124,12 @@ class Kernel:
             self._scheduler_task = asyncio.create_task(self._scheduler_loop())
             logger.info("⏰ Scheduler running (every %ss)", settings.scheduler_interval_seconds)
 
+        # Background watcher for Obsidian vault sync (only if a vault is configured).
+        if settings.obsidian_vault_path:
+            self._obsidian_watcher = ObsidianWatcher(self.memory)
+            self._obsidian_watcher_task = asyncio.create_task(self._obsidian_watcher_loop())
+            logger.info("📁 Obsidian vault watcher started for: %s", settings.obsidian_vault_path)
+
         if await self.brain.health():
             logger.info("🧠 Local brain online (%s)", settings.brain_model)
         else:
@@ -157,6 +166,26 @@ class Kernel:
         finally:
             db.close()
 
+    async def _obsidian_watcher_loop(self) -> None:
+        """Poll the vault for changes on an interval (like the scheduler)."""
+        await asyncio.sleep(5)  # initial delay — let the kernel finish booting
+        while True:
+            try:
+                await asyncio.sleep(settings.obsidian_watch_interval)
+                db = SessionLocal()
+                try:
+                    owner = db.query(Owner).first()
+                    if owner and self._obsidian_watcher:
+                        await self._obsidian_watcher.poll(
+                            db, owner.id, settings.obsidian_vault_path,
+                        )
+                finally:
+                    db.close()
+            except asyncio.CancelledError:
+                break
+            except Exception as e:  # noqa: BLE001 — the loop must survive one bad tick
+                logger.warning("obsidian watcher tick failed: %s", e)
+
     async def _scheduler_loop(self) -> None:
         """Fire due reminders/actions on an interval. Sleeps first (never at boot)."""
         while True:
@@ -173,6 +202,10 @@ class Kernel:
                 logger.warning("scheduler tick failed: %s", e)
 
     async def stop(self) -> None:
+        if self._obsidian_watcher_task:
+            self._obsidian_watcher_task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await self._obsidian_watcher_task
         if self._scheduler_task:
             self._scheduler_task.cancel()
             with contextlib.suppress(asyncio.CancelledError):
@@ -268,6 +301,10 @@ def get_evals() -> EvalHarness:
     if not _kernel.evals:
         raise RuntimeError("Kernel not started")
     return _kernel.evals
+
+
+def get_obsidian_watcher() -> ObsidianWatcher | None:
+    return _kernel._obsidian_watcher
 
 
 def get_voice() -> VoiceBox:

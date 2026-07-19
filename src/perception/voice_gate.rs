@@ -11,7 +11,6 @@ pub struct VoiceGate {
     state: Arc<AtomicU8>,
     energy_threshold: f32,
     zero_crossing_threshold: u32,
-    frame_count: u32,
     voice_frames_required: u32,
     silence_frames_required: u32,
     frame_counter: u32,
@@ -23,7 +22,6 @@ impl VoiceGate {
             state: Arc::new(AtomicU8::new(VoiceGateState::Silence as u8)),
             energy_threshold,
             zero_crossing_threshold,
-            frame_count: 0,
             voice_frames_required: 2,
             silence_frames_required: 8,
             frame_counter: 0,
@@ -43,10 +41,10 @@ impl VoiceGate {
 
         let current_state = self.current_state();
 
-        self.frame_counter += 1;
-
         let new_state = match (current_state, is_voice) {
+            // Silence + voice: increment counter; switch to VoiceDetected when threshold is met.
             (VoiceGateState::Silence, true) => {
+                self.frame_counter += 1;
                 if self.frame_counter >= self.voice_frames_required {
                     self.frame_counter = 0;
                     VoiceGateState::VoiceDetected
@@ -54,7 +52,14 @@ impl VoiceGate {
                     VoiceGateState::Silence
                 }
             }
+            // Silence + no voice: reset counter, stay silent.
+            (VoiceGateState::Silence, false) => {
+                self.frame_counter = 0;
+                VoiceGateState::Silence
+            }
+            // VoiceDetected + silence: increment counter; switch to Silence when threshold is met.
             (VoiceGateState::VoiceDetected, false) => {
+                self.frame_counter += 1;
                 if self.frame_counter >= self.silence_frames_required {
                     self.frame_counter = 0;
                     VoiceGateState::Silence
@@ -62,13 +67,10 @@ impl VoiceGate {
                     VoiceGateState::VoiceDetected
                 }
             }
-            _ => {
-                if is_voice {
-                    self.frame_counter = self.frame_counter.saturating_add(1);
-                } else {
-                    self.frame_counter = 0;
-                }
-                current_state
+            // VoiceDetected + voice still active: reset counter, stay detected.
+            (VoiceGateState::VoiceDetected, true) => {
+                self.frame_counter = 0;
+                VoiceGateState::VoiceDetected
             }
         };
 
@@ -118,7 +120,6 @@ impl Clone for VoiceGate {
             state: Arc::clone(&self.state),
             energy_threshold: self.energy_threshold,
             zero_crossing_threshold: self.zero_crossing_threshold,
-            frame_count: self.frame_count,
             voice_frames_required: self.voice_frames_required,
             silence_frames_required: self.silence_frames_required,
             frame_counter: self.frame_counter,
