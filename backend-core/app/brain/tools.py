@@ -42,7 +42,8 @@ def _compute_due(args: dict) -> datetime | None:
 
 class ToolKit:
     def __init__(self, memory, automations, actions=None, scheduler=None,
-                 connectors=None, world=None, planning=None, decision=None, learning=None):
+                 connectors=None, world=None, planning=None, decision=None, learning=None,
+                 briefing=None):
         self.memory = memory
         self.automations = automations
         self.actions = actions        # ActionService | None
@@ -52,6 +53,7 @@ class ToolKit:
         self.planning = planning      # PlanningEngine | None — goals + decomposition
         self.decision = decision      # DecisionEngine | None — choose under constraints
         self.learning = learning      # LearningEngine | None — observe → learn → adapt
+        self.briefing = briefing      # BriefingService | None — the daily report
         self.subagents = None         # SubAgentRunner | None (wired after construction)
 
     async def specs_subset(self, allowed: list[str]) -> list[dict]:
@@ -282,6 +284,18 @@ class ToolKit:
             {
                 "type": "function",
                 "function": {
+                    "name": "daily_briefing",
+                    "description": (
+                        "Gera um briefing agora: resume o estado atual, os objetivos, o foco "
+                        "sugerido, eventos recentes e aprendizados — o 'reporte' do segundo "
+                        "cérebro. Sem argumentos."
+                    ),
+                    "parameters": {"type": "object", "properties": {}},
+                },
+            },
+            {
+                "type": "function",
+                "function": {
                     "name": "record_learning",
                     "description": (
                         "Registra um aprendizado depois de uma ação/resultado (ciclo de "
@@ -505,6 +519,11 @@ class ToolKit:
                     return "Planejamento indisponível."
                 g = await self.planning.complete(db, owner_id, args.get("goal_id", ""))
                 return f"Objetivo concluído: {g.title}" if g else "Objetivo não encontrado."
+            if name == "daily_briefing":
+                if not self.briefing:
+                    return "Briefing indisponível."
+                b = await self.briefing.generate(db, owner_id, kind="on_demand")
+                return b.summary
             if name == "record_learning":
                 if not self.learning:
                     return "Aprendizado indisponível."

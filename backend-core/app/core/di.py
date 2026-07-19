@@ -18,6 +18,7 @@ from app.brain.engine import LocalBrain
 from app.brain.memory import PersistentMemory
 from app.brain.subagents import SubAgentRunner
 from app.brain.tools import ToolKit
+from app.briefing.service import BriefingService
 from app.connectors.service import ConnectorService
 from app.connectors.vault import Vault
 from app.core.config import settings
@@ -46,6 +47,7 @@ class Kernel:
         self.planning: PlanningEngine | None = None
         self.decision: DecisionEngine | None = None
         self.learning: LearningEngine | None = None
+        self.briefing: BriefingService | None = None
         self.cognition: Cognition | None = None
         self.voice: VoiceBox | None = None
         self.automations: N8nClient | None = None
@@ -72,15 +74,20 @@ class Kernel:
         self.learning = LearningEngine(
             memory=self.memory, world=self.world, events=self.events
         )
+        self.briefing = BriefingService(
+            world=self.world, planning=self.planning, decision=self.decision,
+            events=self.events, learning=self.learning,
+        )
         self.automations = N8nClient()
         self.action_bus = CommandBus()
         self.actions = ActionService(self.action_bus)
-        self.scheduler = Scheduler(self.actions, events=self.events)
+        self.scheduler = Scheduler(self.actions, events=self.events, briefing=self.briefing)
         self.connectors = ConnectorService(Vault())
         self.voice = VoiceBox()
         toolkit = ToolKit(
             self.memory, self.automations, self.actions, self.scheduler,
             self.connectors, self.world, self.planning, self.decision, self.learning,
+            self.briefing,
         )
         if settings.subagents_enabled:
             toolkit.subagents = SubAgentRunner(self.brain, toolkit)
@@ -202,6 +209,12 @@ def get_learning() -> LearningEngine:
     if not _kernel.learning:
         raise RuntimeError("Kernel not started")
     return _kernel.learning
+
+
+def get_briefing() -> BriefingService:
+    if not _kernel.briefing:
+        raise RuntimeError("Kernel not started")
+    return _kernel.briefing
 
 
 def get_voice() -> VoiceBox:

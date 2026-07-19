@@ -291,6 +291,26 @@ class Decision(Base):
     created_at = Column(DateTime, default=_now, index=True)
 
 
+class Briefing(Base):
+    """
+    A BRIEFING — a proactive summary the second brain produces (daily or on
+    demand). It weaves together the five pillars: the present (World Model),
+    open goals (Planning), the decided focus (Decision), recent events and
+    lessons (Learning). Persisted as a history of "morning reports".
+
+    Concept adapted (our own code) from the local-first daily-briefing idea; the
+    Kernel stays "só meu" — assembled from local data only. See ADR-0006.
+    """
+    __tablename__ = "briefings"
+
+    id = Column(String, primary_key=True, index=True)
+    owner_id = Column(String, ForeignKey("owner.id", ondelete="CASCADE"), index=True, nullable=False)
+    kind = Column(String, default="on_demand", index=True)   # daily|on_demand
+    summary = Column(Text, nullable=True)                    # short human-readable text
+    content = Column(Text, nullable=True)                    # JSON: the structured sections
+    created_at = Column(DateTime, default=_now, index=True)
+
+
 class Learning(Base):
     """
     A LEARNING — the durable takeaway from an outcome (North Star: "Aprendizado

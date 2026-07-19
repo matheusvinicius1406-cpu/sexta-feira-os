@@ -33,9 +33,10 @@ def _aware(dt: datetime) -> datetime:
 
 
 class Scheduler:
-    def __init__(self, actions: ActionService, events=None):
+    def __init__(self, actions: ActionService, events=None, briefing=None):
         self.actions = actions
-        self.events = events  # EventBus | None — time becomes events (agendamento.venceu)
+        self.events = events      # EventBus | None — time becomes events (agendamento.venceu)
+        self.briefing = briefing  # BriefingService | None — for the daily "morning report"
 
     # ---------- create / manage ----------
 
@@ -112,7 +113,14 @@ class Scheduler:
             logger.debug("could not emit agendamento.venceu: %s", e)
 
     async def _fire(self, db: Session, task: ScheduledTask) -> None:
-        if task.kind == "action" and task.action:
+        if task.kind == "briefing" and self.briefing:
+            # The daily "morning report": generate it, then notify the owner's body.
+            b = await self.briefing.generate(db, task.owner_id, kind="daily")
+            await self.actions.dispatch(
+                db, task.owner_id, task.device_selector or "celular",
+                "notify", {"text": b.summary},
+            )
+        elif task.kind == "action" and task.action:
             params = json.loads(task.params) if task.params else {}
             await self.actions.dispatch(
                 db, task.owner_id, task.device_selector or "celular", task.action, params
