@@ -291,6 +291,84 @@ class Decision(Base):
     created_at = Column(DateTime, default=_now, index=True)
 
 
+class JournalEntry(Base):
+    """A dated personal note — the owner's journal (concept from local-first
+    daily tools; ADR-0009). Feeds memory extraction and the User Model."""
+    __tablename__ = "journal_entries"
+
+    id = Column(String, primary_key=True, index=True)
+    owner_id = Column(String, ForeignKey("owner.id", ondelete="CASCADE"), index=True, nullable=False)
+    content = Column(Text, nullable=False)
+    mood = Column(String, nullable=True)                     # owner-reported, optional
+    created_at = Column(DateTime, default=_now, index=True)
+
+
+class Habit(Base):
+    """A recurring practice the owner tracks (procedural memory in the making)."""
+    __tablename__ = "habits"
+    __table_args__ = (UniqueConstraint("owner_id", "name", name="uq_habits_owner_name"),)
+
+    id = Column(String, primary_key=True, index=True)
+    owner_id = Column(String, ForeignKey("owner.id", ondelete="CASCADE"), index=True, nullable=False)
+    name = Column(String, nullable=False, index=True)
+    schedule = Column(String, default="daily")               # daily (v1); weekly etc. later
+    enabled = Column(Boolean, default=True, nullable=False)
+    created_at = Column(DateTime, default=_now)
+
+
+class HabitCheck(Base):
+    """One completed day of a habit (unique per habit+day → idempotent check-ins)."""
+    __tablename__ = "habit_checks"
+    __table_args__ = (UniqueConstraint("habit_id", "day", name="uq_habit_checks_day"),)
+
+    id = Column(String, primary_key=True, index=True)
+    owner_id = Column(String, ForeignKey("owner.id", ondelete="CASCADE"), index=True, nullable=False)
+    habit_id = Column(String, ForeignKey("habits.id", ondelete="CASCADE"), index=True, nullable=False)
+    day = Column(String, nullable=False, index=True)         # "YYYY-MM-DD" (UTC)
+    created_at = Column(DateTime, default=_now)
+
+
+class TimeEntry(Base):
+    """A tracked span of time, optionally tied to a goal (Planning). One open
+    entry at a time; starting a new one closes the previous (ADR-0010)."""
+    __tablename__ = "time_entries"
+
+    id = Column(String, primary_key=True, index=True)
+    owner_id = Column(String, ForeignKey("owner.id", ondelete="CASCADE"), index=True, nullable=False)
+    goal_id = Column(String, ForeignKey("goals.id", ondelete="SET NULL"), nullable=True, index=True)
+    label = Column(String, nullable=False)                    # what the time went to
+    started_at = Column(DateTime, default=_now, index=True)
+    ended_at = Column(DateTime, nullable=True, index=True)   # NULL = still running
+
+
+class EvalCase(Base):
+    """An owner-defined quality check for the brain: prompt + expected substring.
+    The eval harness runs cases on the LOCAL model and scores them (ADR-0011)."""
+    __tablename__ = "eval_cases"
+    __table_args__ = (UniqueConstraint("owner_id", "name", name="uq_eval_cases_owner_name"),)
+
+    id = Column(String, primary_key=True, index=True)
+    owner_id = Column(String, ForeignKey("owner.id", ondelete="CASCADE"), index=True, nullable=False)
+    name = Column(String, nullable=False, index=True)
+    prompt = Column(Text, nullable=False)
+    expected_contains = Column(Text, nullable=False)          # case-insensitive substring
+    enabled = Column(Boolean, default=True, nullable=False)
+    created_at = Column(DateTime, default=_now)
+
+
+class EvalRun(Base):
+    """One execution of the eval suite: score + per-case results (audit trail)."""
+    __tablename__ = "eval_runs"
+
+    id = Column(String, primary_key=True, index=True)
+    owner_id = Column(String, ForeignKey("owner.id", ondelete="CASCADE"), index=True, nullable=False)
+    total = Column(Integer, default=0)
+    passed = Column(Integer, default=0)
+    score = Column(Float, default=0.0)                        # passed / total
+    results = Column(Text, nullable=True)                     # JSON per-case detail
+    created_at = Column(DateTime, default=_now, index=True)
+
+
 class Director(Base):
     """
     A permanent specialist agent — a "Diretor" (Agent System). Unlike transient

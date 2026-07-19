@@ -26,12 +26,15 @@ from app.core.config import settings
 from app.db.database import SessionLocal
 from app.decision.service import DecisionEngine
 from app.directors.service import DirectorService
+from app.evals.service import EvalHarness
 from app.events.bus import EventBus
 from app.events.projector import WorldModelProjector
+from app.journal.service import HabitService, JournalService
 from app.learning.service import LearningEngine
 from app.models.models import Owner
 from app.planning.service import PlanningEngine
 from app.schedule.service import Scheduler
+from app.timetrack.service import TimeTracker
 from app.voice.box import VoiceBox
 from app.world.service import WorldModel
 
@@ -51,6 +54,10 @@ class Kernel:
         self.learning: LearningEngine | None = None
         self.briefing: BriefingService | None = None
         self.directors: DirectorService | None = None
+        self.journal: JournalService | None = None
+        self.habits: HabitService | None = None
+        self.timetracker: TimeTracker | None = None
+        self.evals: EvalHarness | None = None
         self.cognition: Cognition | None = None
         self.voice: VoiceBox | None = None
         self.automations: N8nClient | None = None
@@ -101,6 +108,10 @@ class Kernel:
         extractor = MemoryExtractor(
             self.brain, self.memory, world=self.world, events=self.events
         )
+        self.journal = JournalService(events=self.events, extractor=extractor)
+        self.habits = HabitService(world=self.world, events=self.events)
+        self.timetracker = TimeTracker(world=self.world, events=self.events)
+        self.evals = EvalHarness(self.brain, events=self.events, learning=self.learning)
         self.cognition = Cognition(
             self.brain, self.memory, toolkit, world=self.world, extractor=extractor
         )
@@ -233,6 +244,30 @@ def get_directors() -> DirectorService:
     if not _kernel.directors:
         raise RuntimeError("Kernel not started")
     return _kernel.directors
+
+
+def get_journal() -> JournalService:
+    if not _kernel.journal:
+        raise RuntimeError("Kernel not started")
+    return _kernel.journal
+
+
+def get_habits() -> HabitService:
+    if not _kernel.habits:
+        raise RuntimeError("Kernel not started")
+    return _kernel.habits
+
+
+def get_timetracker() -> TimeTracker:
+    if not _kernel.timetracker:
+        raise RuntimeError("Kernel not started")
+    return _kernel.timetracker
+
+
+def get_evals() -> EvalHarness:
+    if not _kernel.evals:
+        raise RuntimeError("Kernel not started")
+    return _kernel.evals
 
 
 def get_voice() -> VoiceBox:
