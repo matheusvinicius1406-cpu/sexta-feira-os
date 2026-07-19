@@ -15,6 +15,7 @@ from app.auth.jwt import hash_password
 from app.automation.n8n import N8nClient
 from app.brain.cognition import Cognition
 from app.brain.engine import LocalBrain
+from app.brain.extractor import MemoryExtractor
 from app.brain.memory import PersistentMemory
 from app.brain.subagents import SubAgentRunner
 from app.brain.tools import ToolKit
@@ -91,7 +92,12 @@ class Kernel:
         )
         if settings.subagents_enabled:
             toolkit.subagents = SubAgentRunner(self.brain, toolkit)
-        self.cognition = Cognition(self.brain, self.memory, toolkit, world=self.world)
+        extractor = MemoryExtractor(
+            self.brain, self.memory, world=self.world, events=self.events
+        )
+        self.cognition = Cognition(
+            self.brain, self.memory, toolkit, world=self.world, extractor=extractor
+        )
         self._ready = True
 
         if settings.scheduler_enabled:

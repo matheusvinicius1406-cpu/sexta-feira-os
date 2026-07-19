@@ -28,11 +28,13 @@ logger = logging.getLogger("sexta-feira.cognition")
 
 
 class Cognition:
-    def __init__(self, brain: LocalBrain, memory: PersistentMemory, toolkit=None, world=None):
+    def __init__(self, brain: LocalBrain, memory: PersistentMemory, toolkit=None, world=None,
+                 extractor=None):
         self.brain = brain
         self.memory = memory
-        self.toolkit = toolkit  # ToolKit | None — enables agentic actions
-        self.world = world      # WorldModel | None — the present + the owner model
+        self.toolkit = toolkit      # ToolKit | None — enables agentic actions
+        self.world = world          # WorldModel | None — the present + the owner model
+        self.extractor = extractor  # MemoryExtractor | None — typed multi-fact auto-learn
 
     # ---------- conversation helpers ----------
 
@@ -92,10 +94,15 @@ class Cognition:
         db.commit()
 
     async def _auto_learn(self, db: Session, owner_id: str, user_text: str, reply: str) -> None:
-        """Ask the brain to distil a durable fact worth remembering (best-effort)."""
+        """Distil durable memories from the exchange (best-effort, never breaks the reply)."""
         if not settings.memory_auto_learn:
             return
         try:
+            if self.extractor:
+                # Typed multi-fact extraction, routed to graph memory + User Model.
+                await self.extractor.extract(db, owner_id, user_text, reply)
+                return
+            # Fallback: the original single-fact probe.
             probe = [
                 {"role": "system", "content":
                     "Extraia UM fato duradouro sobre o usuário desta troca (preferência, "
