@@ -8,9 +8,9 @@
 - **Número:** 0013
 - **Título:** Adotar arquitetura Python-First para a plataforma de automação (Teia)
 - **Data:** 2026-07-20
-- **Estado:** `Proposto` — aguardando aprovação do proprietário (via PR)
+- **Estado:** `Aceito`
 - **Autor(es):** Claude Code (atuando como Arquiteto de Software Sênior)
-- **Aprovado por:** _(pendente — este ADR é entregue por Pull Request para revisão)_
+- **Aprovado por:** Proprietário ("aprovado, comece a fase 1")
 - **Documentos afetados:** `../architecture/API_ECOSYSTEM.md`, `../agents/N8N_ORCHESTRATOR.md`,
   `../architecture/NORTH_STAR.md`
 
