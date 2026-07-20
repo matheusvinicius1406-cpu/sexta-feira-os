@@ -1,7 +1,7 @@
 use sexta_feira_perception::{
     AudioRingBuffer, CognitiveSnapshot, InterruptBus, InterruptEvent, InterruptPriority,
-    InterruptSource, PerceptualFunnel, PerceptualOutput, ScreenDeltaDetector, SymbolicMarker,
-    ToolState, ToolStatus, VoiceGate, VoiceGateState,
+    InterruptSource, PerceptualFunnel, PerceptualOutput, ScreenDeltaDetector,
+    VoiceGate, VoiceGateState,
 };
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -234,6 +234,8 @@ async fn main() {
 #[cfg(test)]
 mod integration_tests {
     use super::*;
+    // Only used by the tests below (kept out of the non-test build's imports).
+    use sexta_feira_perception::{SymbolicMarker, ToolState, ToolStatus};
 
     #[tokio::test]
     async fn test_voice_detection_integration() {
