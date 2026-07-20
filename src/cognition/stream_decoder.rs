@@ -227,7 +227,9 @@ mod tests {
     #[test]
     fn test_process_valid_chunk() {
         let mut decoder = StreamDecoder::new(10000);
-        let chunk = r#"{"intent_id": "test", "tool": "search"}"#;
+        // The decoder parses a line-based key:value format (not JSON) and needs
+        // the three required fields: intent_id, tool, source.
+        let chunk = "intent_id: test\ntool: search\nsource: voice\n";
 
         let result = decoder.process_chunk(chunk).unwrap();
         assert!(result.is_some());
