@@ -183,8 +183,10 @@ Regra: **biblioteca madura antes de implementação própria** (evita NIH).
 ## 12. Plano incremental (cada fase = uma branch + PR, CI verde)
 
 - **Fase 0 — Arquitetura + ADR** *(esta entrega)*: docs e contratos. Sem código.
-- **Fase 1 — Núcleo de domínio**: `Workflow`/`Node`/`Trigger`/`Connection` (Pydantic),
-  serialização JSON/YAML, `Registry` em memória. Testes. Sem execução.
+- **Fase 1 — Núcleo de domínio** ✅ *entregue*: `Workflow`/`Node`/`Trigger`/`Connection`
+  (Pydantic), serialização JSON/YAML, `Registry` em memória, algoritmos de grafo (ordem
+  topológica, ciclo) e validação estrutural + por catálogo. Testes. Sem execução.
+  Código em `backend-core/app/automation/teia/`.
 - **Fase 2 — Engine in-process**: executor topológico assíncrono, `ExecutionContext`, erros
   básicos; nodes embutidos (HTTP, transform, if/branch, set); CLI (Typer) para rodar um
   arquivo de workflow.
