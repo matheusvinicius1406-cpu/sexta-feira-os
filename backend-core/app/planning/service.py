@@ -220,6 +220,41 @@ class PlanningEngine:
             ).all()
         ]
 
+    # ---------- board view (Pulse-style sprint board over the goals) ----------
+
+    _BOARD_COLUMNS = ("backlog", "doing", "blocked", "done")
+    _STATUS_TO_COLUMN = {
+        "pending": "backlog", "active": "doing", "blocked": "blocked", "done": "done",
+    }
+
+    def board(self, db: Session, owner_id: str) -> dict:
+        """A kanban-style view over the goals: columns by status + progress stats.
+
+        A read-model over the Planning Engine (no new storage). Cancelled goals
+        are omitted; each column is ordered by priority (highest first).
+        """
+        columns: dict[str, list[dict]] = {c: [] for c in self._BOARD_COLUMNS}
+        active_total = 0
+        progress_sum = 0.0
+        for g in self.list_goals(db, owner_id):
+            col = self._STATUS_TO_COLUMN.get(g.status)
+            if not col:  # cancelled and anything unknown stay off the board
+                continue
+            columns[col].append({
+                "id": g.id, "title": g.title, "priority": g.priority,
+                "progress": g.progress, "parent_id": g.parent_id,
+                "due_at": g.due_at.isoformat() if g.due_at else None,
+            })
+            if g.status != "done":
+                active_total += 1
+                progress_sum += g.progress
+        counts = {c: len(items) for c, items in columns.items()}
+        completion = round(progress_sum / active_total, 4) if active_total else 0.0
+        return {
+            "columns": columns,
+            "stats": {**counts, "open": active_total, "avg_open_progress": completion},
+        }
+
     # ---------- side effects ----------
 
     async def _emit(self, db: Session, owner_id: str, etype: str, payload: dict) -> None:

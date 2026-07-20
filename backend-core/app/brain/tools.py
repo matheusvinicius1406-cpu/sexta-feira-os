@@ -270,6 +270,17 @@ class ToolKit:
             {
                 "type": "function",
                 "function": {
+                    "name": "sprint_board",
+                    "description": (
+                        "Mostra o quadro (board) dos objetivos por coluna: backlog, fazendo, "
+                        "bloqueado e concluído — a visão de sprint. Sem argumentos."
+                    ),
+                    "parameters": {"type": "object", "properties": {}},
+                },
+            },
+            {
+                "type": "function",
+                "function": {
                     "name": "complete_goal",
                     "description": (
                         "Marca um objetivo como concluído (progresso 100%). Desbloqueia objetivos "
@@ -540,6 +551,18 @@ class ToolKit:
                     return "Planejamento indisponível."
                 g = await self.planning.complete(db, owner_id, args.get("goal_id", ""))
                 return f"Objetivo concluído: {g.title}" if g else "Objetivo não encontrado."
+            if name == "sprint_board":
+                if not self.planning:
+                    return "Planejamento indisponível."
+                board = self.planning.board(db, owner_id)
+                labels = {"backlog": "Backlog", "doing": "Fazendo",
+                          "blocked": "Bloqueado", "done": "Concluído"}
+                lines = []
+                for col, label in labels.items():
+                    items = board["columns"][col]
+                    lines.append(f"{label} ({len(items)}):")
+                    lines.extend(f"  - {i['title']} ({int(i['progress'] * 100)}%)" for i in items[:10])
+                return "\n".join(lines) or "Quadro vazio."
             if name == "daily_briefing":
                 if not self.briefing:
                     return "Briefing indisponível."

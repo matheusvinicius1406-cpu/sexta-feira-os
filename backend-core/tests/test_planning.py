@@ -129,3 +129,53 @@ def test_planning_is_owner_scoped():
         db.close()
     assert titles_a == {"meta de A"}
     assert only_a is True
+
+
+# ---------- sprint board (Pulse-style view) ----------
+
+def test_board_columns_ordering_and_stats():
+    planning = PlanningEngine()
+    owner = f"o-{uuid.uuid4().hex}"
+    db = SessionLocal()
+    try:
+        low = asyncio.run(planning.create_goal(db, owner, "Backlog baixo", priority=1))
+        asyncio.run(planning.create_goal(db, owner, "Backlog alto", priority=5))  # pending
+        doing = asyncio.run(planning.create_goal(db, owner, "Em progresso", priority=3))
+        asyncio.run(planning.set_progress(db, owner, doing.id, 0.5))               # active -> doing
+        done = asyncio.run(planning.create_goal(db, owner, "Pronto", priority=2))
+        asyncio.run(planning.complete(db, owner, done.id))                          # done
+        blocked = asyncio.run(planning.create_goal(db, owner, "Travado", priority=4))
+        planning.add_dependency(db, owner, blocked.id, low.id)                      # blocked
+        board = planning.board(db, owner)
+        stats = board["stats"]
+        backlog_titles = [i["title"] for i in board["columns"]["backlog"]]
+    finally:
+        db.close()
+    assert stats["backlog"] == 2 and stats["doing"] == 1
+    assert stats["blocked"] == 1 and stats["done"] == 1
+    assert backlog_titles[0] == "Backlog alto"           # ordered by priority (5 before 1)
+    assert stats["open"] == 4                             # everything except the done one
+    assert 0.0 < stats["avg_open_progress"] < 1.0        # doing=0.5 pulls the average up
+
+
+def test_board_omits_cancelled():
+    planning = PlanningEngine()
+    owner = f"o-{uuid.uuid4().hex}"
+    db = SessionLocal()
+    try:
+        g = asyncio.run(planning.create_goal(db, owner, "Vai ser cancelado"))
+        planning.cancel(db, owner, g.id)
+        board = planning.board(db, owner)
+        total = sum(len(v) for v in board["columns"].values())
+    finally:
+        db.close()
+    assert total == 0                                    # cancelled goals stay off the board
+
+
+def test_board_api(client, owner_headers):
+    client.post("/api/v1/planning/goals",
+                json={"title": "Meta no quadro", "priority": 5}, headers=owner_headers)
+    board = client.get("/api/v1/planning/board", headers=owner_headers).json()
+    assert set(board["columns"]) == {"backlog", "doing", "blocked", "done"}
+    assert any(i["title"] == "Meta no quadro" for i in board["columns"]["backlog"])
+    assert "avg_open_progress" in board["stats"]
