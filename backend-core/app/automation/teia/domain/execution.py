@@ -27,6 +27,10 @@ class NodeOutput(BaseModel):
 
     items: dict[str, list[Any]] = Field(default_factory=dict)
 
+    def port(self, name: str = "main") -> list[Any]:
+        """Items emitted on `name` (empty list if the port produced nothing)."""
+        return self.items.get(name, [])
+
     @classmethod
     def single(cls, *values: Any, port: str = "main") -> NodeOutput:
         """Convenience: emit `values` on one port."""

@@ -187,9 +187,12 @@ Regra: **biblioteca madura antes de implementação própria** (evita NIH).
   (Pydantic), serialização JSON/YAML, `Registry` em memória, algoritmos de grafo (ordem
   topológica, ciclo) e validação estrutural + por catálogo. Testes. Sem execução.
   Código em `backend-core/app/automation/teia/`.
-- **Fase 2 — Engine in-process**: executor topológico assíncrono, `ExecutionContext`, erros
-  básicos; nodes embutidos (HTTP, transform, if/branch, set); CLI (Typer) para rodar um
-  arquivo de workflow.
+- **Fase 2 — Engine in-process** ✅ *entregue*: executor topológico assíncrono (`Engine`),
+  `RunContext` concreto (satisfaz o protocolo `ExecutionContext`), `ExecutionResult`/
+  `NodeResult` estruturados, política *fail-fast* e semântica de *skip* de ramo (if/branch
+  real); nodes embutidos `noop`/`set`/`transform`/`if`/`http_request` (`builtin_registry()`);
+  CLI Typer (`run`/`validate`/`nodes`) para rodar um arquivo de workflow. Node HTTP testável
+  offline via transporte httpx injetado. Testes. Código em `engine/`, `nodes/`, `cli.py`.
 - **Fase 3 — Persistência + durabilidade**: estado em SQLAlchemy, checkpoints/resume,
   retries/timeout, logs estruturados.
 - **Fase 4 — Plugins**: descoberta por entry points, formato de pacote, carga dinâmica,

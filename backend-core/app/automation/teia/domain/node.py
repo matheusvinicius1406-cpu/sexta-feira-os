@@ -52,12 +52,24 @@ class Node(ABC):
     metadata: ClassVar[NodeMetadata]
     config_model: ClassVar[type[BaseModel]] = EmptyConfig
 
+    def __init__(self, config: dict | None = None) -> None:
+        """The engine instantiates one node per workflow-node, with its config.
+
+        `config` stays the raw dict (as authored/serialized); `parsed_config()`
+        validates it against `config_model` on demand.
+        """
+        self.config: dict = config or {}
+
     def validate_config(self, config: dict) -> BaseModel:
         """Parse/validate a node's configuration against its schema.
 
         Raises pydantic.ValidationError on bad config; returns the parsed model.
         """
         return self.config_model.model_validate(config or {})
+
+    def parsed_config(self) -> BaseModel:
+        """Validate this instance's own `config` against `config_model`."""
+        return self.config_model.model_validate(self.config)
 
     @abstractmethod
     async def execute(self, context: ExecutionContext, inputs: NodeInput) -> NodeOutput:
