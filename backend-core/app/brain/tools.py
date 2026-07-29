@@ -42,7 +42,8 @@ def _compute_due(args: dict) -> datetime | None:
 
 class ToolKit:
     def __init__(self, memory, automations, actions=None, scheduler=None,
-                 connectors=None, world=None, planning=None, decision=None, learning=None):
+                 connectors=None, world=None, planning=None, decision=None, learning=None,
+                 briefing=None):
         self.memory = memory
         self.automations = automations
         self.actions = actions        # ActionService | None
@@ -52,7 +53,9 @@ class ToolKit:
         self.planning = planning      # PlanningEngine | None — goals + decomposition
         self.decision = decision      # DecisionEngine | None — choose under constraints
         self.learning = learning      # LearningEngine | None — observe → learn → adapt
+        self.briefing = briefing      # BriefingService | None — the daily report
         self.subagents = None         # SubAgentRunner | None (wired after construction)
+        self.directors = None         # DirectorService | None (wired after construction)
 
     async def specs_subset(self, allowed: list[str]) -> list[dict]:
         """The tool specs restricted to `allowed` names — used for sub-agents."""
@@ -267,6 +270,17 @@ class ToolKit:
             {
                 "type": "function",
                 "function": {
+                    "name": "sprint_board",
+                    "description": (
+                        "Mostra o quadro (board) dos objetivos por coluna: backlog, fazendo, "
+                        "bloqueado e concluído — a visão de sprint. Sem argumentos."
+                    ),
+                    "parameters": {"type": "object", "properties": {}},
+                },
+            },
+            {
+                "type": "function",
+                "function": {
                     "name": "complete_goal",
                     "description": (
                         "Marca um objetivo como concluído (progresso 100%). Desbloqueia objetivos "
@@ -277,6 +291,18 @@ class ToolKit:
                         "properties": {"goal_id": {"type": "string"}},
                         "required": ["goal_id"],
                     },
+                },
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "daily_briefing",
+                    "description": (
+                        "Gera um briefing agora: resume o estado atual, os objetivos, o foco "
+                        "sugerido, eventos recentes e aprendizados — o 'reporte' do segundo "
+                        "cérebro. Sem argumentos."
+                    ),
+                    "parameters": {"type": "object", "properties": {}},
                 },
             },
             {
@@ -389,6 +415,26 @@ class ToolKit:
                             "task": {"type": "string", "description": "a tarefa a delegar"},
                         },
                         "required": ["role", "task"],
+                    },
+                },
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "consult_director",
+                    "description": (
+                        "Delega uma tarefa a um DIRETOR permanente — especialista que acumula "
+                        "expertise entre conversas (engenharia, pesquisa, seguranca, memoria, "
+                        "automacao, aprendizagem, dispositivos). Prefira ao 'delegate' quando "
+                        "o domínio casa com um diretor."
+                    ),
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "director": {"type": "string", "description": "nome do diretor (ex.: engenharia)"},
+                            "task": {"type": "string", "description": "a tarefa a delegar"},
+                        },
+                        "required": ["director", "task"],
                     },
                 },
             },
@@ -505,6 +551,23 @@ class ToolKit:
                     return "Planejamento indisponível."
                 g = await self.planning.complete(db, owner_id, args.get("goal_id", ""))
                 return f"Objetivo concluído: {g.title}" if g else "Objetivo não encontrado."
+            if name == "sprint_board":
+                if not self.planning:
+                    return "Planejamento indisponível."
+                board = self.planning.board(db, owner_id)
+                labels = {"backlog": "Backlog", "doing": "Fazendo",
+                          "blocked": "Bloqueado", "done": "Concluído"}
+                lines = []
+                for col, label in labels.items():
+                    items = board["columns"][col]
+                    lines.append(f"{label} ({len(items)}):")
+                    lines.extend(f"  - {i['title']} ({int(i['progress'] * 100)}%)" for i in items[:10])
+                return "\n".join(lines) or "Quadro vazio."
+            if name == "daily_briefing":
+                if not self.briefing:
+                    return "Briefing indisponível."
+                b = await self.briefing.generate(db, owner_id, kind="on_demand")
+                return b.summary
             if name == "record_learning":
                 if not self.learning:
                     return "Aprendizado indisponível."
@@ -555,6 +618,13 @@ class ToolKit:
                     db, owner_id, args.get("role", "assistente"), args.get("task", "")
                 )
                 return f"Sub-agente ({args.get('role', 'assistente')}): {result[:1500]}"
+            if name == "consult_director":
+                if not self.directors:
+                    return "Diretores indisponíveis."
+                result = await self.directors.delegate(
+                    db, owner_id, args.get("director", ""), args.get("task", "")
+                )
+                return f"Diretor ({args.get('director', '?')}): {result[:1500]}"
             return f"Ferramenta desconhecida: {name}"
         except Exception as e:  # noqa: BLE001 — a tool failure must not crash the turn
             logger.warning("tool '%s' failed: %s", name, e)

@@ -157,7 +157,7 @@ def test_import_handles_non_md_files(client, owner_headers, tmp_path):
     vault = tmp_path / "mixed-vault"
     vault.mkdir()
     (vault / "nota.md").write_text("# Nota", encoding="utf-8")
-    (vault / "imagem.png").write_text(b"PNG")
+    (vault / "imagem.png").write_bytes(b"PNG")   # binary file: use write_bytes
     (vault / "notas.txt").write_text("texto")
 
     r = client.post(
@@ -205,9 +205,11 @@ def test_export_writes_md_files(client, owner_headers, vault, tmp_path):
     assert sample.startswith("---")
     assert "title:" in sample
     assert "source:" in sample
-    # Spot-check for wikilink syntax if links were referenced
+    # Spot-check for wikilink syntax if links were referenced. Links live on the
+    # linked node's file, which may not be md_files[0] — check across all files.
     if data["stats"]["links_referenced"] > 0:
-        assert "[[" in sample or "Links" in sample
+        all_content = "\n".join(f.read_text(encoding="utf-8") for f in md_files)
+        assert "[[" in all_content or "Links" in all_content
 
 
 def test_export_requires_auth(client):

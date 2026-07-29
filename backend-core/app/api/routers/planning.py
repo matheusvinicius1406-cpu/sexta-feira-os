@@ -76,6 +76,16 @@ def list_goals(
     return [_goal_out(g) for g in planning.list_goals(db, owner.id, status)]
 
 
+@router.get("/board")
+def board(
+    owner: Owner = Depends(get_current_owner),
+    planning: PlanningEngine = Depends(get_planning),
+    db: Session = Depends(get_db),
+):
+    """Kanban-style board over the goals: columns (backlog/doing/blocked/done) + stats."""
+    return planning.board(db, owner.id)
+
+
 @router.get("/goals/{goal_id}")
 def get_goal(
     goal_id: str,

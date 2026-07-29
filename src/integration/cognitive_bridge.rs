@@ -210,7 +210,6 @@ pub struct BridgeMetrics {
 mod tests {
     use super::*;
     use crate::cognition::CognitiveBudget;
-    use crate::integration::secure_intent::Capability;
 
     #[test]
     fn test_execution_request_creation() {

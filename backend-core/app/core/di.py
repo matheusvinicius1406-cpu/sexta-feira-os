@@ -15,21 +15,27 @@ from app.auth.jwt import hash_password
 from app.automation.n8n import N8nClient
 from app.brain.cognition import Cognition
 from app.brain.engine import LocalBrain
+from app.brain.extractor import MemoryExtractor
 from app.brain.memory import PersistentMemory
 from app.brain.subagents import SubAgentRunner
 from app.brain.tools import ToolKit
+from app.briefing.service import BriefingService
 from app.connectors.service import ConnectorService
 from app.connectors.vault import Vault
 from app.core.config import settings
 from app.db.database import SessionLocal
 from app.decision.service import DecisionEngine
+from app.directors.service import DirectorService
+from app.evals.service import EvalHarness
 from app.events.bus import EventBus
 from app.events.projector import WorldModelProjector
+from app.journal.service import HabitService, JournalService
 from app.learning.service import LearningEngine
 from app.models.models import Owner
 from app.obsidian.watcher import ObsidianWatcher
 from app.planning.service import PlanningEngine
 from app.schedule.service import Scheduler
+from app.timetrack.service import TimeTracker
 from app.voice.box import VoiceBox
 from app.world.service import WorldModel
 
@@ -47,6 +53,12 @@ class Kernel:
         self.planning: PlanningEngine | None = None
         self.decision: DecisionEngine | None = None
         self.learning: LearningEngine | None = None
+        self.briefing: BriefingService | None = None
+        self.directors: DirectorService | None = None
+        self.journal: JournalService | None = None
+        self.habits: HabitService | None = None
+        self.timetracker: TimeTracker | None = None
+        self.evals: EvalHarness | None = None
         self.cognition: Cognition | None = None
         self.voice: VoiceBox | None = None
         self.automations: N8nClient | None = None
@@ -54,9 +66,9 @@ class Kernel:
         self.actions: ActionService | None = None
         self.scheduler: Scheduler | None = None
         self.connectors: ConnectorService | None = None
+        self._scheduler_task: asyncio.Task | None = None
         self._obsidian_watcher: ObsidianWatcher | None = None
         self._obsidian_watcher_task: asyncio.Task | None = None
-        self._scheduler_task: asyncio.Task | None = None
         self._ready = False
 
     async def start(self) -> None:
@@ -75,32 +87,48 @@ class Kernel:
         self.learning = LearningEngine(
             memory=self.memory, world=self.world, events=self.events
         )
+        self.briefing = BriefingService(
+            world=self.world, planning=self.planning, decision=self.decision,
+            events=self.events, learning=self.learning,
+        )
         self.automations = N8nClient()
         self.action_bus = CommandBus()
         self.actions = ActionService(self.action_bus)
-        self.scheduler = Scheduler(self.actions, events=self.events)
+        self.scheduler = Scheduler(self.actions, events=self.events, briefing=self.briefing)
         self.connectors = ConnectorService(Vault())
         self.voice = VoiceBox()
         toolkit = ToolKit(
             self.memory, self.automations, self.actions, self.scheduler,
             self.connectors, self.world, self.planning, self.decision, self.learning,
+            self.briefing,
         )
         if settings.subagents_enabled:
             toolkit.subagents = SubAgentRunner(self.brain, toolkit)
-        self.cognition = Cognition(self.brain, self.memory, toolkit, world=self.world)
+        self.directors = DirectorService(
+            self.brain, toolkit, self.memory, events=self.events
+        )
+        toolkit.directors = self.directors
+        extractor = MemoryExtractor(
+            self.brain, self.memory, world=self.world, events=self.events
+        )
+        self.journal = JournalService(events=self.events, extractor=extractor)
+        self.habits = HabitService(world=self.world, events=self.events)
+        self.timetracker = TimeTracker(world=self.world, events=self.events)
+        self.evals = EvalHarness(self.brain, events=self.events, learning=self.learning)
+        self.cognition = Cognition(
+            self.brain, self.memory, toolkit, world=self.world, extractor=extractor
+        )
         self._ready = True
-
-        # Start background watcher for Obsidian vault sync
-        if settings.obsidian_vault_path:
-            self._obsidian_watcher = ObsidianWatcher(self.memory)
-            self._obsidian_watcher_task = asyncio.create_task(
-                self._obsidian_watcher_loop()
-            )
-            logger.info("📁 Obsidian vault watcher started for: %s", settings.obsidian_vault_path)
 
         if settings.scheduler_enabled:
             self._scheduler_task = asyncio.create_task(self._scheduler_loop())
             logger.info("⏰ Scheduler running (every %ss)", settings.scheduler_interval_seconds)
+
+        # Background watcher for Obsidian vault sync (only if a vault is configured).
+        if settings.obsidian_vault_path:
+            self._obsidian_watcher = ObsidianWatcher(self.memory)
+            self._obsidian_watcher_task = asyncio.create_task(self._obsidian_watcher_loop())
+            logger.info("📁 Obsidian vault watcher started for: %s", settings.obsidian_vault_path)
 
         if await self.brain.health():
             logger.info("🧠 Local brain online (%s)", settings.brain_model)
@@ -138,21 +166,6 @@ class Kernel:
         finally:
             db.close()
 
-    async def _scheduler_loop(self) -> None:
-        """Fire due reminders/actions on an interval. Sleeps first (never at boot)."""
-        while True:
-            try:
-                await asyncio.sleep(settings.scheduler_interval_seconds)
-                db = SessionLocal()
-                try:
-                    await self.scheduler.run_due(db)
-                finally:
-                    db.close()
-            except asyncio.CancelledError:
-                break
-            except Exception as e:  # noqa: BLE001 — the loop must survive one bad tick
-                logger.warning("scheduler tick failed: %s", e)
-
     async def _obsidian_watcher_loop(self) -> None:
         """Poll the vault for changes on an interval (like the scheduler)."""
         await asyncio.sleep(5)  # initial delay — let the kernel finish booting
@@ -170,8 +183,23 @@ class Kernel:
                     db.close()
             except asyncio.CancelledError:
                 break
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 — the loop must survive one bad tick
                 logger.warning("obsidian watcher tick failed: %s", e)
+
+    async def _scheduler_loop(self) -> None:
+        """Fire due reminders/actions on an interval. Sleeps first (never at boot)."""
+        while True:
+            try:
+                await asyncio.sleep(settings.scheduler_interval_seconds)
+                db = SessionLocal()
+                try:
+                    await self.scheduler.run_due(db)
+                finally:
+                    db.close()
+            except asyncio.CancelledError:
+                break
+            except Exception as e:  # noqa: BLE001 — the loop must survive one bad tick
+                logger.warning("scheduler tick failed: %s", e)
 
     async def stop(self) -> None:
         if self._obsidian_watcher_task:
@@ -239,6 +267,46 @@ def get_learning() -> LearningEngine:
     return _kernel.learning
 
 
+def get_briefing() -> BriefingService:
+    if not _kernel.briefing:
+        raise RuntimeError("Kernel not started")
+    return _kernel.briefing
+
+
+def get_directors() -> DirectorService:
+    if not _kernel.directors:
+        raise RuntimeError("Kernel not started")
+    return _kernel.directors
+
+
+def get_journal() -> JournalService:
+    if not _kernel.journal:
+        raise RuntimeError("Kernel not started")
+    return _kernel.journal
+
+
+def get_habits() -> HabitService:
+    if not _kernel.habits:
+        raise RuntimeError("Kernel not started")
+    return _kernel.habits
+
+
+def get_timetracker() -> TimeTracker:
+    if not _kernel.timetracker:
+        raise RuntimeError("Kernel not started")
+    return _kernel.timetracker
+
+
+def get_evals() -> EvalHarness:
+    if not _kernel.evals:
+        raise RuntimeError("Kernel not started")
+    return _kernel.evals
+
+
+def get_obsidian_watcher() -> ObsidianWatcher | None:
+    return _kernel._obsidian_watcher
+
+
 def get_voice() -> VoiceBox:
     if not _kernel.voice:
         raise RuntimeError("Kernel not started")
@@ -273,7 +341,3 @@ def get_connectors() -> ConnectorService:
     if not _kernel.connectors:
         raise RuntimeError("Kernel not started")
     return _kernel.connectors
-
-
-def get_obsidian_watcher() -> ObsidianWatcher | None:
-    return _kernel._obsidian_watcher

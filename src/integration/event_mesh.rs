@@ -73,7 +73,7 @@ impl EventMesh {
                 }
                 Ok(())
             }
-            Err(e) => {
+            Err(_e) => {
                 // broadcast::SendError — all receivers lagged behind.
                 self.events_dropped.fetch_add(1, Ordering::Relaxed);
                 self.backpressure_high.fetch_add(1, Ordering::Relaxed);

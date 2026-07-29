@@ -22,16 +22,21 @@ from app.api.routers import (  # noqa: E402
     action,
     auth,
     automation,
+    briefing,
     chat,
     connectors,
     decision,
+    directors,
+    evals,
     events,
     health,
+    journal,
     learning,
     memory,
     obsidian,
     planning,
     schedule,
+    timetrack,
     voice,
     world,
 )
@@ -77,6 +82,11 @@ app.include_router(events.router)
 app.include_router(planning.router)
 app.include_router(decision.router)
 app.include_router(learning.router)
+app.include_router(briefing.router)
+app.include_router(directors.router)
+app.include_router(journal.router)
+app.include_router(timetrack.router)
+app.include_router(evals.router)
 app.include_router(voice.router)
 app.include_router(automation.router)
 app.include_router(action.router)

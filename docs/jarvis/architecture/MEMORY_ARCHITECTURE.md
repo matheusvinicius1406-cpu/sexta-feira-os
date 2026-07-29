@@ -22,7 +22,7 @@
 |---|---|---|
 | **Episódica** `[PARCIAL]` | eventos vividos | conversas, sessões, projetos, viagens |
 | **Semântica** `[PARCIAL]` | conhecimento aprendido | livros, artigos, cursos, documentação |
-| **Procedural** `[FUTURO]` | como executar tarefas | fluxos, scripts, métodos, automações |
+| **Procedural** `[PARCIAL]` | como executar tarefas; rotinas | hábitos/streaks (ADR-0009), fluxos, scripts, automações |
 | **Social** `[FUTURO]` | pessoas e relações | contatos, preferências, histórico social |
 | **Temporal** `[FUTURO]` | linha do tempo da vida | cronologia contínua de fatos e decisões |
 | **Vetorial** `[ATUAL]` | busca semântica | embeddings locais para similaridade |

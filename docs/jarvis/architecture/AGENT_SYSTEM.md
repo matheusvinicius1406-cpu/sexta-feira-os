@@ -1,8 +1,12 @@
 # Sistema de Agentes
 
 > Como o JARVIS delega trabalho a especialistas. Deriva da Constituição (Artigos IV, V).
-> Estado: `[PARCIAL]` — já existem sub-agentes locais temporários com toolset restrito; os
-> Diretores permanentes são a evolução formal.
+> Estado: `[PARCIAL]` — sub-agentes temporários **e** Diretores permanentes existem (ver
+> **ADR-0008**): gabinete canônico semeado por dono, memória especializada no substrato do
+> grafo (`source='director:<nome>'`), delegação com toolset restrito, consolidação de
+> aprendizado no diretor, recursão bloqueada, eventos auditáveis; exposto em
+> `/api/v1/directors` e pela tool `consult_director`. Ainda `[FUTURO]`: diretores criando
+> agentes temporários próprios e recall semântico da expertise.
 
 ## Princípio de autoridade
 
