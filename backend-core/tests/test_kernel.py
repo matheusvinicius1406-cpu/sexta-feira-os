@@ -16,7 +16,7 @@ def test_health(client):
 
 
 def test_chat_requires_auth(client):
-    assert client.post("/api/v1/chat", json={"message": "oi"}).status_code == 403
+    assert client.post("/api/v1/chat", json={"message": "oi"}).status_code == 401
 
 
 def test_login_rejects_wrong_password(client):
@@ -192,7 +192,7 @@ def test_speak_degrades_gracefully(client, owner_headers):
 
 
 def test_voice_endpoints_require_auth(client):
-    assert client.get("/api/v1/voice/status").status_code == 403
+    assert client.get("/api/v1/voice/status").status_code == 401
 
 
 # ---------------- knowledge graph: smart relation labels ----------------
@@ -232,7 +232,7 @@ def test_auto_links_get_named_relations(client, owner_headers):
 # ---------------- automations (n8n bridge) ----------------
 
 def test_automations_require_auth(client):
-    assert client.get("/api/v1/automations/status").status_code == 403
+    assert client.get("/api/v1/automations/status").status_code == 401
 
 
 def test_automations_status_reports_offline(client, owner_headers):
@@ -330,7 +330,7 @@ def _pair_phone(client, name: str):
 
 def test_actions_require_auth(client):
     r = client.post("/api/v1/actions/dispatch", json={"device": "celular", "action": "open_app"})
-    assert r.status_code == 403
+    assert r.status_code == 401
 
 
 def test_dispatch_to_unknown_device(client, owner_headers):
@@ -542,7 +542,7 @@ def test_brain_schedules_reminder(client, owner_headers):
 # ---------------- connectors (the API capability system) ----------------
 
 def test_connectors_require_auth(client):
-    assert client.get("/api/v1/connectors").status_code == 403
+    assert client.get("/api/v1/connectors").status_code == 401
 
 
 def test_capability_crud(client, owner_headers):
@@ -697,3 +697,100 @@ def test_brain_delegates_to_subagent(client, owner_headers):
         assert "conclu" in r.json()["reply"].lower()
     finally:
         brain.chat_with_tools = original
+
+
+# ---------------- memory: unlink edge ----------------
+
+
+def test_unlink_edge(client, owner_headers):
+    """DELETE /api/v1/memory/links/{id} removes a specific edge."""
+    a = client.post("/api/v1/memory", json={"content": "Gosto de viajar"},
+                    headers=owner_headers).json()["id"]
+    b = client.post("/api/v1/memory", json={"content": "Gosto de praia"},
+                    headers=owner_headers).json()["id"]
+    edge = client.post(f"/api/v1/memory/{a}/link",
+                       json={"target_id": b, "relation": "related"},
+                       headers=owner_headers).json()
+    edge_id = edge["id"]
+
+    # Edge exists before deletion
+    assert client.get(f"/api/v1/memory/{a}/neighbours",
+                      headers=owner_headers).json()["links"]
+
+    # Delete the edge
+    r = client.delete(f"/api/v1/memory/links/{edge_id}", headers=owner_headers)
+    assert r.status_code == 200
+    assert r.json()["unlinked"] == edge_id
+
+    # Edge no longer appears
+    nb = client.get(f"/api/v1/memory/{a}/neighbours", headers=owner_headers).json()
+    assert not any(link["id"] == edge_id for link in nb["links"])
+
+    # Deleting again returns 404
+    assert client.delete(f"/api/v1/memory/links/{edge_id}",
+                         headers=owner_headers).status_code == 404
+
+
+# ---------------- connectors: delete secret ----------------
+
+
+def test_delete_secret(client, owner_headers):
+    """DELETE /api/v1/connectors/secrets/{name} removes a secret."""
+    # Create a secret
+    client.post("/api/v1/connectors/secrets",
+                json={"name": "API_KEY", "value": "sk-abc123"},
+                headers=owner_headers)
+    # Verify it exists
+    names = client.get("/api/v1/connectors/secrets",
+                       headers=owner_headers).json()["names"]
+    assert "API_KEY" in names
+
+    # Delete it
+    r = client.delete("/api/v1/connectors/secrets/API_KEY", headers=owner_headers)
+    assert r.status_code == 200
+    assert r.json()["deleted"] == "API_KEY"
+
+    # No longer listed
+    names = client.get("/api/v1/connectors/secrets",
+                       headers=owner_headers).json()["names"]
+    assert "API_KEY" not in names
+
+    # Deleting again returns 404
+    assert client.delete("/api/v1/connectors/secrets/API_KEY",
+                         headers=owner_headers).status_code == 404
+
+
+# ---------------- voice: full voice chat loop degrades gracefully ----------------
+
+
+def test_voice_chat_degrades_gracefully(client, owner_headers):
+    """
+    POST /api/v1/voice/chat without a working brain + voice engine
+    returns a clean 503, never a crash or 500.
+    """
+    from app.core.di import get_kernel
+    from app.voice.stt import VoiceUnavailable
+
+    voice = get_kernel().voice
+    original = voice.transcriber.transcribe
+
+    async def boom(*_a, **_k):
+        raise VoiceUnavailable("engine not installed")
+
+    voice.transcriber.transcribe = boom
+    try:
+        r = client.post(
+            "/api/v1/voice/chat",
+            files={"file": ("clip.wav", b"RIFF0000WAVE", "audio/wav")},
+            headers=owner_headers,
+        )
+        assert r.status_code == 503
+    finally:
+        voice.transcriber.transcribe = original
+
+
+def test_voice_chat_requires_auth(client):
+    assert client.post(
+        "/api/v1/voice/chat",
+        files={"file": ("clip.wav", b"RIFF0000WAVE", "audio/wav")},
+    ).status_code == 401

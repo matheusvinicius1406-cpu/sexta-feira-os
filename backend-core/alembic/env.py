@@ -2,9 +2,10 @@
 from logging.config import fileConfig
 from pathlib import Path
 
-from alembic import context
 from dotenv import load_dotenv
 from sqlalchemy import engine_from_config, pool
+
+from alembic import context
 
 # Load .env so DATABASE_URL is available, exactly like the app does.
 load_dotenv(Path(__file__).resolve().parents[1] / ".env")

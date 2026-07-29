@@ -1,9 +1,13 @@
 package com.sextafeira.os.data.api
 
+import okhttp3.MultipartBody
+import okhttp3.ResponseBody
 import retrofit2.http.Body
 import retrofit2.http.DELETE
 import retrofit2.http.GET
+import retrofit2.http.Multipart
 import retrofit2.http.POST
+import retrofit2.http.Part
 import retrofit2.http.Path
 import retrofit2.http.Query
 
@@ -91,6 +95,30 @@ interface SextaFeiraApi {
 
     @GET("api/v1/schedule/reminders")
     suspend fun listReminders(): List<ReminderResponse>
+
+    // ── Voice ───────────────────────────────────────────
+
+    @GET("api/v1/voice/status")
+    suspend fun voiceStatus(): VoiceStatusResponse
+
+    /** Transcribe an audio file to text (STT). */
+    @Multipart
+    @POST("api/v1/voice/transcribe")
+    suspend fun transcribeAudio(
+        @Part file: MultipartBody.Part,
+    ): TranscribeResponse
+
+    /** Synthesize text to WAV audio (TTS). Returns raw WAV bytes. */
+    @POST("api/v1/voice/speak")
+    suspend fun speakText(@Body body: SpeakRequest): ResponseBody
+
+    /** Full voice loop: record → transcribe → think → reply (+ optional audio). */
+    @Multipart
+    @POST("api/v1/voice/chat")
+    suspend fun voiceChat(
+        @Part file: MultipartBody.Part,
+        @Part("speak_reply") speakReply: okhttp3.RequestBody? = null,
+    ): VoiceChatResponse
 
     // ── Connectors ──────────────────────────────────────
 

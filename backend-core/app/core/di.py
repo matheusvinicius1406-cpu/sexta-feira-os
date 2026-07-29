@@ -21,13 +21,13 @@ from app.brain.tools import ToolKit
 from app.connectors.service import ConnectorService
 from app.connectors.vault import Vault
 from app.core.config import settings
-from app.obsidian.watcher import ObsidianWatcher
 from app.db.database import SessionLocal
 from app.decision.service import DecisionEngine
 from app.events.bus import EventBus
 from app.events.projector import WorldModelProjector
 from app.learning.service import LearningEngine
 from app.models.models import Owner
+from app.obsidian.watcher import ObsidianWatcher
 from app.planning.service import PlanningEngine
 from app.schedule.service import Scheduler
 from app.voice.box import VoiceBox

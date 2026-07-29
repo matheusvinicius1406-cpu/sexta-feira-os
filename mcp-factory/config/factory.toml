@@ -1,0 +1,108 @@
+# JARVIS AI Development Factory — configuration (single source of truth).
+# Read-only at runtime, parsed with the stdlib tomllib. Paths are relative to
+# this file's directory unless noted. Edit here to change what agents may do.
+
+[factory]
+name = "JARVIS AI Development Factory"
+# Project root the factory operates on, relative to this config file
+# (mcp-factory/config/ -> repo root).
+root = "../.."
+audit_log = "../../.jarvis/audit.log"
+memory_store = "../../.jarvis/memory"
+# Capabilities that are NEVER granted automatically — they always require a human.
+critical_capabilities = ["github.merge", "fs.write", "infra.deploy", "secrets.write"]
+
+[filesystem]
+# Directories agents may read/search. Nothing outside this list is reachable.
+allow = [
+  "backend-core",
+  "mobile-android",
+  "src",
+  "shared",
+  "docs",
+  "scripts",
+  "examples",
+  "mcp-factory",
+  "README.md",
+  "ROADMAP.md",
+  "VISION.md",
+  "PROJECT_CONTEXT.md",
+  "AGENTS.md",
+]
+# Always-blocked patterns, even inside allowed directories.
+deny = [
+  "**/.env",
+  "**/.env.*",
+  "**/*.key",
+  "**/*.pem",
+  "**/id_rsa*",
+  "**/*.p12",
+  "**/*.keystore",
+  "**/secrets*",
+  "**/.git/**",
+  "**/.venv/**",
+  "**/node_modules/**",
+]
+max_read_bytes = 1048576
+
+[testing]
+# Only these commands may be executed by the testing server (extra args allowed).
+allow = [
+  "ruff check app tests",
+  "python -m pytest",
+  "python -m pytest -q",
+  "cargo check --all-targets",
+  "cargo test --all-targets",
+]
+timeout_seconds = 900
+# Maps an "area" to the directory the command runs in (relative to root).
+[testing.cwd_map]
+python = "backend-core"
+rust = "."
+android = "mobile-android"
+
+# ---------------------------------------------------------------------------
+# Agents. Each is granted an explicit capability set — there is no wildcard.
+# Capabilities: <domain>.<action>. See docs/SECURITY_MODEL.md for the catalogue.
+# ---------------------------------------------------------------------------
+[agents.architect]
+role = "Chief Software Architect — architecture, technical decisions, review orchestration"
+capabilities = [
+  "core.read", "fs.read", "fs.search",
+  "memory.read", "memory.write",
+  "docs.read", "docs.write",
+  "github.read", "security.audit",
+]
+
+[agents.developer]
+role = "Senior Implementation Engineer — implementation, refactoring, code"
+capabilities = [
+  "core.read", "fs.read", "fs.search",
+  "memory.read", "docs.read",
+  "github.read", "github.write",
+  "testing.run",
+]
+
+[agents.research]
+role = "Research Agent — research, documentation, analysis"
+capabilities = [
+  "core.read", "fs.read", "fs.search",
+  "memory.read", "memory.write",
+  "docs.read", "docs.write",
+  "github.read",
+]
+
+[agents.qa]
+role = "QA Agent — testing and validation"
+capabilities = [
+  "core.read", "fs.read", "fs.search",
+  "testing.run", "memory.read", "github.read",
+]
+
+[agents.security]
+role = "Security Agent — audit, dependency and permission review"
+capabilities = [
+  "core.read", "fs.read", "fs.search",
+  "security.scan", "security.audit",
+  "memory.read", "github.read",
+]

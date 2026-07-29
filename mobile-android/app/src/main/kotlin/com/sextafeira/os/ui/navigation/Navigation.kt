@@ -13,6 +13,7 @@ import com.sextafeira.os.ui.screens.ChatAssistantScreen
 import com.sextafeira.os.ui.screens.DashboardScreen
 import com.sextafeira.os.ui.screens.LoginScreen
 import com.sextafeira.os.ui.screens.MemoryCurationScreen
+import com.sextafeira.os.ui.screens.MemoryGraphScreen
 import com.sextafeira.os.ui.screens.SettingsScreen
 import com.sextafeira.os.ui.screens.SplashScreen
 import kotlinx.coroutines.flow.collectLatest
@@ -24,6 +25,7 @@ sealed class Route(val route: String) {
     object Chat : Route("chat")
     object Settings : Route("settings")
     object MemoryCuration : Route("memory")
+    object MemoryGraph : Route("memory-graph")
 }
 
 @Composable
@@ -65,6 +67,9 @@ fun RootNavigation() {
         }
         composable(Route.MemoryCuration.route) {
             MemoryCurationScreen(navController)
+        }
+        composable(Route.MemoryGraph.route) {
+            MemoryGraphScreen(navController)
         }
     }
 }

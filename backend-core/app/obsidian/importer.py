@@ -18,13 +18,12 @@ from __future__ import annotations
 import json as _json
 import logging
 import re
-import uuid
 from pathlib import Path
 
 from sqlalchemy.orm import Session
 
 from app.brain.memory import PersistentMemory
-from app.models.models import Memory, MemoryLink
+from app.models.models import Memory
 
 logger = logging.getLogger("sexta-feira.obsidian")
 

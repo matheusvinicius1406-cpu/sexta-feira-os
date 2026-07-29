@@ -82,6 +82,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import com.sextafeira.os.data.api.MemoryItem
+import com.sextafeira.os.ui.navigation.Route
 import com.sextafeira.os.viewmodel.MemoryCurationViewModel
 
 @Composable
@@ -133,7 +134,7 @@ fun MemoryCurationScreen(
                 .padding(horizontal = 16.dp),
         ) {
             // ── Search + Add Section ─────────────────────
-            SearchAndAddBar(uiState, viewModel)
+            SearchAndAddBar(uiState, viewModel, navController)
 
             Spacer(Modifier.height(12.dp))
 
@@ -189,6 +190,7 @@ fun MemoryCurationScreen(
 private fun SearchAndAddBar(
     uiState: com.sextafeira.os.viewmodel.MemoryCurationUiState,
     viewModel: MemoryCurationViewModel,
+    navController: NavHostController,
 ) {
     var showTeachDialog by remember { mutableStateOf(false) }
     var expanded by remember { mutableStateOf(false) }
@@ -243,16 +245,23 @@ private fun SearchAndAddBar(
                 } else {
                     Icon(Icons.Filled.Search, contentDescription = "Buscar", modifier = Modifier.size(18.dp))
                 }
-            }
+            }                // Graph view button
+                FilledTonalButton(
+                    onClick = { navController.navigate(Route.MemoryGraph.route) },
+                    modifier = Modifier.height(52.dp),
+                    shape = RoundedCornerShape(12.dp),
+                ) {
+                    Icon(Icons.Filled.Info, contentDescription = "Grafo", modifier = Modifier.size(18.dp))
+                }
 
-            // Teach button
-            FilledTonalButton(
-                onClick = { showTeachDialog = true },
-                modifier = Modifier.height(52.dp),
-                shape = RoundedCornerShape(12.dp),
-            ) {
-                Icon(Icons.Filled.Add, contentDescription = "Ensinar", modifier = Modifier.size(18.dp))
-            }
+                // Teach button
+                FilledTonalButton(
+                    onClick = { showTeachDialog = true },
+                    modifier = Modifier.height(52.dp),
+                    shape = RoundedCornerShape(12.dp),
+                ) {
+                    Icon(Icons.Filled.Add, contentDescription = "Ensinar", modifier = Modifier.size(18.dp))
+                }
         }
 
         // Quick filter chips
@@ -272,12 +281,19 @@ private fun SearchAndAddBar(
                 },
                 label = { Text("Fatos", fontSize = 12.sp) },
                 shape = RoundedCornerShape(20.dp),
-            )
-            SuggestionChip(
-                onClick = { viewModel.onSearchQueryChanged("preferência"); viewModel.search() },
-                label = { Text("Preferências", fontSize = 12.sp) },
-                shape = RoundedCornerShape(20.dp),
-            )
+            )                            SuggestionChip(
+                                onClick = { viewModel.onSearchQueryChanged("preferência"); viewModel.search() },
+                                label = { Text("Preferências", fontSize = 12.sp) },
+                                shape = RoundedCornerShape(20.dp),
+                            )
+                        }
+
+                        // Graph view chip
+                        SuggestionChip(
+                            onClick = { navController.navigate(Route.MemoryGraph.route) },
+                            label = { Text("Grafo", fontSize = 12.sp) },
+                            shape = RoundedCornerShape(20.dp),
+                        )
         }
 
         // Teach dialog

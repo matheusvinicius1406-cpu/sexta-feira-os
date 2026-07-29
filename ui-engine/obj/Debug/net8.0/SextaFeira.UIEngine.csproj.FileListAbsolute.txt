@@ -1,0 +1,13 @@
+C:\Users\mathe\sexta-feira-os\sexta-feira-os\ui-engine\obj\Debug\net8.0\SextaFeira.UIEngine.csproj.AssemblyReference.cache
+C:\Users\mathe\sexta-feira-os\sexta-feira-os\ui-engine\obj\Debug\net8.0\SextaFeira.UIEngine.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\mathe\sexta-feira-os\sexta-feira-os\ui-engine\obj\Debug\net8.0\SextaFeira.UIEngine.AssemblyInfoInputs.cache
+C:\Users\mathe\sexta-feira-os\sexta-feira-os\ui-engine\obj\Debug\net8.0\SextaFeira.UIEngine.AssemblyInfo.cs
+C:\Users\mathe\sexta-feira-os\sexta-feira-os\ui-engine\obj\Debug\net8.0\SextaFeira.UIEngine.csproj.CoreCompileInputs.cache
+C:\Users\mathe\sexta-feira-os\sexta-feira-os\ui-engine\obj\Debug\net8.0\SextaFeira.UIEngine.sourcelink.json
+C:\Users\mathe\sexta-feira-os\sexta-feira-os\ui-engine\bin\Debug\net8.0\SextaFeira.UIEngine.deps.json
+C:\Users\mathe\sexta-feira-os\sexta-feira-os\ui-engine\bin\Debug\net8.0\SextaFeira.UIEngine.dll
+C:\Users\mathe\sexta-feira-os\sexta-feira-os\ui-engine\bin\Debug\net8.0\SextaFeira.UIEngine.pdb
+C:\Users\mathe\sexta-feira-os\sexta-feira-os\ui-engine\obj\Debug\net8.0\SextaFeira.UIEngine.dll
+C:\Users\mathe\sexta-feira-os\sexta-feira-os\ui-engine\obj\Debug\net8.0\refint\SextaFeira.UIEngine.dll
+C:\Users\mathe\sexta-feira-os\sexta-feira-os\ui-engine\obj\Debug\net8.0\SextaFeira.UIEngine.pdb
+C:\Users\mathe\sexta-feira-os\sexta-feira-os\ui-engine\obj\Debug\net8.0\ref\SextaFeira.UIEngine.dll

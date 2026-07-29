@@ -180,6 +180,31 @@ data class ConnectorInfo(
     val enabled: Boolean = false,
 )
 
+// ── Voice ──────────────────────────────────────────────
+
+/** Request body for POST /api/v1/voice/speak. */
+data class SpeakRequest(
+    val text: String,
+)
+
+data class VoiceStatusResponse(
+    val enabled: Boolean = false,
+    @SerializedName("stt_available") val sttAvailable: Boolean = false,
+    @SerializedName("tts_available") val ttsAvailable: Boolean = false,
+)
+
+data class TranscribeResponse(
+    val text: String,
+)
+
+/** Response from POST /api/v1/voice/chat (full voice loop). */
+data class VoiceChatResponse(
+    val transcript: String,
+    val reply: String,
+    @SerializedName("conversation_id") val conversationId: String,
+    @SerializedName("audio_wav_base64") val audioWavBase64: String? = null,
+)
+
 // ── Generic Error ───────────────────────────────────────
 
 data class ErrorResponse(

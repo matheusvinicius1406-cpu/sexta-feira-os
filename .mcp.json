@@ -1,0 +1,45 @@
+{
+  "$comment": "JARVIS AI Factory MCP servers, auto-discovered by Claude Code (project scope). This session's agent identity is 'architect'. Each server is launched over stdio via the jarvis_mcp launcher. Install once: pip install -e mcp-factory (provides the 'mcp' dependency). Other agents (developer/research/qa/security) use their own client config with a different JARVIS_AGENT.",
+  "mcpServers": {
+    "jarvis-core": {
+      "command": "python",
+      "args": ["-m", "jarvis_mcp", "core"],
+      "env": { "PYTHONPATH": "mcp-factory", "JARVIS_AGENT": "architect", "JARVIS_FACTORY_CONFIG": "mcp-factory/config/factory.toml" }
+    },
+    "jarvis-filesystem": {
+      "command": "python",
+      "args": ["-m", "jarvis_mcp", "filesystem"],
+      "env": { "PYTHONPATH": "mcp-factory", "JARVIS_AGENT": "architect", "JARVIS_FACTORY_CONFIG": "mcp-factory/config/factory.toml" }
+    },
+    "jarvis-github": {
+      "command": "python",
+      "args": ["-m", "jarvis_mcp", "github"],
+      "env": { "PYTHONPATH": "mcp-factory", "JARVIS_AGENT": "architect", "JARVIS_FACTORY_CONFIG": "mcp-factory/config/factory.toml", "GITHUB_TOKEN": "" }
+    },
+    "jarvis-memory": {
+      "command": "python",
+      "args": ["-m", "jarvis_mcp", "memory"],
+      "env": { "PYTHONPATH": "mcp-factory", "JARVIS_AGENT": "architect", "JARVIS_FACTORY_CONFIG": "mcp-factory/config/factory.toml" }
+    },
+    "jarvis-documentation": {
+      "command": "python",
+      "args": ["-m", "jarvis_mcp", "documentation"],
+      "env": { "PYTHONPATH": "mcp-factory", "JARVIS_AGENT": "architect", "JARVIS_FACTORY_CONFIG": "mcp-factory/config/factory.toml" }
+    },
+    "jarvis-testing": {
+      "command": "python",
+      "args": ["-m", "jarvis_mcp", "testing"],
+      "env": { "PYTHONPATH": "mcp-factory", "JARVIS_AGENT": "architect", "JARVIS_FACTORY_CONFIG": "mcp-factory/config/factory.toml" }
+    },
+    "jarvis-security": {
+      "command": "python",
+      "args": ["-m", "jarvis_mcp", "security"],
+      "env": { "PYTHONPATH": "mcp-factory", "JARVIS_AGENT": "architect", "JARVIS_FACTORY_CONFIG": "mcp-factory/config/factory.toml" }
+    },
+    "jarvis-n8n": {
+      "command": "python",
+      "args": ["-m", "jarvis_mcp", "n8n"],
+      "env": { "PYTHONPATH": "mcp-factory", "JARVIS_AGENT": "architect", "JARVIS_FACTORY_CONFIG": "mcp-factory/config/factory.toml", "N8N_BASE_URL": "", "N8N_API_KEY": "" }
+    }
+  }
+}

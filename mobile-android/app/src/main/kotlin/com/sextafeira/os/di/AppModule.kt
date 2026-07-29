@@ -5,6 +5,7 @@ import com.sextafeira.os.data.api.ApiClient
 import com.sextafeira.os.data.api.SextaFeiraApi
 import com.sextafeira.os.data.network.AuthInterceptor
 import com.sextafeira.os.data.settings.SettingsRepository
+import com.sextafeira.os.data.voice.VoiceManager
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -52,5 +53,14 @@ object AppModule {
         @ApplicationContext context: Context,
     ): SettingsRepository {
         return SettingsRepository(context)
+    }
+
+    @Provides
+    @Singleton
+    fun provideVoiceManager(
+        @ApplicationContext context: Context,
+        api: SextaFeiraApi,
+    ): VoiceManager {
+        return VoiceManager(context, api)
     }
 }

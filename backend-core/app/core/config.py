@@ -6,7 +6,6 @@ Design principles (do not violate):
   * SINGLE-OWNER: exactly one owner. No open registration.
   * PRIVATE-BY-DEFAULT: no telemetry, no external egress, data stays on disk.
 """
-import os
 import secrets
 from pathlib import Path
 
@@ -166,6 +165,8 @@ class Settings(BaseSettings):
         "http://127.0.0.1",
         "http://localhost:8000",
         "http://127.0.0.1:8000",
+        "http://localhost:3000",  # Vite dev server
+        "http://127.0.0.1:3000",  # Vite dev server (IP)
     ]
     telemetry_enabled: bool = False  # hard off. Non-negotiable.
 

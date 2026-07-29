@@ -8,17 +8,17 @@ Automations — the kernel's hands, via a local n8n.
 """
 from typing import Any
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, Field
+from sqlalchemy.orm import Session
 
 from app.auth.jwt import get_current_owner
-from app.automation.n8n import AutomationUnavailable, N8nClient
 from app.automation.callback import CallbackHandler, CallbackRequest
+from app.automation.n8n import AutomationUnavailable, N8nClient
 from app.core.config import settings
 from app.core.di import get_automations, get_kernel
 from app.db.database import get_db
 from app.models.models import Owner
-from sqlalchemy.orm import Session
 
 router = APIRouter(prefix="/api/v1/automations", tags=["automations"])
 

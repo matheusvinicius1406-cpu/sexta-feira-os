@@ -1,0 +1,98 @@
+syntax = "proto3";
+
+package sextafeira.voice.v1;
+
+option csharp_namespace = "SextaFeira.Voice.V1";
+option go_package = "github.com/matheusvinicius1406-cpu/sexta-feira-os/shared/protobuf;voicev1";
+
+// ─────────────────────────────────────────────────────────────
+// VoiceStream — bidirectional audio streaming for real-time
+// voice interaction with the Sexta-Feira cognitive core.
+//
+// The client streams audio chunks captured from the microphone.
+// The server streams back synthesized speech (TTS) responses.
+// Text transcript and metadata are embedded in the stream.
+// ─────────────────────────────────────────────────────────────
+service VoiceStream {
+  // Full-duplex voice: mic → server, server → speaker
+  rpc StreamVoice(stream VoicePacket) returns (stream VoicePacket);
+}
+
+// ── Voice direction ─────────────────────────────────────────
+enum VoiceDirection {
+  VOICE_DIR_UNSPECIFIED = 0;
+  VOICE_DIR_CLIENT_TO_SERVER = 1;  // Mic capture
+  VOICE_DIR_SERVER_TO_CLIENT = 2;  // TTS playback
+}
+
+// ── Audio codec ─────────────────────────────────────────────
+enum AudioCodec {
+  AUDIO_CODEC_UNSPECIFIED = 0;
+  AUDIO_CODEC_PCM_S16LE = 1;    // Raw PCM, 16-bit little-endian
+  AUDIO_CODEC_AAC = 2;          // Advanced Audio Coding
+  AUDIO_CODEC_OPUS = 3;         // Opus (low-latency, preferred)
+}
+
+// ── Stream event types ──────────────────────────────────────
+enum VoiceEvent {
+  VOICE_EVENT_UNSPECIFIED = 0;
+  VOICE_EVENT_AUDIO_CHUNK = 1;     // Audio data
+  VOICE_EVENT_TRANSCRIPT = 2;      // STT result
+  VOICE_EVENT_SILENCE = 3;         // Silence / VAD noise floor
+  VOICE_EVENT_START_OF_SPEECH = 4; // VAD detected speech start
+  VOICE_EVENT_END_OF_SPEECH = 5;   // VAD detected speech end
+  VOICE_EVENT_ERROR = 6;           // Error condition
+  VOICE_EVENT_SESSION_END = 7;     // Graceful stream close
+}
+
+// ── Session configuration (sent once at stream start) ───────
+message VoiceSessionConfig {
+  AudioCodec codec = 1;
+  int32 sample_rate_hz = 2;      // 16000 | 24000 | 48000
+  int32 channels = 3;             // 1 (mono) | 2 (stereo)
+  bool enable_vad = 4;            // Voice Activity Detection
+  bool enable_transcript = 5;     // Return text transcripts
+  bool speak_reply = 6;           // Enable TTS on server responses
+  optional string conversation_id = 7;
+}
+
+// ── Single packet in the bidirectional stream ───────────────
+message VoicePacket {
+  VoiceEvent event = 1;
+
+  oneof payload {
+    VoiceSessionConfig session_config = 10;
+    bytes audio_data = 11;           // Raw codec-encoded audio
+    string transcript = 12;          // STT or final response text
+    VoiceError error = 13;           // Error details
+    VoiceMetrics metrics = 14;       // Performance metrics
+  }
+
+  int64 timestamp_ns = 20;          // Nanosecond timestamp
+  int32 sequence = 21;              // Monotonic packet sequence
+}
+
+// ── Error ───────────────────────────────────────────────────
+message VoiceError {
+  string code = 1;             // "stt_unavailable" | "tts_unavailable" | ...
+  string message = 2;
+}
+
+// ── Metrics ─────────────────────────────────────────────────
+message VoiceMetrics {
+  double stt_latency_ms = 1;
+  double tts_latency_ms = 2;
+  double total_roundtrip_ms = 3;
+  int32 audio_bytes_processed = 4;
+}
+
+// ── Voice status (unary, for quick checks) ──────────────────
+message VoiceStatusRequest {}
+
+message VoiceStatusResponse {
+  bool stt_available = 1;
+  bool tts_available = 2;
+  string stt_model = 3;        // "tiny" | "base" | "small" | ...
+  string tts_voice = 4;        // Voice name
+  bool vad_available = 5;
+}

@@ -21,7 +21,10 @@ from app.db.database import get_db
 from app.models.models import Device, Owner
 
 pwd_context = CryptContext(schemes=["argon2"], deprecated="auto")
-security = HTTPBearer(auto_error=True)
+# In development mode, the Bearer token is optional (bypass auth).
+# In production, the token is required.
+auto_error = settings.environment != "development"
+security = HTTPBearer(auto_error=auto_error)
 
 
 # ---------- passwords ----------
@@ -73,10 +76,37 @@ def decode_token(token: str) -> dict | None:
 # ---------- dependencies ----------
 
 def get_current_owner(
-    credentials: HTTPAuthorizationCredentials = Depends(security),
+    credentials: HTTPAuthorizationCredentials | None = Depends(security),
     db: Session = Depends(get_db),
 ) -> Owner:
-    """Resolve the owner from either an owner token or a paired-device token."""
+    """
+    Resolve the owner from either an owner token or a paired-device token.
+
+    DEVELOPMENT MODE: if no token is provided, returns the first active owner.
+    PRODUCTION: the token is required.
+    """
+    # ── Development bypass ─────────────────────────────────────
+    if settings.environment == "development" and (not credentials or not credentials.credentials):
+        owner = db.query(Owner).filter(Owner.is_active.is_(True)).first()
+        if owner:
+            return owner
+        # No owner in DB yet — bootstrap from .env settings
+        # hash_password is defined in this same module, available at function call time
+        owner = Owner(
+            email=settings.owner_email,
+            display_name=settings.owner_name,
+            hashed_password=hash_password(settings.owner_password or "devpassword"),
+            is_active=True,
+        )
+        db.add(owner)
+        db.commit()
+        db.refresh(owner)
+        return owner
+
+    # ── Normal auth flow ───────────────────────────────────────
+    if not credentials or not credentials.credentials:
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Authorization token required")
+
     payload = decode_token(credentials.credentials)
     if not payload:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid or expired token")

@@ -1,0 +1,182 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>CognitiveHUD</name>
+    </assembly>
+    <members>
+        <member name="T:SextaFeira.CognitiveHUD.MainPage">
+            <summary>
+            The main HUD page — the only "screen" in the Sexta-Feira Cognitive OS.
+            
+            Supports multi-layer navigation:
+            - Tap core → expand radial menu (Level 1: modules)
+            - Tap module → transition animation → Level 2 (sub-modules)
+            - Tap sub-module → transition → Level 3 (actions)
+            - Back button → reverse transition → previous level
+            - Root button → instant return to Level 1
+            </summary>
+        </member>
+        <member name="M:SextaFeira.CognitiveHUD.MauiProgram.BuildNavigationTree">
+            <summary>
+            Builds the navigation tree used by NavigationController.
+            Centralized so both DI registration and ViewModel can reference it.
+            </summary>
+        </member>
+        <member name="T:SextaFeira.CognitiveHUD.Services.ApiClient">
+            <summary>
+            HTTP client for communicating with the Sexta-Feira cognitive core backend (Python/FastAPI).
+            All communication happens over local network (REST today, gRPC in future phases).
+            </summary>
+        </member>
+        <member name="T:SextaFeira.CognitiveHUD.ViewModels.CoreHudViewModel">
+            <summary>
+            Main ViewModel for the Sexta-Feira Cognitive HUD.
+            Orchestrates the full layer-transition experience:
+            collapse → particle burst → swap items → expand → update depth.
+            </summary>
+            <inheritdoc/>
+        </member>
+        <member name="F:SextaFeira.CognitiveHUD.ViewModels.CoreHudViewModel.CoreRadiusDefault">
+            <summary>Default radius of the core circle, exposed for drawable calculations.</summary>
+        </member>
+        <member name="M:SextaFeira.CognitiveHUD.ViewModels.CoreHudViewModel.TransitionToCurrentLevel">
+            <summary>
+            Rebuilds the menu items from the current navigation level
+            and triggers a smooth TransitionTo animation.
+            </summary>
+        </member>
+        <member name="P:SextaFeira.CognitiveHUD.ViewModels.CoreHudViewModel.CoreCircle">
+            <inheritdoc cref="F:SextaFeira.CognitiveHUD.ViewModels.CoreHudViewModel._coreCircle"/>
+        </member>
+        <member name="P:SextaFeira.CognitiveHUD.ViewModels.CoreHudViewModel.StatusText">
+            <inheritdoc cref="F:SextaFeira.CognitiveHUD.ViewModels.CoreHudViewModel._statusText"/>
+        </member>
+        <member name="P:SextaFeira.CognitiveHUD.ViewModels.CoreHudViewModel.SubtitleText">
+            <inheritdoc cref="F:SextaFeira.CognitiveHUD.ViewModels.CoreHudViewModel._subtitleText"/>
+        </member>
+        <member name="P:SextaFeira.CognitiveHUD.ViewModels.CoreHudViewModel.IsCoreExpanded">
+            <inheritdoc cref="F:SextaFeira.CognitiveHUD.ViewModels.CoreHudViewModel._isCoreExpanded"/>
+        </member>
+        <member name="P:SextaFeira.CognitiveHUD.ViewModels.CoreHudViewModel.RadialMenu">
+            <inheritdoc cref="F:SextaFeira.CognitiveHUD.ViewModels.CoreHudViewModel._radialMenu"/>
+        </member>
+        <member name="P:SextaFeira.CognitiveHUD.ViewModels.CoreHudViewModel.IsMenuVisible">
+            <inheritdoc cref="F:SextaFeira.CognitiveHUD.ViewModels.CoreHudViewModel._isMenuVisible"/>
+        </member>
+        <member name="P:SextaFeira.CognitiveHUD.ViewModels.CoreHudViewModel.BreadcrumbText">
+            <inheritdoc cref="F:SextaFeira.CognitiveHUD.ViewModels.CoreHudViewModel._breadcrumbText"/>
+        </member>
+        <member name="P:SextaFeira.CognitiveHUD.ViewModels.CoreHudViewModel.CanGoBack">
+            <inheritdoc cref="F:SextaFeira.CognitiveHUD.ViewModels.CoreHudViewModel._canGoBack"/>
+        </member>
+        <member name="P:SextaFeira.CognitiveHUD.ViewModels.CoreHudViewModel.CurrentDepth">
+            <inheritdoc cref="F:SextaFeira.CognitiveHUD.ViewModels.CoreHudViewModel._currentDepth"/>
+        </member>
+        <member name="P:SextaFeira.CognitiveHUD.ViewModels.CoreHudViewModel.IsConnected">
+            <inheritdoc cref="F:SextaFeira.CognitiveHUD.ViewModels.CoreHudViewModel._isConnected"/>
+        </member>
+        <member name="P:SextaFeira.CognitiveHUD.ViewModels.CoreHudViewModel.ConnectionStatus">
+            <inheritdoc cref="F:SextaFeira.CognitiveHUD.ViewModels.CoreHudViewModel._connectionStatus"/>
+        </member>
+        <member name="P:SextaFeira.CognitiveHUD.ViewModels.CoreHudViewModel.StatusDotColor">
+            <inheritdoc cref="F:SextaFeira.CognitiveHUD.ViewModels.CoreHudViewModel._statusDotColor"/>
+        </member>
+        <member name="T:SextaFeira.CognitiveHUD.Views.HudCanvasDrawable">
+            <summary>
+            Custom IDrawable that renders the entire HUD scene each frame.
+            
+            Render order:
+            1. Background + subtle grid
+            2. Ambient orbital particles
+            3. Depth indicator rings (concentric circles showing current level)
+            4. Core circle (the "brain")
+            5. Radial menu items (when expanded)
+            6. Transition particle burst effects
+            </summary>
+        </member>
+        <member name="T:CommunityToolkit.Mvvm.ComponentModel.__Internals.__KnownINotifyPropertyChangingArgs">
+            <summary>
+            A helper type providing cached, reusable <see cref="T:System.ComponentModel.PropertyChangingEventArgs"/> instances
+            for all properties generated with <see cref="T:CommunityToolkit.Mvvm.ComponentModel.ObservablePropertyAttribute"/>.
+            </summary>
+        </member>
+        <member name="F:CommunityToolkit.Mvvm.ComponentModel.__Internals.__KnownINotifyPropertyChangingArgs.CoreCircle">
+            <summary>The cached <see cref="T:System.ComponentModel.PropertyChangingEventArgs"/> instance for all "CoreCircle" generated properties.</summary>
+        </member>
+        <member name="F:CommunityToolkit.Mvvm.ComponentModel.__Internals.__KnownINotifyPropertyChangingArgs.StatusText">
+            <summary>The cached <see cref="T:System.ComponentModel.PropertyChangingEventArgs"/> instance for all "StatusText" generated properties.</summary>
+        </member>
+        <member name="F:CommunityToolkit.Mvvm.ComponentModel.__Internals.__KnownINotifyPropertyChangingArgs.SubtitleText">
+            <summary>The cached <see cref="T:System.ComponentModel.PropertyChangingEventArgs"/> instance for all "SubtitleText" generated properties.</summary>
+        </member>
+        <member name="F:CommunityToolkit.Mvvm.ComponentModel.__Internals.__KnownINotifyPropertyChangingArgs.IsCoreExpanded">
+            <summary>The cached <see cref="T:System.ComponentModel.PropertyChangingEventArgs"/> instance for all "IsCoreExpanded" generated properties.</summary>
+        </member>
+        <member name="F:CommunityToolkit.Mvvm.ComponentModel.__Internals.__KnownINotifyPropertyChangingArgs.RadialMenu">
+            <summary>The cached <see cref="T:System.ComponentModel.PropertyChangingEventArgs"/> instance for all "RadialMenu" generated properties.</summary>
+        </member>
+        <member name="F:CommunityToolkit.Mvvm.ComponentModel.__Internals.__KnownINotifyPropertyChangingArgs.IsMenuVisible">
+            <summary>The cached <see cref="T:System.ComponentModel.PropertyChangingEventArgs"/> instance for all "IsMenuVisible" generated properties.</summary>
+        </member>
+        <member name="F:CommunityToolkit.Mvvm.ComponentModel.__Internals.__KnownINotifyPropertyChangingArgs.BreadcrumbText">
+            <summary>The cached <see cref="T:System.ComponentModel.PropertyChangingEventArgs"/> instance for all "BreadcrumbText" generated properties.</summary>
+        </member>
+        <member name="F:CommunityToolkit.Mvvm.ComponentModel.__Internals.__KnownINotifyPropertyChangingArgs.CanGoBack">
+            <summary>The cached <see cref="T:System.ComponentModel.PropertyChangingEventArgs"/> instance for all "CanGoBack" generated properties.</summary>
+        </member>
+        <member name="F:CommunityToolkit.Mvvm.ComponentModel.__Internals.__KnownINotifyPropertyChangingArgs.CurrentDepth">
+            <summary>The cached <see cref="T:System.ComponentModel.PropertyChangingEventArgs"/> instance for all "CurrentDepth" generated properties.</summary>
+        </member>
+        <member name="F:CommunityToolkit.Mvvm.ComponentModel.__Internals.__KnownINotifyPropertyChangingArgs.IsConnected">
+            <summary>The cached <see cref="T:System.ComponentModel.PropertyChangingEventArgs"/> instance for all "IsConnected" generated properties.</summary>
+        </member>
+        <member name="F:CommunityToolkit.Mvvm.ComponentModel.__Internals.__KnownINotifyPropertyChangingArgs.ConnectionStatus">
+            <summary>The cached <see cref="T:System.ComponentModel.PropertyChangingEventArgs"/> instance for all "ConnectionStatus" generated properties.</summary>
+        </member>
+        <member name="F:CommunityToolkit.Mvvm.ComponentModel.__Internals.__KnownINotifyPropertyChangingArgs.StatusDotColor">
+            <summary>The cached <see cref="T:System.ComponentModel.PropertyChangingEventArgs"/> instance for all "StatusDotColor" generated properties.</summary>
+        </member>
+        <member name="T:CommunityToolkit.Mvvm.ComponentModel.__Internals.__KnownINotifyPropertyChangedArgs">
+            <summary>
+            A helper type providing cached, reusable <see cref="T:System.ComponentModel.PropertyChangedEventArgs"/> instances
+            for all properties generated with <see cref="T:CommunityToolkit.Mvvm.ComponentModel.ObservablePropertyAttribute"/>.
+            </summary>
+        </member>
+        <member name="F:CommunityToolkit.Mvvm.ComponentModel.__Internals.__KnownINotifyPropertyChangedArgs.CoreCircle">
+            <summary>The cached <see cref="T:System.ComponentModel.PropertyChangedEventArgs"/> instance for all "CoreCircle" generated properties.</summary>
+        </member>
+        <member name="F:CommunityToolkit.Mvvm.ComponentModel.__Internals.__KnownINotifyPropertyChangedArgs.StatusText">
+            <summary>The cached <see cref="T:System.ComponentModel.PropertyChangedEventArgs"/> instance for all "StatusText" generated properties.</summary>
+        </member>
+        <member name="F:CommunityToolkit.Mvvm.ComponentModel.__Internals.__KnownINotifyPropertyChangedArgs.SubtitleText">
+            <summary>The cached <see cref="T:System.ComponentModel.PropertyChangedEventArgs"/> instance for all "SubtitleText" generated properties.</summary>
+        </member>
+        <member name="F:CommunityToolkit.Mvvm.ComponentModel.__Internals.__KnownINotifyPropertyChangedArgs.IsCoreExpanded">
+            <summary>The cached <see cref="T:System.ComponentModel.PropertyChangedEventArgs"/> instance for all "IsCoreExpanded" generated properties.</summary>
+        </member>
+        <member name="F:CommunityToolkit.Mvvm.ComponentModel.__Internals.__KnownINotifyPropertyChangedArgs.RadialMenu">
+            <summary>The cached <see cref="T:System.ComponentModel.PropertyChangedEventArgs"/> instance for all "RadialMenu" generated properties.</summary>
+        </member>
+        <member name="F:CommunityToolkit.Mvvm.ComponentModel.__Internals.__KnownINotifyPropertyChangedArgs.IsMenuVisible">
+            <summary>The cached <see cref="T:System.ComponentModel.PropertyChangedEventArgs"/> instance for all "IsMenuVisible" generated properties.</summary>
+        </member>
+        <member name="F:CommunityToolkit.Mvvm.ComponentModel.__Internals.__KnownINotifyPropertyChangedArgs.BreadcrumbText">
+            <summary>The cached <see cref="T:System.ComponentModel.PropertyChangedEventArgs"/> instance for all "BreadcrumbText" generated properties.</summary>
+        </member>
+        <member name="F:CommunityToolkit.Mvvm.ComponentModel.__Internals.__KnownINotifyPropertyChangedArgs.CanGoBack">
+            <summary>The cached <see cref="T:System.ComponentModel.PropertyChangedEventArgs"/> instance for all "CanGoBack" generated properties.</summary>
+        </member>
+        <member name="F:CommunityToolkit.Mvvm.ComponentModel.__Internals.__KnownINotifyPropertyChangedArgs.CurrentDepth">
+            <summary>The cached <see cref="T:System.ComponentModel.PropertyChangedEventArgs"/> instance for all "CurrentDepth" generated properties.</summary>
+        </member>
+        <member name="F:CommunityToolkit.Mvvm.ComponentModel.__Internals.__KnownINotifyPropertyChangedArgs.IsConnected">
+            <summary>The cached <see cref="T:System.ComponentModel.PropertyChangedEventArgs"/> instance for all "IsConnected" generated properties.</summary>
+        </member>
+        <member name="F:CommunityToolkit.Mvvm.ComponentModel.__Internals.__KnownINotifyPropertyChangedArgs.ConnectionStatus">
+            <summary>The cached <see cref="T:System.ComponentModel.PropertyChangedEventArgs"/> instance for all "ConnectionStatus" generated properties.</summary>
+        </member>
+        <member name="F:CommunityToolkit.Mvvm.ComponentModel.__Internals.__KnownINotifyPropertyChangedArgs.StatusDotColor">
+            <summary>The cached <see cref="T:System.ComponentModel.PropertyChangedEventArgs"/> instance for all "StatusDotColor" generated properties.</summary>
+        </member>
+    </members>
+</doc>

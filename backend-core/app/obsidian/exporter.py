@@ -19,7 +19,7 @@ from __future__ import annotations
 import logging
 import re
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from sqlalchemy import or_
@@ -322,7 +322,7 @@ def export_auto_learned_fact(
     filepath = vault / _BRAIN_FOLDER / _AUTO_FOLDER / filename
 
     # Build frontmatter
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     frontmatter = _build_frontmatter(
         title=title,
         kind=kind,
@@ -372,8 +372,8 @@ def test_build_frontmatter() -> None:
 
 
 def test_build_frontmatter_with_dates() -> None:
-    from datetime import datetime, timezone
-    dt = datetime(2024, 1, 15, 10, 30, tzinfo=timezone.utc)
+    from datetime import datetime
+    dt = datetime(2024, 1, 15, 10, 30, tzinfo=UTC)
     fm = _build_frontmatter("Teste", "fact", created_at=dt, updated_at=dt)
     assert "2024-01-15" in fm
     assert "10:30" in fm
