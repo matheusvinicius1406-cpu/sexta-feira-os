@@ -1,4 +1,29 @@
 {
+  "permissions": {
+    "deny": [
+      "Bash(git push --force:*)",
+      "Bash(git push -f:*)",
+      "Bash(git push origin main:*)",
+      "Bash(git push origin develop:*)",
+      "Bash(git reset --hard:*)",
+      "Bash(git clean -fdx:*)",
+      "Bash(rm -rf /:*)",
+      "Bash(rm -rf ~:*)",
+      "Read(./.env)",
+      "Read(./backend-core/.env)",
+      "Edit(./.env)",
+      "Edit(./backend-core/.env)"
+    ],
+    "ask": [
+      "Bash(git merge:*)",
+      "Bash(git push:*)",
+      "Bash(git rebase:*)",
+      "Bash(git branch -D:*)",
+      "Bash(rm:*)",
+      "Bash(codex:*)",
+      "Bash(gh pr merge:*)"
+    ]
+  },
   "hooks": {
     "SessionStart": [
       {

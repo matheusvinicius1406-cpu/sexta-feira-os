@@ -1,0 +1,379 @@
+{
+  "name": "Super Sexta-Feira (Tudo em 1)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "sexta",
+        "responseMode": "onReceived",
+        "responseData": "allEntries",
+        "options": {}
+      },
+      "id": "webhook-main",
+      "name": "Entrada",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [
+        250,
+        300
+      ],
+      "webhookId": "sexta"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.body.tipo }}",
+              "operation": "equal",
+              "value2": "ia"
+            }
+          ]
+        }
+      },
+      "id": "switch-tipo",
+      "name": "Tipo?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        500,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.body.tipo }}",
+              "operation": "equal",
+              "value2": "automacao"
+            }
+          ]
+        }
+      },
+      "id": "check-automacao",
+      "name": "Automacao?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        750,
+        500
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ 'http://host.docker.internal:8000' }}/api/v1/automations/callback",
+        "authentication": "none",
+        "sendBody": true,
+        "bodyContentType": "json",
+        "jsonBody": "{\n  \"action\": \"={{ $json.body.acao }}\",\n  \"params\": {\n    \"query\": \"={{ $json.body.mensagem || $json.body.params?.query }}\",\n    \"kind\": \"={{ $json.body.params?.kind || 'automacao' }}\",\n    \"source\": \"automation\"\n  }\n}",
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-N8N-Callback-Secret",
+              "value": "Si3hkdlTApTEPcIbo2Giqly1KWU9gMtmjruu00yKymo"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "call-automacao",
+      "name": "Executar Automacao",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1000,
+        500
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ 'http://host.docker.internal:8000' }}/api/v1/automations/callback",
+        "authentication": "none",
+        "sendBody": true,
+        "bodyContentType": "json",
+        "jsonBody": "{\"action\":\"recall\",\"params\":{\"query\":\"={{ $json.body.mensagem || $json.body.message }}\"}}",
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-N8N-Callback-Secret",
+              "value": "Si3hkdlTApTEPcIbo2Giqly1KWU9gMtmjruu00yKymo"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "ia-memoria",
+      "name": "Buscar Memoria",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        750,
+        150
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ 'http://host.docker.internal:8000' }}/api/v1/automations/callback",
+        "authentication": "none",
+        "sendBody": true,
+        "bodyContentType": "json",
+        "jsonBody": "{\"action\":\"world\",\"params\":{}}",
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-N8N-Callback-Secret",
+              "value": "Si3hkdlTApTEPcIbo2Giqly1KWU9gMtmjruu00yKymo"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "id": "ia-contexto",
+      "name": "Ler Contexto",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        750,
+        280
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ ('http://host.docker.internal:11434') }}/api/chat",
+        "authentication": "none",
+        "sendBody": true,
+        "bodyContentType": "json",
+        "jsonBody": "{\n  \"model\": \"llama3.2\",\n  \"messages\": [\n    {\"role\": \"system\", \"content\": \"Voce e Sexta-Feira, assistente IA pessoal. Responda em portugues. Seja conciso e util.\"},\n    {\"role\": \"user\", \"content\": \"Pergunta: {{ $(\\\"Entrada\\\").item.json.body.mensagem || $(\\\"Entrada\\\").item.json.body.message }}\\n\\nMemoria: {{ $('Buscar Memoria').item.json.results }}\\n\\nContexto: {{ $('Ler Contexto').item.json.state }}\\n\\nPapel: {{ $(\\\"Entrada\\\").item.json.body.papel || 'assistente geral' }}\"}\n  ],\n  \"stream\": false,\n  \"options\": {\"temperature\": 0.7, \"num_predict\": 2048}\n}",
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "id": "ia-ollama",
+      "name": "Raciocinar",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1000,
+        150
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ 'http://host.docker.internal:8000' }}/api/v1/automations/callback",
+        "authentication": "none",
+        "sendBody": true,
+        "bodyContentType": "json",
+        "jsonBody": "{\"action\":\"remember\",\"params\":{\"content\":\"{{ 'IA: ' + ($('Entrada').item.json.body.mensagem || $('Entrada').item.json.body.message) }}\",\"kind\":\"ia_conversa\",\"source\":\"automation\",\"importance\":0.3}}",
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-N8N-Callback-Secret",
+              "value": "Si3hkdlTApTEPcIbo2Giqly1KWU9gMtmjruu00yKymo"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "id": "ia-salvar",
+      "name": "Salvar",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1000,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "keepOnlySet": true,
+        "values": {
+          "string": [
+            {
+              "name": "sucesso",
+              "value": "={{ $json.json.ok }}"
+            },
+            {
+              "name": "resposta",
+              "value": "={{ $json.json.ok ? 'OK' : 'Falha' }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "fmt-automacao",
+      "name": "Resp. Automacao",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1250,
+        500
+      ]
+    },
+    {
+      "parameters": {
+        "keepOnlySet": true,
+        "values": {
+          "string": [
+            {
+              "name": "resposta",
+              "value": "={{ $('Raciocinar').item.json.message.content }}"
+            },
+            {
+              "name": "fontes",
+              "value": "={{ $('Buscar Memoria').item.json.count + ' registros' }}"
+            },
+            {
+              "name": "tipo",
+              "value": "ia"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "fmt-ia",
+      "name": "Resp. IA",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1250,
+        150
+      ]
+    }
+  ],
+  "connections": {
+    "Entrada": {
+      "main": [
+        [
+          {
+            "node": "Tipo?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tipo?": {
+      "main": [
+        [
+          {
+            "node": "Buscar Memoria",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Ler Contexto",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Automacao?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buscar Memoria": {
+      "main": [
+        [
+          {
+            "node": "Raciocinar",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ler Contexto": {
+      "main": [
+        [
+          {
+            "node": "Raciocinar",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Automacao?": {
+      "main": [
+        [
+          {
+            "node": "Executar Automacao",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Executar Automacao": {
+      "main": [
+        [
+          {
+            "node": "Resp. Automacao",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Raciocinar": {
+      "main": [
+        [
+          {
+            "node": "Salvar",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Resp. IA",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Resp. Automacao": {
+      "main": []
+    },
+    "Resp. IA": {
+      "main": []
+    },
+    "Salvar": {
+      "main": []
+    }
+  },
+  "settings": {},
+  "staticData": null,
+  "tags": [],
+  "pinData": {}
+}

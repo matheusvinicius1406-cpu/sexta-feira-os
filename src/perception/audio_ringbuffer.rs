@@ -65,14 +65,16 @@ impl AudioRingBuffer {
     }
 
     pub fn get_latest_frames(&self, num_frames: usize) -> Vec<f32> {
-        let write_idx = self.write_index.load(Ordering::Acquire);
+        // Clamp to capacity to avoid underflow and out-of-bounds reads.
+        let num_frames = num_frames.min(self.capacity);
         let total_samples = num_frames * self.frame_size;
         let mut result = vec![0.0f32; total_samples];
 
+        let write_idx = self.write_index.load(Ordering::Acquire);
         let start_idx = if write_idx >= total_samples {
             write_idx - total_samples
         } else {
-            let wrapped = self.buffer_size - (total_samples - write_idx);
+            let wrapped = self.buffer_size.saturating_sub(total_samples - write_idx);
             wrapped % self.buffer_size
         };
 

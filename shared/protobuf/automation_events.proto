@@ -1,0 +1,145 @@
+syntax = "proto3";
+
+package sextafeira.automation.v1;
+
+option csharp_namespace = "SextaFeira.Automation.V1";
+option go_package = "github.com/matheusvinicius1406-cpu/sexta-feira-os/shared/protobuf;automationv1";
+
+import "google/protobuf/timestamp.proto";
+
+// ─────────────────────────────────────────────────────────────
+// AutomationEvents — event-driven messages for the n8n bridge,
+// device action protocol, and internal system events.
+// Used for async communication between the HUD and backend.
+// ─────────────────────────────────────────────────────────────
+service AutomationService {
+  // Trigger an n8n workflow
+  rpc TriggerWorkflow(TriggerWorkflowRequest) returns (TriggerWorkflowResponse);
+
+  // List available workflows
+  rpc ListWorkflows(ListWorkflowsRequest) returns (ListWorkflowsResponse);
+
+  // Stream system events (real-time HUD updates)
+  rpc StreamEvents(EventSubscription) returns (stream SystemEvent);
+
+  // Stream device commands (for device agents)
+  rpc StreamDeviceCommands(DeviceSubscription) returns (stream DeviceCommand);
+
+  // Report command result
+  rpc ReportCommandResult(CommandResult) returns (CommandResultAck);
+}
+
+// ═════════════════════════════════════════════════════════════
+// Automations (n8n bridge)
+// ═════════════════════════════════════════════════════════════
+
+message WorkflowInfo {
+  string id = 1;
+  string name = 2;
+  bool active = 3;
+  google.protobuf.Timestamp created_at = 4;
+  optional google.protobuf.Timestamp last_executed = 5;
+}
+
+message TriggerWorkflowRequest {
+  string workflow_id = 1;
+  map<string, string> params = 2;
+}
+
+message TriggerWorkflowResponse {
+  string execution_id = 1;
+  bool accepted = 2;
+}
+
+message ListWorkflowsRequest {}
+
+message ListWorkflowsResponse {
+  repeated WorkflowInfo workflows = 1;
+}
+
+// ═════════════════════════════════════════════════════════════
+// System Events (real-time HUD updates)
+// ═════════════════════════════════════════════════════════════
+
+message EventSubscription {
+  repeated string event_types = 1;  // empty = all events
+}
+
+enum SystemEventType {
+  EVENT_UNSPECIFIED = 0;
+  EVENT_BRAIN_STATUS_CHANGED = 1;
+  EVENT_MEMORY_CREATED = 2;
+  EVENT_MEMORY_DELETED = 3;
+  EVENT_WORKFLOW_STARTED = 4;
+  EVENT_WORKFLOW_COMPLETED = 5;
+  EVENT_DEVICE_CONNECTED = 6;
+  EVENT_DEVICE_DISCONNECTED = 7;
+  EVENT_ACTION_DISPATCHED = 8;
+  EVENT_REMINDER_FIRED = 9;
+}
+
+message SystemEvent {
+  SystemEventType type = 1;
+  google.protobuf.Timestamp timestamp = 2;
+  string payload_json = 3;        // Flexible JSON payload
+}
+
+// ═════════════════════════════════════════════════════════════
+// Device Action Protocol
+// ═════════════════════════════════════════════════════════════
+
+message DeviceSubscription {
+  string device_id = 1;
+  string auth_token = 2;
+}
+
+message DeviceCommand {
+  string command_id = 1;
+  string action = 2;              // "open_app" | "navigate" | "notify" | ...
+  map<string, string> params = 3;
+  google.protobuf.Timestamp issued_at = 4;
+}
+
+message CommandResult {
+  string command_id = 1;
+  string device_id = 2;
+  bool success = 3;
+  optional string error = 4;
+  map<string, string> result_data = 5;
+}
+
+message CommandResultAck {
+  bool received = 1;
+}
+
+// ═════════════════════════════════════════════════════════════
+// Scheduling / Reminders
+// ═════════════════════════════════════════════════════════════
+
+message Reminder {
+  string id = 1;
+  string title = 2;
+  optional string description = 3;
+  google.protobuf.Timestamp due_at = 4;
+  optional google.protobuf.Timestamp completed_at = 5;
+  bool recurring = 6;
+  optional string cron_expression = 7;
+  optional string device_target = 8;
+}
+
+message CreateReminderRequest {
+  string title = 1;
+  optional string description = 2;
+  google.protobuf.Timestamp due_at = 3;
+  bool recurring = 4;
+  optional string cron_expression = 5;
+  optional string device_target = 6;
+}
+
+message ListRemindersRequest {
+  optional bool include_completed = 1;
+}
+
+message ListRemindersResponse {
+  repeated Reminder reminders = 1;
+}

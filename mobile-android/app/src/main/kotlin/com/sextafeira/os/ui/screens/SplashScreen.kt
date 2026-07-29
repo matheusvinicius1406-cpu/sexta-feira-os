@@ -19,6 +19,7 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavHostController
+import com.sextafeira.os.data.api.Session
 import com.sextafeira.os.ui.navigation.Route
 import kotlinx.coroutines.delay
 
@@ -29,8 +30,14 @@ fun SplashScreen(navController: NavHostController) {
     
     LaunchedEffect(Unit) {
         showLogo = true
-        delay(2500)
-        navController.navigate(Route.Login.route) {
+        delay(1500)  // shorter delay — session was already loaded by SessionManager.init()
+        
+        val destination = if (Session.isAuthenticated) {
+            Route.Dashboard.route
+        } else {
+            Route.Login.route
+        }
+        navController.navigate(destination) {
             popUpTo(Route.Splash.route) { inclusive = true }
         }
     }

@@ -6,8 +6,8 @@ Design principles (do not violate):
   * SINGLE-OWNER: exactly one owner. No open registration.
   * PRIVATE-BY-DEFAULT: no telemetry, no external egress, data stays on disk.
 """
-import os
 import secrets
+from pathlib import Path
 
 from pydantic_settings import BaseSettings
 
@@ -18,9 +18,16 @@ class Settings(BaseSettings):
     # ============ Identity ============
     app_name: str = "Sexta-Feira OS"
     app_version: str = "1.0.0-kernel"  # The Absolute Kernel
-    environment: str = os.getenv("ENVIRONMENT", "development")
-    debug: bool = os.getenv("ENVIRONMENT", "development") == "development"
-    log_level: str = os.getenv("LOG_LEVEL", "INFO")
+    environment: str = "development"
+    log_level: str = "INFO"
+
+    @property
+    def debug(self) -> bool:
+        return self.environment == "development"
+
+    @property
+    def database_echo(self) -> bool:
+        return self.environment == "development"
 
     # ============ Server / Ambient access ============
     # The kernel is ONE private brain with MANY trusted bodies (phone, car,
@@ -32,8 +39,8 @@ class Settings(BaseSettings):
     #
     # It is NEVER meant to be exposed to the public internet. Use a private
     # tunnel (Tailscale/WireGuard) if you want it with you outside home.
-    access_mode: str = os.getenv("ACCESS_MODE", "loopback")
-    backend_port: int = int(os.getenv("BACKEND_PORT", "8000"))
+    access_mode: str = "loopback"
+    backend_port: int = 8000
     api_prefix: str = "/api/v1"
 
     @property
@@ -42,113 +49,114 @@ class Settings(BaseSettings):
 
     # Owner-set pairing code. A new device (phone/car/glasses/watch) must
     # present this once to be paired and receive its own long-lived token.
-    device_pairing_code: str = os.getenv("DEVICE_PAIRING_CODE", "")
+    device_pairing_code: str = ""
 
     # ============ Database (local file) ============
-    database_url: str = os.getenv("DATABASE_URL", "sqlite:///./data/sexta_feira_os.db")
-    database_echo: bool = os.getenv("ENVIRONMENT", "development") == "development"
+    database_url: str = "sqlite:///./data/sexta_feira_os.db"
 
     # ============ Authentication (single owner) ============
     # A random secret is generated per boot if none is provided. That means
     # tokens are invalidated on restart unless you pin JWT_SECRET_KEY yourself.
-    jwt_secret_key: str = os.getenv("JWT_SECRET_KEY", "")
+    jwt_secret_key: str = ""
     jwt_algorithm: str = "HS256"
-    jwt_expiration_hours: int = int(os.getenv("JWT_EXPIRATION_HOURS", "720"))  # 30 days
+    jwt_expiration_hours: int = 720  # 30 days
 
     # The one and only owner. Set these in .env to bootstrap on first boot.
-    owner_email: str = os.getenv("OWNER_EMAIL", "owner@localhost")
-    owner_name: str = os.getenv("OWNER_NAME", "Owner")
-    owner_password: str = os.getenv("OWNER_PASSWORD", "")  # required in production
+    owner_email: str = "owner@localhost"
+    owner_name: str = "Owner"
+    owner_password: str = ""  # required in production
 
     # ============ Local Brain (Ollama) ============
     # This is the ONLY inference backend. It runs on your machine.
-    ollama_endpoint: str = os.getenv("OLLAMA_ENDPOINT", "http://127.0.0.1:11434")
-    brain_model: str = os.getenv("BRAIN_MODEL", "llama3.2")  # your local reasoning model
-    embedding_model: str = os.getenv("EMBEDDING_MODEL", "nomic-embed-text")  # local embeddings
-    brain_temperature: float = float(os.getenv("BRAIN_TEMPERATURE", "0.7"))
-    brain_max_tokens: int = int(os.getenv("BRAIN_MAX_TOKENS", "2048"))
-    brain_context_messages: int = int(os.getenv("BRAIN_CONTEXT_MESSAGES", "12"))
+    ollama_endpoint: str = "http://127.0.0.1:11434"
+    brain_model: str = "llama3.2"  # your local reasoning model
+    embedding_model: str = "nomic-embed-text"  # local embeddings
+    brain_temperature: float = 0.7
+    brain_max_tokens: int = 2048
+    brain_context_messages: int = 12
     # Agentic tool-calling: let the brain act on its own (remember/recall/automations)
     # during a normal conversation — driven by voice/chat from the phone, no terminal.
-    tools_enabled: bool = os.getenv("TOOLS_ENABLED", "true").lower() == "true"
-    tool_max_rounds: int = int(os.getenv("TOOL_MAX_ROUNDS", "4"))
+    tools_enabled: bool = True
+    tool_max_rounds: int = 4
     # Sub-agents: the brain can delegate a sub-task to a focused helper that runs
     # on the SAME local model with a RESTRICTED toolset (query/knowledge only by
     # default — irreversible real-world actions stay with the main brain). Local
     # and owner-scoped, so it never breaks 'só meu'. Sub-agents can't delegate
     # further (no recursion).
-    subagents_enabled: bool = os.getenv("SUBAGENTS_ENABLED", "true").lower() == "true"
-    subagent_max_rounds: int = int(os.getenv("SUBAGENT_MAX_ROUNDS", "3"))
-    subagent_allowed_tools: list[str] = [
-        t.strip() for t in os.getenv(
-            "SUBAGENT_ALLOWED_TOOLS", "recall,list_capabilities,call_api"
-        ).split(",") if t.strip()
-    ]
+    subagents_enabled: bool = True
+    subagent_max_rounds: int = 3
+    subagent_allowed_tools: list[str] = ["recall", "list_capabilities", "call_api"]
     # Scheduler: fire reminders / timed actions when due. Background loop; the
     # firing logic itself is a pure method (run_due) so it's easy to test.
-    scheduler_enabled: bool = os.getenv("SCHEDULER_ENABLED", "true").lower() == "true"
-    scheduler_interval_seconds: int = int(os.getenv("SCHEDULER_INTERVAL_SECONDS", "30"))
+    scheduler_enabled: bool = True
+    scheduler_interval_seconds: int = 30
 
     # The kernel's personality / identity. This is who Sexta-Feira is to you.
-    brain_persona: str = os.getenv(
-        "BRAIN_PERSONA",
+    brain_persona: str = (
         "Você é Sexta-Feira, o segundo cérebro pessoal e privado do seu dono — "
         "leal, íntimo, direto e discreto, no espírito de Alfred e JARVIS. "
         "Você roda inteiramente na máquina dele; nada do que ele diz sai daqui. "
-        "Você lembra do que importa, aprende com ele e serve só a ele.",
+        "Você lembra do que importa, aprende com ele e serve só a ele."
     )
 
     # ============ Memory (the second brain) ============
-    memory_top_k: int = int(os.getenv("MEMORY_TOP_K", "6"))
-    memory_min_similarity: float = float(os.getenv("MEMORY_MIN_SIMILARITY", "0.25"))
+    memory_top_k: int = 6
+    memory_min_similarity: float = 0.25
     # Auto-remember: after each exchange, distil durable facts into memory.
-    memory_auto_learn: bool = os.getenv("MEMORY_AUTO_LEARN", "true").lower() == "true"
+    memory_auto_learn: bool = True
 
     # ============ Knowledge graph (networked thought, à la Obsidian) ============
     # New memories auto-link to related ones (semantic + [[wikilinks]]), forming
     # a connected brain. Recall expands along those links to pull in context.
-    graph_autolink: bool = os.getenv("GRAPH_AUTOLINK", "true").lower() == "true"
-    graph_autolink_k: int = int(os.getenv("GRAPH_AUTOLINK_K", "3"))
-    graph_link_min_similarity: float = float(os.getenv("GRAPH_LINK_MIN_SIMILARITY", "0.55"))
-    graph_expand_hops: int = int(os.getenv("GRAPH_EXPAND_HOPS", "1"))
-    graph_expand_decay: float = float(os.getenv("GRAPH_EXPAND_DECAY", "0.55"))
+    graph_autolink: bool = True
+    graph_autolink_k: int = 3
+    graph_link_min_similarity: float = 0.55
+    graph_expand_hops: int = 1
+    graph_expand_decay: float = 0.55
     # Let the brain NAME each auto-link ("trabalha em", "gosta de"...) instead of
     # a generic "related". Costs one small local LLM call per new edge; falls
     # back to "related" if the brain is offline.
-    graph_relation_labels: bool = os.getenv("GRAPH_RELATION_LABELS", "true").lower() == "true"
+    graph_relation_labels: bool = True
 
     # ============ Voice (local, offline) ============
     # Hearing (STT) and speaking (TTS) run on YOUR machine. Voice is an optional
     # extra (pip install -r requirements-voice.txt) and degrades gracefully: if
     # the engine/model isn't present, the voice endpoints return a clean 503.
-    voice_enabled: bool = os.getenv("VOICE_ENABLED", "true").lower() == "true"
-    stt_engine: str = os.getenv("STT_ENGINE", "faster-whisper")
-    stt_model: str = os.getenv("STT_MODEL", "small")        # tiny|base|small|medium|large-v3
-    stt_language: str = os.getenv("STT_LANGUAGE", "pt")
-    stt_compute_type: str = os.getenv("STT_COMPUTE_TYPE", "int8")  # int8|float16|float32
-    stt_device: str = os.getenv("STT_DEVICE", "cpu")        # cpu|cuda
-    tts_engine: str = os.getenv("TTS_ENGINE", "piper")
-    tts_voice: str = os.getenv("TTS_VOICE", "")             # path to a Piper voice .onnx
-    tts_speak_replies: bool = os.getenv("TTS_SPEAK_REPLIES", "true").lower() == "true"
+    voice_enabled: bool = True
+    stt_engine: str = "faster-whisper"
+    stt_model: str = "small"  # tiny|base|small|medium|large-v3
+    stt_language: str = "pt"
+    stt_compute_type: str = "int8"  # int8|float16|float32
+    stt_device: str = "cpu"  # cpu|cuda
+    tts_engine: str = "piper"
+    tts_voice: str = ""  # path to a Piper voice .onnx
+    tts_speak_replies: bool = True
 
     # ============ Automations (n8n, self-hosted) ============
-    # The kernel bridges to a LOCAL n8n instance so Sexta-Feira can ACT: trigger
-    # workflows (thousands of possible integrations). n8n runs on your machine.
-    # Missing/unreachable n8n => the automation endpoints return a clean 503.
-    automations_enabled: bool = os.getenv("AUTOMATIONS_ENABLED", "true").lower() == "true"
-    n8n_endpoint: str = os.getenv("N8N_ENDPOINT", "http://127.0.0.1:5678")
-    n8n_api_key: str = os.getenv("N8N_API_KEY", "")   # n8n Public API key (for listing)
-    n8n_webhook_prefix: str = os.getenv("N8N_WEBHOOK_PREFIX", "webhook")  # or 'webhook-test'
+    automations_enabled: bool = True
+    n8n_endpoint: str = "http://127.0.0.1:5678"
+    n8n_api_key: str = ""  # n8n Public API key (for listing)
+    n8n_webhook_prefix: str = "webhook"  # or 'webhook-test'
+    # Shared secret for n8n → Kernel callback authentication.
+    # n8n workflows send this in the X-N8N-Callback-Secret header when calling
+    # POST /api/v1/automations/callback. Generate with:
+    #   python -c "import secrets; print(secrets.token_urlsafe(32))"
+    n8n_callback_secret: str = ""
 
     # ============ Connectors (API capabilities) ============
-    # The brain can invoke owner-defined API "capabilities" to execute anything.
-    # Secrets (API keys) are ENCRYPTED at rest with VAULT_KEY (a Fernet key). If
-    # unset, an ephemeral key is generated per boot (secrets won't survive a
-    # restart) — set VAULT_KEY in production. Generate one with:
-    #   python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
-    vault_key: str = os.getenv("VAULT_KEY", "")
-    connectors_timeout_seconds: float = float(os.getenv("CONNECTORS_TIMEOUT_SECONDS", "30"))
-    connectors_max_response_kb: int = int(os.getenv("CONNECTORS_MAX_RESPONSE_KB", "256"))
+    vault_key: str = ""
+    connectors_timeout_seconds: float = 30
+    connectors_max_response_kb: int = 256
+
+    # ============ Obsidian vault sync ============
+    # Path to your Obsidian vault directory. When set, the brain can import
+    # your .md notes as knowledge graph nodes with [[wikilink]] edges.
+    obsidian_vault_path: str = ""
+    # Polling interval in seconds for the vault watcher (auto-sync).
+    obsidian_watch_interval: int = 30
+    # Max notes to pull directly from the vault during cognition (recall direto).
+    # Set to 0 to disable direct vault recall.
+    obsidian_vault_recall_max_notes: int = 10
 
     # ============ Privacy ============
     # Loopback-only origins. The kernel refuses cross-origin browser calls.
@@ -157,11 +165,13 @@ class Settings(BaseSettings):
         "http://127.0.0.1",
         "http://localhost:8000",
         "http://127.0.0.1:8000",
+        "http://localhost:3000",  # Vite dev server
+        "http://127.0.0.1:3000",  # Vite dev server (IP)
     ]
     telemetry_enabled: bool = False  # hard off. Non-negotiable.
 
     class Config:
-        env_file = ".env"
+        env_file = str(Path(__file__).resolve().parents[3] / ".env")
         case_sensitive = False
         extra = "ignore"
 

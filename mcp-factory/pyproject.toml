@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "jarvis-mcp"
+version = "0.1.0"
+description = "MCP infrastructure for the JARVIS / Sexta-Feira OS AI Development Factory"
+requires-python = ">=3.11"
+# The ONLY runtime dependency: the official MCP SDK (FastMCP). Everything else
+# — config parsing, guards, permissions, audit, HTTP to GitHub/n8n — is stdlib.
+dependencies = [
+  "mcp>=1.2.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "ruff>=0.5"]
+
+[project.scripts]
+jarvis-mcp = "jarvis_mcp.__main__:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["jarvis_mcp*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.ruff]
+line-length = 110
+target-version = "py311"

@@ -13,14 +13,15 @@ import pytest
 from fastapi.testclient import TestClient
 
 # Configure an isolated, ephemeral kernel BEFORE importing the app.
-os.environ.setdefault("ENVIRONMENT", "development")
-os.environ.setdefault("LOG_LEVEL", "CRITICAL")
-os.environ.setdefault("OWNER_EMAIL", "owner@test.local")
-os.environ.setdefault("OWNER_NAME", "Test Owner")
-os.environ.setdefault("OWNER_PASSWORD", "a-strong-test-password")
-os.environ.setdefault("DEVICE_PAIRING_CODE", "pair-code-123")
-os.environ.setdefault("SCHEDULER_ENABLED", "false")  # tests drive run_due() directly
-os.environ.setdefault("DATABASE_URL", f"sqlite:////tmp/sexta_test_{uuid.uuid4().hex}.db")
+# Force test env vars (overrides any .env / system env for test isolation).
+os.environ["ENVIRONMENT"] = "development"
+os.environ["LOG_LEVEL"] = "CRITICAL"
+os.environ["OWNER_EMAIL"] = "owner@test.local"
+os.environ["OWNER_NAME"] = "Test Owner"
+os.environ["OWNER_PASSWORD"] = "a-strong-test-password"
+os.environ["DEVICE_PAIRING_CODE"] = "pair-code-123"
+os.environ["SCHEDULER_ENABLED"] = "false"  # tests drive run_due() directly
+os.environ["DATABASE_URL"] = f"sqlite:////tmp/sexta_test_{uuid.uuid4().hex}.db"
 
 from app.db.migrations import run_migrations  # noqa: E402
 

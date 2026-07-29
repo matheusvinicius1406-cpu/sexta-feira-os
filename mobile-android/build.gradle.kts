@@ -28,6 +28,7 @@ extra.apply {
     set("androidxActivityVersion", "1.7.2")
     set("composeVersion", "1.5.1")
     set("composeMaterialVersion", "1.1.1")
+    set("composeCompilerExtensionVersion", "1.5.3")
 
     // Networking
     set("okHttpVersion", "4.11.0")

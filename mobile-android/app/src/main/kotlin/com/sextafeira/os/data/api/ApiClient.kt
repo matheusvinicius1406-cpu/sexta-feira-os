@@ -3,65 +3,60 @@ package com.sextafeira.os.data.api
 import okhttp3.OkHttpClient
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
-import java.util.concurrent.TimeUnit
 
 /**
- * Central network configuration for reaching YOUR local kernel.
+ * Builds the [SextaFeiraApi] Retrofit instance.
  *
- * IMPORTANT — the kernel runs on your machine, not on the phone:
- *  - Android emulator  -> the host machine is 10.0.2.2 (NOT localhost/127.0.0.1).
- *  - Physical device   -> use the kernel's LAN IP (e.g. http://192.168.0.10:8000)
- *                         or a private tunnel (Tailscale). Set it in Settings.
- *
- * baseUrl is a var so a Settings screen can point the app at your kernel without
- * a rebuild. Default targets the emulator's view of the host.
+ * The base URL defaults to localhost (for when the backend runs on the
+ * same device via Termux) and can be changed in Settings to reach a
+ * remote kernel (e.g. when the backend is on a PC on the LAN).
  */
 object ApiClient {
+
+    /**
+     * The base URL of the Sexta-Feira OS backend.
+     * Default: localhost (backend runs on-device via Termux).
+     *
+     * Can be changed at runtime via [updateBaseUrl].
+     */
     @Volatile
-    var baseUrl: String = "http://10.0.2.2:8000/"
-
-    private val http: OkHttpClient = OkHttpClient.Builder()
-        .connectTimeout(15, TimeUnit.SECONDS)
-        .readTimeout(120, TimeUnit.SECONDS)   // local models can take a moment
-        .build()
-
-    @Volatile
-    private var cached: Pair<String, SextaFeiraApi>? = null
-
-    val api: SextaFeiraApi
-        get() {
-            cached?.let { (url, svc) -> if (url == baseUrl) return svc }
-            val svc = Retrofit.Builder()
-                .baseUrl(baseUrl)
-                .client(http)
-                .addConverterFactory(GsonConverterFactory.create())
-                .build()
-                .create(SextaFeiraApi::class.java)
-            cached = baseUrl to svc
-            return svc
-        }
-}
-
-/** Holds the owner's session token for the lifetime of the app process. */
-object Session {
-    @Volatile
-    var token: String? = null
-        private set
+    var baseUrl: String = "http://127.0.0.1:8000"
 
     @Volatile
-    var ownerId: String? = null
-        private set
+    private var retrofit: Retrofit? = null
 
-    fun set(token: String, ownerId: String) {
-        this.token = token
-        this.ownerId = ownerId
+    @Volatile
+    private var api: SextaFeiraApi? = null
+
+    /**
+     * Build or rebuild the API client with the given OkHttp client.
+     */
+    fun buildApi(okHttpClient: OkHttpClient): SextaFeiraApi {
+        val currentUrl = baseUrl.trimEnd('/') + "/"
+        val newRetrofit = Retrofit.Builder()
+            .baseUrl(currentUrl)
+            .client(okHttpClient)
+            .addConverterFactory(GsonConverterFactory.create())
+            .build()
+        retrofit = newRetrofit
+        val newApi = newRetrofit.create(SextaFeiraApi::class.java)
+        api = newApi
+        return newApi
     }
 
-    fun clear() {
-        token = null
-        ownerId = null
+    /**
+     * Update the backend base URL and rebuild the API client.
+     * Call this when the user changes the server address in Settings.
+     */
+    fun updateBaseUrl(newUrl: String, okHttpClient: OkHttpClient): SextaFeiraApi {
+        baseUrl = newUrl.trimEnd('/')
+        return buildApi(okHttpClient)
     }
 
-    val bearer: String? get() = token?.let { "Bearer $it" }
-    val isAuthenticated: Boolean get() = token != null
+    /**
+     * Get the current API instance. Rebuilds if null.
+     */
+    fun getApi(okHttpClient: OkHttpClient): SextaFeiraApi {
+        return api ?: buildApi(okHttpClient)
+    }
 }

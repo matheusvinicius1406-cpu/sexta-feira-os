@@ -173,15 +173,28 @@ impl ToolExecutor {
             ));
         }
 
+        // Reject executions with a zero timeout — it would always be exceeded.
+        if input.timeout_ms == 0 {
+            return Err(ToolError::InvalidInput(
+                "Timeout must be > 0ms".to_string(),
+            ));
+        }
+
         self.active_executions.fetch_add(1, Ordering::Relaxed);
         self.total_executions.fetch_add(1, Ordering::Relaxed);
 
+        let tool_name = input.tool_name.clone();
         let start_ns = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap_or_default()
             .as_nanos() as u64;
 
-        let tool_name = input.tool_name.clone();
+        // NOTE: tools are synchronous Fn closures, so we CANNOT cancel them
+        // mid-execution. The timeout check below is post-hoc: if the tool
+        // took longer than expected we report a timeout even though the
+        // result is available (the result is discarded). A future improvement
+        // would be to wrap execution in tokio::spawn_blocking +
+        // tokio::time::timeout for true preemptive cancellation.
         let result = match self.tools.get(&input.tool_name) {
             Some(tool) => tool(&input),
             None => Err(ToolError::ToolNotFound(input.tool_name.clone())),

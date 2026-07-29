@@ -1,0 +1,227 @@
+syntax = "proto3";
+
+package sextafeira.cognitive.v1;
+
+option csharp_namespace = "SextaFeira.Cognitive.V1";
+option go_package = "github.com/matheusvinicius1406-cpu/sexta-feira-os/shared/protobuf;cognitivev1";
+
+import "google/protobuf/timestamp.proto";
+
+// ─────────────────────────────────────────────────────────────
+// CognitiveCore — the main gateway between the HUD and the
+// cognitive backend (Python). All communication flows through
+// this service, whether REST-translated or direct gRPC.
+// ─────────────────────────────────────────────────────────────
+service CognitiveCore {
+  // ── Health ─────────────────────────────────────────────
+  rpc CheckHealth(HealthCheckRequest) returns (HealthCheckResponse);
+
+  // ── Chat (server streaming: tokens arrive one by one) ──
+  rpc Chat(ChatRequest) returns (stream ChatResponse);
+
+  // ── Memory CRUD ───────────────────────────────────────
+  rpc CreateMemory(CreateMemoryRequest) returns (MemoryNode);
+  rpc GetMemory(GetMemoryRequest) returns (MemoryNode);
+  rpc UpdateMemory(UpdateMemoryRequest) returns (MemoryNode);
+  rpc DeleteMemory(DeleteMemoryRequest) returns (DeleteMemoryResponse);
+
+  // ── Memory Graph ──────────────────────────────────────
+  rpc SearchMemory(SearchMemoryRequest) returns (SearchMemoryResponse);
+  rpc LinkMemories(LinkMemoriesRequest) returns (MemoryLink);
+  rpc UnlinkMemories(UnlinkMemoriesRequest) returns (DeleteMemoryResponse);
+  rpc GetNeighbours(GetNeighboursRequest) returns (NeighboursResponse);
+  rpc GetMemoryGraph(GetMemoryGraphRequest) returns (MemoryGraph);
+
+  // ── Actions ───────────────────────────────────────────
+  rpc DispatchAction(DispatchActionRequest) returns (DispatchActionResponse);
+}
+
+// ═══════════════════════════════════════════════════════════
+// Enums
+// ═══════════════════════════════════════════════════════════
+
+enum MemoryKind {
+  MEMORY_KIND_UNSPECIFIED = 0;
+  MEMORY_KIND_FACT = 1;
+  MEMORY_KIND_PREFERENCE = 2;
+  MEMORY_KIND_CONCEPT = 3;
+  MEMORY_KIND_PERSON = 4;
+  MEMORY_KIND_PROJECT = 5;
+  MEMORY_KIND_NOTE = 6;
+  MEMORY_KIND_CONVERSATION = 7;
+}
+
+enum RelationType {
+  RELATION_UNSPECIFIED = 0;
+  RELATION_RELATED = 1;
+  RELATION_CREATED_BY = 2;
+  RELATION_MENTIONS = 3;
+  RELATION_CAUSES = 4;
+  RELATION_DEPENDS_ON = 5;
+  RELATION_OPPOSES = 6;
+}
+
+// ═══════════════════════════════════════════════════════════
+// Health
+// ═══════════════════════════════════════════════════════════
+
+message HealthCheckRequest {}
+
+message HealthCheckResponse {
+  string status = 1;         // "ok" | "degraded" | "unavailable"
+  string version = 2;
+  bool ollama_online = 3;
+  bool voice_available = 4;
+  int64 uptime_seconds = 5;
+}
+
+// ═══════════════════════════════════════════════════════════
+// Chat
+// ═══════════════════════════════════════════════════════════
+
+message ChatRequest {
+  string message = 1;
+  optional string conversation_id = 2;
+  optional string persona = 3;
+}
+
+message ChatResponse {
+  oneof content {
+    string text_chunk = 1;        // token streaming
+    ChatMetadata metadata = 2;    // final metadata
+  }
+}
+
+message ChatMetadata {
+  string conversation_id = 1;
+  int32 total_tokens = 2;
+  double duration_ms = 3;
+  repeated string memories_recalled = 4;
+}
+
+// ═══════════════════════════════════════════════════════════
+// Memory
+// ═══════════════════════════════════════════════════════════
+
+message MemoryNode {
+  string id = 1;
+  string content = 2;
+  optional string title = 3;
+  MemoryKind kind = 4;
+  float importance = 5;
+  optional string source = 6;
+  google.protobuf.Timestamp created_at = 7;
+  google.protobuf.Timestamp updated_at = 8;
+  map<string, string> metadata = 9;
+}
+
+message CreateMemoryRequest {
+  string content = 1;
+  optional string title = 2;
+  MemoryKind kind = 3;
+}
+
+message GetMemoryRequest {
+  string id = 1;
+}
+
+message UpdateMemoryRequest {
+  string id = 1;
+  optional string content = 2;
+  optional string title = 3;
+  optional MemoryKind kind = 4;
+}
+
+message DeleteMemoryRequest {
+  string id = 1;
+}
+
+message DeleteMemoryResponse {
+  bool success = 1;
+  string deleted_id = 2;
+}
+
+// ═══════════════════════════════════════════════════════════
+// Memory Graph
+// ═══════════════════════════════════════════════════════════
+
+message MemoryLink {
+  string id = 1;
+  string source_id = 2;
+  string target_id = 3;
+  RelationType relation = 4;
+  optional string label = 5;
+  google.protobuf.Timestamp created_at = 6;
+}
+
+message LinkMemoriesRequest {
+  string source_id = 1;
+  string target_id = 2;
+  RelationType relation = 3;
+  optional string label = 4;
+}
+
+message UnlinkMemoriesRequest {
+  string link_id = 1;
+}
+
+message GetNeighboursRequest {
+  string memory_id = 1;
+  optional int32 max_depth = 2;
+}
+
+message NeighboursResponse {
+  MemoryNode memory = 1;
+  repeated MemoryLink links = 2;
+  repeated MemoryNode neighbours = 3;
+}
+
+message SearchMemoryRequest {
+  string query = 1;
+  optional int32 limit = 2;
+  optional MemoryKind kind_filter = 3;
+}
+
+message SearchMemoryResponse {
+  repeated MemoryNode results = 1;
+  int32 total = 2;
+}
+
+message GetMemoryGraphRequest {
+  optional int32 max_nodes = 1;
+  optional string center_id = 2;
+}
+
+message MemoryNodeDTO {
+  string id = 1;
+  string label = 2;
+  MemoryKind kind = 3;
+  float importance = 4;
+}
+
+message MemoryLinkDTO {
+  string source_id = 1;
+  string target_id = 2;
+  string label = 3;
+}
+
+message MemoryGraph {
+  repeated MemoryNodeDTO nodes = 1;
+  repeated MemoryLinkDTO links = 2;
+}
+
+// ═══════════════════════════════════════════════════════════
+// Actions (device dispatch)
+// ═══════════════════════════════════════════════════════════
+
+message DispatchActionRequest {
+  string device = 1;
+  string action = 2;
+  map<string, string> params = 3;
+}
+
+message DispatchActionResponse {
+  string command_id = 1;
+  bool accepted = 2;
+  optional string error = 3;
+}

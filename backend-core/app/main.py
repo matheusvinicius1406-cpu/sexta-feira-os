@@ -29,6 +29,7 @@ from app.api.routers import (  # noqa: E402
     health,
     learning,
     memory,
+    obsidian,
     planning,
     schedule,
     voice,
@@ -81,6 +82,7 @@ app.include_router(automation.router)
 app.include_router(action.router)
 app.include_router(schedule.router)
 app.include_router(connectors.router)
+app.include_router(obsidian.router)
 
 
 @app.get("/")

@@ -1,63 +1,72 @@
-# =========================================================
-# Sexta-Feira OS — private, local, single-owner cognitive kernel
-# NOTHING that could carry private data or bloat leaves this repo.
-# =========================================================
+# ── .NET ──────────────────────────────────────────
+bin/
+obj/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+*.userprefs
 
-# --- Rust build artifacts ---
-/target/
-**/target/
-*.rs.bk
+# ── NuGet ────────────────────────────────────────
+**/[Pp]ackages/*
+!**/[Pp]ackages/build/
+*.nupkg
+**/packages.lock.json
 
-# --- Python ---
+# ── Build results ────────────────────────────────
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+[Ww][Ii][Nn]32/
+[Aa][Rr][Mm]/
+[Aa][Rr][Mm]64/
+bld/
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+[Ll]ogs/
+
+# ── IDE ───────────────────────────────────────────
+.vs/
+.vscode/
+.idea/
+*.swp
+*~
+
+# ── Python ────────────────────────────────────────
 __pycache__/
 *.py[cod]
-*.pyo
+*$py.class
 *.egg-info/
-.pytest_cache/
-.mypy_cache/
-.ruff_cache/
-
-# --- Virtual environments (never commit these) ---
+dist/
+build/
 .venv/
-.venv_new/
 venv/
-ENV/
-env/
 
-# --- Environment / secrets (NEVER commit) ---
+# ── Environment ───────────────────────────────────
 .env
-.env.*
-!.env.template
+*.local
 
-# --- Local brain data: conversations, memory, embeddings ---
-# This is YOUR private second brain. It must never be pushed.
-/data/
-*.db
-*.sqlite
-*.sqlite3
-*.duckdb
-/models/
-*.gguf
-*.bin
-*.safetensors
-
-# --- Android / Kotlin ---
-.gradle/
-/build/
-**/build/
-/captures/
-.externalNativeBuild/
-/local.properties
-*.iml
-*.hprof
-
-# --- Logs ---
-*.log
-logs/
-
-# --- IDE / OS ---
-.idea/
-.vscode/
-*.swp
+# ── OS ────────────────────────────────────────────
 .DS_Store
+Thumbs.db
+
+# ── Node ──────────────────────────────────────────
 node_modules/
+
+# ── Rust ──────────────────────────────────────────
+/target/
+
+# ── Gradle / Android ──────────────────────────────
+.gradle/
+*.apk
+*.apk.idsig
+*.aab
+local.properties
+
+# ── Logs ────────────────────────────────────────────
+*.log
+
+# ── Windows special files ────────────────────────
+nul
