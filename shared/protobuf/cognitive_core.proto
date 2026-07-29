@@ -19,9 +19,6 @@ service CognitiveCore {
   // ── Chat (server streaming: tokens arrive one by one) ──
   rpc Chat(ChatRequest) returns (stream ChatResponse);
 
-  // ── Voice (bidirectional: send audio, receive audio) ───
-  rpc VoiceChat(stream VoiceChunk) returns (stream VoiceChunk);
-
   // ── Memory CRUD ───────────────────────────────────────
   rpc CreateMemory(CreateMemoryRequest) returns (MemoryNode);
   rpc GetMemory(GetMemoryRequest) returns (MemoryNode);
@@ -100,17 +97,6 @@ message ChatMetadata {
   int32 total_tokens = 2;
   double duration_ms = 3;
   repeated string memories_recalled = 4;
-}
-
-// ═══════════════════════════════════════════════════════════
-// Voice
-// ═══════════════════════════════════════════════════════════
-
-message VoiceChunk {
-  bytes audio_data = 1;
-  string mime_type = 2;     // "audio/wav" | "audio/aac"
-  optional bool end_of_stream = 3;
-  optional string transcript = 4;  // sent with final chunk from client
 }
 
 // ═══════════════════════════════════════════════════════════

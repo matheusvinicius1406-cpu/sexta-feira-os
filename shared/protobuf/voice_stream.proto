@@ -86,13 +86,4 @@ message VoiceMetrics {
   int32 audio_bytes_processed = 4;
 }
 
-// ── Voice status (unary, for quick checks) ──────────────────
-message VoiceStatusRequest {}
 
-message VoiceStatusResponse {
-  bool stt_available = 1;
-  bool tts_available = 2;
-  string stt_model = 3;        // "tiny" | "base" | "small" | ...
-  string tts_voice = 4;        // Voice name
-  bool vad_available = 5;
-}
