@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="SextaFeira.CognitiveHUD.Pages.BrainPage"
+             BackgroundColor="#0A0A12" Shell.NavBarIsVisible="False">
+    <Grid>
+        <GraphicsView x:Name="HudCanvas" HorizontalOptions="Fill" VerticalOptions="Fill" />
+        <Grid Padding="16,56,16,16" RowDefinitions="Auto,1,*,Auto">
+            <!-- Status row -->
+            <HorizontalStackLayout Grid.Row="0" Spacing="24">
+                <VerticalStackLayout>
+                    <Label Text="ESTADO" TextColor="#555577" FontSize="8" FontFamily="Courier New" />
+                    <Label x:Name="StateLabel" Text="ocioso" TextColor="#00E5FF" FontSize="14" FontFamily="Courier New" />
+                </VerticalStackLayout>
+                <VerticalStackLayout>
+                    <Label Text="CONF." TextColor="#555577" FontSize="8" FontFamily="Courier New" />
+                    <Label x:Name="ConfLabel" Text="—%" TextColor="#7C4DFF" FontSize="14" FontFamily="Courier New" />
+                </VerticalStackLayout>
+                <VerticalStackLayout>
+                    <Label Text="MODELO" TextColor="#555577" FontSize="8" FontFamily="Courier New" />
+                    <Label x:Name="ModelLabel" Text="local" TextColor="#FFD600" FontSize="14" FontFamily="Courier New" />
+                </VerticalStackLayout>
+            </HorizontalStackLayout>
+
+            <BoxView Grid.Row="1" HeightRequest="1" Color="#1A1A3E" Margin="0,8" />
+
+            <!-- Reasoning area -->
+            <Frame Grid.Row="2" BackgroundColor="#12121E" BorderColor="#333355"
+                   CornerRadius="12" Padding="12" HasShadow="False">
+                <VerticalStackLayout Spacing="6">
+                    <Label Text="⊜ RACIOCÍNIO" TextColor="#555577" FontSize="8" FontFamily="Courier New" />
+                    <Label x:Name="ReasonLabel" Text="—"
+                           TextColor="#8888AA" FontSize="11" FontFamily="Courier New"
+                           MaxLines="8" LineBreakMode="WordWrap" />
+                    <BoxView HeightRequest="1" Color="#1A1A3E" />
+                    <HorizontalStackLayout Spacing="8">
+                        <Label Text="↺ 0.0s" TextColor="#444466" FontSize="8" FontFamily="Courier New" />
+                        <Label Text="⚙ 0 tools" TextColor="#444466" FontSize="8" FontFamily="Courier New" />
+                    </HorizontalStackLayout>
+                </VerticalStackLayout>
+            </Frame>
+
+            <!-- Action buttons -->
+            <HorizontalStackLayout Grid.Row="3" Spacing="12" HorizontalOptions="Center" Margin="0,8,0,0">
+                <Button Text="⊜ pensar" TextColor="#00E5FF" BackgroundColor="#1A1A2E"
+                        CornerRadius="14" FontSize="10" HeightRequest="34" Padding="14,0" />
+                <Button Text="⏹ parar" TextColor="#FF1744" BackgroundColor="#1A1A2E"
+                        CornerRadius="14" FontSize="10" HeightRequest="34" Padding="14,0" />
+                <Button Text="◉ refletir" TextColor="#7C4DFF" BackgroundColor="#1A1A2E"
+                        CornerRadius="14" FontSize="10" HeightRequest="34" Padding="14,0" />
+            </HorizontalStackLayout>
+        </Grid>
+    </Grid>
+</ContentPage>

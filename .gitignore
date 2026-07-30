@@ -70,3 +70,7 @@ local.properties
 
 # ── Windows special files ────────────────────────
 nul
+
+# orchestrator submodule
+orchestrator/
+orchestrator

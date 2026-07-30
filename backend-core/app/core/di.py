@@ -30,6 +30,7 @@ from app.evals.service import EvalHarness
 from app.events.bus import EventBus
 from app.events.projector import WorldModelProjector
 from app.journal.service import HabitService, JournalService
+from app.kernel.pipeline.startup import StartupPipeline, get_startup_pipeline
 from app.learning.service import LearningEngine
 from app.models.models import Owner
 from app.obsidian.watcher import ObsidianWatcher
@@ -74,72 +75,15 @@ class Kernel:
     async def start(self) -> None:
         if self._ready:
             return
-        self.brain = LocalBrain()
-        self.memory = PersistentMemory(self.brain)
-        self.world = WorldModel()
-        self.events = EventBus()
-        # Every event has a chance to update the present (World Model).
-        self.events.subscribe("*", WorldModelProjector(self.world).handle, "world-model-projector")
-        self.planning = PlanningEngine(world=self.world, events=self.events)
-        self.decision = DecisionEngine(
-            planning=self.planning, world=self.world, events=self.events
-        )
-        self.learning = LearningEngine(
-            memory=self.memory, world=self.world, events=self.events
-        )
-        self.briefing = BriefingService(
-            world=self.world, planning=self.planning, decision=self.decision,
-            events=self.events, learning=self.learning,
-        )
-        self.automations = N8nClient()
-        self.action_bus = CommandBus()
-        self.actions = ActionService(self.action_bus)
-        self.scheduler = Scheduler(self.actions, events=self.events, briefing=self.briefing)
-        self.connectors = ConnectorService(Vault())
-        self.voice = VoiceBox()
-        toolkit = ToolKit(
-            self.memory, self.automations, self.actions, self.scheduler,
-            self.connectors, self.world, self.planning, self.decision, self.learning,
-            self.briefing,
-        )
-        if settings.subagents_enabled:
-            toolkit.subagents = SubAgentRunner(self.brain, toolkit)
-        self.directors = DirectorService(
-            self.brain, toolkit, self.memory, events=self.events
-        )
-        toolkit.directors = self.directors
-        extractor = MemoryExtractor(
-            self.brain, self.memory, world=self.world, events=self.events
-        )
-        self.journal = JournalService(events=self.events, extractor=extractor)
-        self.habits = HabitService(world=self.world, events=self.events)
-        self.timetracker = TimeTracker(world=self.world, events=self.events)
-        self.evals = EvalHarness(self.brain, events=self.events, learning=self.learning)
-        self.cognition = Cognition(
-            self.brain, self.memory, toolkit, world=self.world, extractor=extractor
-        )
-        self._ready = True
 
-        if settings.scheduler_enabled:
-            self._scheduler_task = asyncio.create_task(self._scheduler_loop())
-            logger.info("⏰ Scheduler running (every %ss)", settings.scheduler_interval_seconds)
+        pipeline = get_startup_pipeline()
+        success = await pipeline.run(self)
 
-        # Background watcher for Obsidian vault sync (only if a vault is configured).
-        if settings.obsidian_vault_path:
-            self._obsidian_watcher = ObsidianWatcher(self.memory)
-            self._obsidian_watcher_task = asyncio.create_task(self._obsidian_watcher_loop())
-            logger.info("📁 Obsidian vault watcher started for: %s", settings.obsidian_vault_path)
-
-        if await self.brain.health():
-            logger.info("🧠 Local brain online (%s)", settings.brain_model)
+        if success:
+            self._ready = True
         else:
-            logger.warning(
-                "🧠 Local brain OFFLINE at %s — start it with `ollama serve` and "
-                "`ollama pull %s` / `ollama pull %s`. The API will boot; chat will "
-                "error until the brain is up.",
-                settings.ollama_endpoint, settings.brain_model, settings.embedding_model,
-            )
-        self._bootstrap_owner()
+            logger.error("Kernel startup failed: %s", pipeline.errors)
+            raise RuntimeError(f"Kernel startup failed: {'; '.join(pipeline.errors)}")
 
     def _bootstrap_owner(self) -> None:
         """Create the one owner if none exists yet (idempotent)."""

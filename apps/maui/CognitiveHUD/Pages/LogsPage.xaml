@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="SextaFeira.CognitiveHUD.Pages.LogsPage"
+             BackgroundColor="#0A0A12" Shell.NavBarIsVisible="False">
+    <Grid>
+        <GraphicsView x:Name="HudCanvas" HorizontalOptions="Fill" VerticalOptions="Fill" />
+        <Grid Padding="16,56,16,16" RowDefinitions="Auto,1,*">
+            <HorizontalStackLayout Grid.Row="0" Spacing="24">
+                <VerticalStackLayout>
+                    <Label Text="EVENTOS" TextColor="#555577" FontSize="8" FontFamily="Courier New" />
+                    <Label x:Name="TotalLabel" Text="0" TextColor="#00E5FF" FontSize="22" FontFamily="Courier New" />
+                </VerticalStackLayout>
+                <VerticalStackLayout>
+                    <Label Text="NÍVEL" TextColor="#555577" FontSize="8" FontFamily="Courier New" />
+                    <Label Text="INFO" TextColor="#7C4DFF" FontSize="22" FontFamily="Courier New" />
+                </VerticalStackLayout>
+            </HorizontalStackLayout>
+            <BoxView Grid.Row="1" HeightRequest="1" Color="#1A1A3E" Margin="0,8" />
+            <ScrollView Grid.Row="2">
+                <VerticalStackLayout Spacing="2" x:Name="LogContainer">
+                    <!-- Log entries injected dynamically -->
+                    <Frame BackgroundColor="#0A0A1E" BorderColor="#1A1A3E" CornerRadius="4" Padding="6,4" HasShadow="False">
+                        <Grid ColumnDefinitions="Auto,Auto,*">
+                            <Frame BackgroundColor="#1A3A1E" CornerRadius="2" WidthRequest="6" HeightRequest="6" HasShadow="False" Padding="0" VerticalOptions="Center" />
+                            <Label Grid.Column="1" Text="kernel" TextColor="#00E676" FontSize="8" FontFamily="Courier New" Margin="6,0" VerticalOptions="Center" />
+                            <Label Grid.Column="2" Text="kernel.ready — Sistema iniciado" TextColor="#8888AA" FontSize="8" FontFamily="Courier New" VerticalOptions="Center" />
+                        </Grid>
+                    </Frame>
+                    <Frame BackgroundColor="#0A0A1E" BorderColor="#1A1A3E" CornerRadius="4" Padding="6,4" HasShadow="False">
+                        <Grid ColumnDefinitions="Auto,Auto,*">
+                            <Frame BackgroundColor="#1A3A1E" CornerRadius="2" WidthRequest="6" HeightRequest="6" HasShadow="False" Padding="0" VerticalOptions="Center" />
+                            <Label Grid.Column="1" Text="memory" TextColor="#00E5FF" FontSize="8" FontFamily="Courier New" Margin="6,0" VerticalOptions="Center" />
+                            <Label Grid.Column="2" Text="memory.created — Nova memória" TextColor="#8888AA" FontSize="8" FontFamily="Courier New" VerticalOptions="Center" />
+                        </Grid>
+                    </Frame>
+                    <Frame BackgroundColor="#0A0A1E" BorderColor="#1A1A3E" CornerRadius="4" Padding="6,4" HasShadow="False">
+                        <Grid ColumnDefinitions="Auto,Auto,*">
+                            <Frame BackgroundColor="#3A3A1E" CornerRadius="2" WidthRequest="6" HeightRequest="6" HasShadow="False" Padding="0" VerticalOptions="Center" />
+                            <Label Grid.Column="1" Text="brain" TextColor="#FFD600" FontSize="8" FontFamily="Courier New" Margin="6,0" VerticalOptions="Center" />
+                            <Label Grid.Column="2" Text="brain.thinking — Processando..." TextColor="#8888AA" FontSize="8" FontFamily="Courier New" VerticalOptions="Center" />
+                        </Grid>
+                    </Frame>
+                </VerticalStackLayout>
+            </ScrollView>
+        </Grid>
+    </Grid>
+</ContentPage>

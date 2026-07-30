@@ -148,6 +148,11 @@ class Settings(BaseSettings):
     connectors_timeout_seconds: float = 30
     connectors_max_response_kb: int = 256
 
+    # ============ gRPC server ============
+    grpc_enabled: bool = True
+    grpc_port: int = 50051
+    grpc_max_workers: int = 10
+
     # ============ Obsidian vault sync ============
     # Path to your Obsidian vault directory. When set, the brain can import
     # your .md notes as knowledge graph nodes with [[wikilink]] edges.

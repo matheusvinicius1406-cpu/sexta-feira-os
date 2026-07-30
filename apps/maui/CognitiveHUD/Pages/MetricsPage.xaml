@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="SextaFeira.CognitiveHUD.Pages.MetricsPage"
+             BackgroundColor="#0A0A12" Shell.NavBarIsVisible="False">
+    <Grid>
+        <GraphicsView x:Name="HudCanvas" HorizontalOptions="Fill" VerticalOptions="Fill" />
+        <Grid Padding="16,56,16,16" RowDefinitions="Auto,1,*">
+            <HorizontalStackLayout Grid.Row="0" Spacing="24">
+                <VerticalStackLayout>
+                    <Label Text="CPU" TextColor="#555577" FontSize="8" FontFamily="Courier New" />
+                    <Label Text="—%" TextColor="#00E5FF" FontSize="22" FontFamily="Courier New" />
+                </VerticalStackLayout>
+                <VerticalStackLayout>
+                    <Label Text="RAM" TextColor="#555577" FontSize="8" FontFamily="Courier New" />
+                    <Label Text="— MB" TextColor="#7C4DFF" FontSize="22" FontFamily="Courier New" />
+                </VerticalStackLayout>
+                <VerticalStackLayout>
+                    <Label Text="LAT" TextColor="#555577" FontSize="8" FontFamily="Courier New" />
+                    <Label Text="— ms" TextColor="#FFD600" FontSize="22" FontFamily="Courier New" />
+                </VerticalStackLayout>
+                <VerticalStackLayout>
+                    <Label Text="TOKENS" TextColor="#555577" FontSize="8" FontFamily="Courier New" />
+                    <Label Text="—" TextColor="#FF6D00" FontSize="22" FontFamily="Courier New" />
+                </VerticalStackLayout>
+            </HorizontalStackLayout>
+            <BoxView Grid.Row="1" HeightRequest="1" Color="#1A1A3E" Margin="0,8" />
+            <!-- Gauge placeholders -->
+            <Grid Grid.Row="2" ColumnDefinitions="*,*" RowDefinitions="*,*" ColumnSpacing="12" RowSpacing="12" Margin="0,4,0,0">
+                <Frame Grid.Row="0" Grid.Column="0" BackgroundColor="#12121E" BorderColor="#1A3A3E" CornerRadius="12" HasShadow="False">
+                    <VerticalStackLayout HorizontalOptions="Center" VerticalOptions="Center" Spacing="4">
+                        <Label Text="⟳ CPU" TextColor="#555577" FontSize="8" FontFamily="Courier New" HorizontalTextAlignment="Center" />
+                        <Label Text="—%" TextColor="#00E5FF" FontSize="32" FontFamily="Courier New" HorizontalTextAlignment="Center" />
+                    </VerticalStackLayout>
+                </Frame>
+                <Frame Grid.Row="0" Grid.Column="1" BackgroundColor="#12121E" BorderColor="#3A2A5E" CornerRadius="12" HasShadow="False">
+                    <VerticalStackLayout HorizontalOptions="Center" VerticalOptions="Center" Spacing="4">
+                        <Label Text="🧠 RAM" TextColor="#555577" FontSize="8" FontFamily="Courier New" HorizontalTextAlignment="Center" />
+                        <Label Text="—" TextColor="#7C4DFF" FontSize="32" FontFamily="Courier New" HorizontalTextAlignment="Center" />
+                    </VerticalStackLayout>
+                </Frame>
+                <Frame Grid.Row="1" Grid.Column="0" BackgroundColor="#12121E" BorderColor="#3A3A1E" CornerRadius="12" HasShadow="False">
+                    <VerticalStackLayout HorizontalOptions="Center" VerticalOptions="Center" Spacing="4">
+                        <Label Text="⚡ LATÊNCIA" TextColor="#555577" FontSize="8" FontFamily="Courier New" HorizontalTextAlignment="Center" />
+                        <Label Text="—" TextColor="#FFD600" FontSize="32" FontFamily="Courier New" HorizontalTextAlignment="Center" />
+                    </VerticalStackLayout>
+                </Frame>
+                <Frame Grid.Row="1" Grid.Column="1" BackgroundColor="#12121E" BorderColor="#3A2A1E" CornerRadius="12" HasShadow="False">
+                    <VerticalStackLayout HorizontalOptions="Center" VerticalOptions="Center" Spacing="4">
+                        <Label Text="🔤 TOKENS" TextColor="#555577" FontSize="8" FontFamily="Courier New" HorizontalTextAlignment="Center" />
+                        <Label Text="—" TextColor="#FF6D00" FontSize="32" FontFamily="Courier New" HorizontalTextAlignment="Center" />
+                    </VerticalStackLayout>
+                </Frame>
+            </Grid>
+        </Grid>
+    </Grid>
+</ContentPage>

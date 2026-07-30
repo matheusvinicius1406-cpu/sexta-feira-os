@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="SextaFeira.CognitiveHUD.Pages.SchedulerPage"
+             BackgroundColor="#0A0A12" Shell.NavBarIsVisible="False">
+    <Grid>
+        <GraphicsView x:Name="HudCanvas" HorizontalOptions="Fill" VerticalOptions="Fill" />
+        <Grid Padding="16,56,16,16" RowDefinitions="Auto,1,*,Auto">
+            <HorizontalStackLayout Grid.Row="0" Spacing="24">
+                <VerticalStackLayout>
+                    <Label Text="LEMBRETES" TextColor="#555577" FontSize="8" FontFamily="Courier New" />
+                    <Label Text="3" TextColor="#00E5FF" FontSize="22" FontFamily="Courier New" />
+                </VerticalStackLayout>
+                <VerticalStackLayout>
+                    <Label Text="PRÓXIMO" TextColor="#555577" FontSize="8" FontFamily="Courier New" />
+                    <Label Text="30min" TextColor="#FFD600" FontSize="22" FontFamily="Courier New" />
+                </VerticalStackLayout>
+                <VerticalStackLayout>
+                    <Label Text="TAREFAS" TextColor="#555577" FontSize="8" FontFamily="Courier New" />
+                    <Label Text="0" TextColor="#7C4DFF" FontSize="22" FontFamily="Courier New" />
+                </VerticalStackLayout>
+            </HorizontalStackLayout>
+            <BoxView Grid.Row="1" HeightRequest="1" Color="#1A1A3E" Margin="0,8" />
+            <ScrollView Grid.Row="2">
+                <VerticalStackLayout Spacing="4">
+                    <Frame BackgroundColor="#12121E" BorderColor="#2A2A4E" CornerRadius="8" Padding="8" HasShadow="False">
+                        <Grid ColumnDefinitions="Auto,*,Auto">
+                            <Label Text="⏰" FontSize="14" VerticalOptions="Center" />
+                            <Label Grid.Column="1" Text="Sincronizar memória" TextColor="#E0E0FF" FontSize="10" FontFamily="Courier New" Margin="8,0" />
+                            <Label Grid.Column="2" Text="30min" TextColor="#FFD600" FontSize="9" FontFamily="Courier New" />
+                        </Grid>
+                    </Frame>
+                    <Frame BackgroundColor="#12121E" BorderColor="#2A2A4E" CornerRadius="8" Padding="8" HasShadow="False">
+                        <Grid ColumnDefinitions="Auto,*,Auto">
+                            <Label Text="⏰" FontSize="14" VerticalOptions="Center" />
+                            <Label Grid.Column="1" Text="Revisar tarefas" TextColor="#E0E0FF" FontSize="10" FontFamily="Courier New" Margin="8,0" />
+                            <Label Grid.Column="2" Text="1h" TextColor="#00E5FF" FontSize="9" FontFamily="Courier New" />
+                        </Grid>
+                    </Frame>
+                    <Frame BackgroundColor="#12121E" BorderColor="#2A2A4E" CornerRadius="8" Padding="8" HasShadow="False">
+                        <Grid ColumnDefinitions="Auto,*,Auto">
+                            <Label Text="⏰" FontSize="14" VerticalOptions="Center" />
+                            <Label Grid.Column="1" Text="Backup semanal" TextColor="#E0E0FF" FontSize="10" FontFamily="Courier New" Margin="8,0" />
+                            <Label Grid.Column="2" Text="3h" TextColor="#555577" FontSize="9" FontFamily="Courier New" />
+                        </Grid>
+                    </Frame>
+                </VerticalStackLayout>
+            </ScrollView>
+            <HorizontalStackLayout Grid.Row="3" Spacing="12" HorizontalOptions="Center" Margin="0,8,0,0">
+                <Button Text="◈ novo" TextColor="#00E5FF" BackgroundColor="#1A1A2E" CornerRadius="14" FontSize="10" HeightRequest="34" Padding="14,0" />
+                <Button Text="⊥]" TextColor="#FF1744" BackgroundColor="#1A1A2E" CornerRadius="14" FontSize="10" HeightRequest="34" Padding="14,0" />
+            </HorizontalStackLayout>
+        </Grid>
+    </Grid>
+</ContentPage>

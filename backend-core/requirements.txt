@@ -33,6 +33,10 @@ numpy==2.1.1
 # --- Teia automation platform: workflow serialization (JSON/YAML) ---
 PyYAML==6.0.2
 
+# --- gRPC transport ---
+grpcio>=1.83.0
+grpcio-tools>=1.83.0
+
 # --- Dev / tests ---
 pytest==8.3.3
 pytest-asyncio==0.24.0

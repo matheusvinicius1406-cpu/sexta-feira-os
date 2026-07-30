@@ -53,7 +53,22 @@ async def lifespan(app: FastAPI):
     logger.info("🚀 %s v%s (access=%s)", settings.app_name, settings.app_version, settings.access_mode)
     run_migrations()  # bring the schema up to date (versioned, Alembic)
     await get_kernel().start()
+
+    # Start gRPC server alongside FastAPI
+    if settings.grpc_enabled:
+        from app.grpc.server import get_grpc_server  # noqa: E402
+        try:
+            await get_grpc_server().start()
+            logger.info("🧠 gRPC server started on port %d", settings.grpc_port)
+        except Exception as exc:
+            logger.warning("⚠️ gRPC server failed to start: %s", exc)
+
     yield
+
+    # Shutdown gRPC first, then kernel
+    if settings.grpc_enabled:
+        from app.grpc.server import get_grpc_server  # noqa: E402
+        await get_grpc_server().stop()
     await get_kernel().stop()
 
 

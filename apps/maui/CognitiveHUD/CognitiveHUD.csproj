@@ -30,10 +30,22 @@
     <PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="8.0.0" />
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.2.2" />
     <PackageReference Include="SkiaSharp.Views.Maui.Controls" Version="2.88.7" />
+    <!-- gRPC -->
+    <PackageReference Include="Grpc.Net.Client" Version="2.62.0" />
+    <PackageReference Include="Google.Protobuf" Version="3.27.0" />
+    <PackageReference Include="Grpc.Tools" Version="2.62.0">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\..\..\ui-engine\SextaFeira.UIEngine.csproj" />
+  </ItemGroup>
+
+  <!-- gRPC proto files — auto-generate C# stubs at build time -->
+  <ItemGroup>
+    <Protobuf Include="..\..\..\shared\protobuf\*.proto" GrpcServices="Client" />
   </ItemGroup>
 
 </Project>

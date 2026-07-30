@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="SextaFeira.CognitiveHUD.Pages.MemoryPage"
+             BackgroundColor="#0A0A12" Shell.NavBarIsVisible="False">
+    <Grid>
+        <GraphicsView x:Name="HudCanvas" HorizontalOptions="Fill" VerticalOptions="Fill" />
+        <Grid Padding="16,56,16,16" RowDefinitions="Auto,8,*,Auto">
+            <!-- Stats row -->
+            <HorizontalStackLayout Grid.Row="0" Spacing="24">
+                <VerticalStackLayout>
+                    <Label Text="NÓS" TextColor="#555577" FontSize="8" FontFamily="Courier New" />
+                    <Label x:Name="NodeCountLabel"
+                           Text="{Binding Memories.Count, FallbackValue=0}"
+                           TextColor="#00E5FF" FontSize="22" FontFamily="Courier New" />
+                </VerticalStackLayout>
+                <VerticalStackLayout>
+                    <Label Text="LINKS" TextColor="#555577" FontSize="8" FontFamily="Courier New" />
+                    <Label Text="—" TextColor="#7C4DFF" FontSize="22" FontFamily="Courier New" />
+                </VerticalStackLayout>
+                <VerticalStackLayout>
+                    <Label Text="PROF." TextColor="#555577" FontSize="8" FontFamily="Courier New" />
+                    <Label Text="0" TextColor="#FFD600" FontSize="22" FontFamily="Courier New" />
+                </VerticalStackLayout>
+            </HorizontalStackLayout>
+
+            <!-- Search area -->
+            <Frame Grid.Row="2" BackgroundColor="#1A1A2E" BorderColor="#333355"
+                   CornerRadius="12" Padding="12" Margin="0,4,0,0"
+                   HasShadow="False">
+                <VerticalStackLayout Spacing="8">
+                    <HorizontalStackLayout Spacing="8">
+                        <Entry Placeholder="buscar memória..."
+                               TextColor="#E0E0FF" PlaceholderColor="#555577"
+                               BackgroundColor="#12121E" FontSize="12"
+                               FontFamily="Courier New" HorizontalOptions="FillAndExpand" />
+                        <Button Text="⏎" TextColor="#00E5FF" BackgroundColor="#1A1A2E"
+                                CornerRadius="10" WidthRequest="36" HeightRequest="36"
+                                FontSize="14" />
+                    </HorizontalStackLayout>
+                    <HorizontalStackLayout Spacing="8">
+                        <Label Text="⦿ criar" TextColor="#7C4DFF" FontSize="9" FontFamily="Courier New" />
+                        <Label Text="⟲ grafo" TextColor="#FFD600" FontSize="9" FontFamily="Courier New" />
+                        <Label Text="◇ link" TextColor="#00E676" FontSize="9" FontFamily="Courier New" />
+                    </HorizontalStackLayout>
+                </VerticalStackLayout>
+            </Frame>
+        </Grid>
+    </Grid>
+</ContentPage>

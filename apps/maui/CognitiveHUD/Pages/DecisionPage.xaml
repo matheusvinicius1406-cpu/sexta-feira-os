@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="SextaFeira.CognitiveHUD.Pages.DecisionPage"
+             BackgroundColor="#0A0A12" Shell.NavBarIsVisible="False">
+    <Grid>
+        <GraphicsView x:Name="HudCanvas" HorizontalOptions="Fill" VerticalOptions="Fill" />
+        <Grid Padding="16,56,16,16" RowDefinitions="Auto,1,*,Auto">
+            <HorizontalStackLayout Grid.Row="0" Spacing="24">
+                <VerticalStackLayout>
+                    <Label Text="TOTAL" TextColor="#555577" FontSize="8" FontFamily="Courier New" />
+                    <Label Text="142" TextColor="#00E5FF" FontSize="22" FontFamily="Courier New" />
+                </VerticalStackLayout>
+                <VerticalStackLayout>
+                    <Label Text="MÉDIA" TextColor="#555577" FontSize="8" FontFamily="Courier New" />
+                    <Label Text="45ms" TextColor="#7C4DFF" FontSize="22" FontFamily="Courier New" />
+                </VerticalStackLayout>
+                <VerticalStackLayout>
+                    <Label Text="FILA" TextColor="#555577" FontSize="8" FontFamily="Courier New" />
+                    <Label Text="2" TextColor="#FFD600" FontSize="22" FontFamily="Courier New" />
+                </VerticalStackLayout>
+            </HorizontalStackLayout>
+            <BoxView Grid.Row="1" HeightRequest="1" Color="#1A1A3E" Margin="0,8" />
+            <ScrollView Grid.Row="2">
+                <VerticalStackLayout Spacing="4">
+                    <Frame BackgroundColor="#12121E" BorderColor="#3A3A1E" CornerRadius="8" Padding="8" HasShadow="False">
+                        <Grid ColumnDefinitions="Auto,*,Auto">
+                            <Frame BackgroundColor="#FFD600" CornerRadius="4" WidthRequest="8" HeightRequest="8" HasShadow="False" Padding="0" />
+                            <Label Grid.Column="1" Text="buscar_dados" TextColor="#E0E0FF" FontSize="10" FontFamily="Courier New" Margin="8,0" />
+                            <Label Grid.Column="2" Text="executando" TextColor="#FFD600" FontSize="9" FontFamily="Courier New" />
+                        </Grid>
+                    </Frame>
+                    <Frame BackgroundColor="#12121E" BorderColor="#2A2A4E" CornerRadius="8" Padding="8" HasShadow="False">
+                        <Grid ColumnDefinitions="Auto,*,Auto">
+                            <Frame BackgroundColor="#555577" CornerRadius="4" WidthRequest="8" HeightRequest="8" HasShadow="False" Padding="0" />
+                            <Label Grid.Column="1" Text="responder_usuario" TextColor="#E0E0FF" FontSize="10" FontFamily="Courier New" Margin="8,0" />
+                            <Label Grid.Column="2" Text="fila" TextColor="#555577" FontSize="9" FontFamily="Courier New" />
+                        </Grid>
+                    </Frame>
+                    <Frame BackgroundColor="#12121E" BorderColor="#1A3A1E" CornerRadius="8" Padding="8" HasShadow="False">
+                        <Grid ColumnDefinitions="Auto,*,Auto">
+                            <Frame BackgroundColor="#00E676" CornerRadius="4" WidthRequest="8" HeightRequest="8" HasShadow="False" Padding="0" />
+                            <Label Grid.Column="1" Text="analisar_contexto" TextColor="#E0E0FF" FontSize="10" FontFamily="Courier New" Margin="8,0" />
+                            <Label Grid.Column="2" Text="concluído" TextColor="#00E676" FontSize="9" FontFamily="Courier New" />
+                        </Grid>
+                    </Frame>
+                </VerticalStackLayout>
+            </ScrollView>
+            <HorizontalStackLayout Grid.Row="3" Spacing="12" HorizontalOptions="Center" Margin="0,8,0,0">
+                <Button Text="⟳ refresh" TextColor="#00E5FF" BackgroundColor="#1A1A2E" CornerRadius="14" FontSize="10" HeightRequest="34" Padding="14,0" />
+            </HorizontalStackLayout>
+        </Grid>
+    </Grid>
+</ContentPage>

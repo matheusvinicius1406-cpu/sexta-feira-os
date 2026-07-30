@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="SextaFeira.CognitiveHUD.Pages.DeveloperPage"
+             BackgroundColor="#0A0A12" Shell.NavBarIsVisible="False">
+    <Grid>
+        <GraphicsView x:Name="HudCanvas" HorizontalOptions="Fill" VerticalOptions="Fill" />
+        <Grid Padding="16,56,16,16" RowDefinitions="Auto,1,*,Auto">
+            <HorizontalStackLayout Grid.Row="0" Spacing="24">
+                <VerticalStackLayout>
+                    <Label Text="FERRAMENTAS" TextColor="#555577" FontSize="8" FontFamily="Courier New" />
+                    <Label Text="4" TextColor="#00E5FF" FontSize="22" FontFamily="Courier New" />
+                </VerticalStackLayout>
+                <VerticalStackLayout>
+                    <Label Text="APIs" TextColor="#555577" FontSize="8" FontFamily="Courier New" />
+                    <Label Text="5" TextColor="#7C4DFF" FontSize="22" FontFamily="Courier New" />
+                </VerticalStackLayout>
+            </HorizontalStackLayout>
+            <BoxView Grid.Row="1" HeightRequest="1" Color="#1A1A3E" Margin="0,8" />
+            <Frame Grid.Row="2" BackgroundColor="#12121E" BorderColor="#333355"
+                   CornerRadius="12" Padding="12" HasShadow="False">
+                <VerticalStackLayout Spacing="6">
+                    <Label Text="💻 CONSOLE" TextColor="#555577" FontSize="8" FontFamily="Courier New" />
+                    <Frame BackgroundColor="#0A0A12" CornerRadius="6" Padding="8" HasShadow="False" MinimumHeightRequest="80">
+                        <Label Text="$ Jarvis Console\n  Sistema OK"
+                               TextColor="#00E676" FontSize="9" FontFamily="Courier New" />
+                    </Frame>
+                    <HorizontalStackLayout Spacing="8">
+                        <Button Text="⦿ API Explorer" TextColor="#00E5FF" BackgroundColor="#1A1A2E" CornerRadius="10" FontSize="9" HeightRequest="28" Padding="10,0" />
+                        <Button Text="◈ Test Plugins" TextColor="#7C4DFF" BackgroundColor="#1A1A2E" CornerRadius="10" FontSize="9" HeightRequest="28" Padding="10,0" />
+                        <Button Text="⊜ Event Viewer" TextColor="#FFD600" BackgroundColor="#1A1A2E" CornerRadius="10" FontSize="9" HeightRequest="28" Padding="10,0" />
+                    </HorizontalStackLayout>
+                </VerticalStackLayout>
+            </Frame>
+        </Grid>
+    </Grid>
+</ContentPage>
