@@ -154,7 +154,7 @@ centro daquele Grid media zero e nunca aparecia.
 | D4 | `GrpcClient` nunca exercitado contra um kernel real | `Services/GrpcClient.cs` | A seção de voz assume "primeiro transcript = STT, resto = resposta". Convenção não validada. |
 | D5 | Rajdhani registrada mas não usada | `Arc.Typography.xaml` | Os quatro arquivos compartilham a família interna "Rajdhani"; o relógio caiu para JetBrains Mono. |
 | D6 | Voz não produz som nem captura áudio | `Services/ArcVoiceLoop.cs` | **Suspeita principal:** o `SpeechToText` do CommunityToolkit usa `Windows.Media.SpeechRecognition`, que exige app **empacotado (MSIX)**. Rodamos com `WindowsPackageType=None`. Autoteste em `%LOCALAPPDATA%\SextaFeira\startup-crash.log` confirma. |
-| D7 | Smart App Control bloqueia todo binário recém-compilado | ambiente | `VerifiedAndReputablePolicyState = 1`. Executável não assinado e sem reputação é barrado ao iniciar. Impede verificação automatizada. |
+| D7 | Smart App Control bloqueia todo binário recém-compilado | ambiente | `VerifiedAndReputablePolicyState = 1`. Contornos testados e **todos falharam** — ver abaixo. Única saída conhecida: desligar o SAC (irreversível sem reinstalar o Windows). |
 
 
 ## Voz — o que a máquina tem
@@ -174,3 +174,19 @@ preferi-la explicitamente (`MaleVoiceHints` em `ArcVoiceLoop`).
 Não existe "voz do J.A.R.V.I.S." para instalar: o que dá para escolher é a
 melhor voz disponível no sistema. Daniel é a única masculina aqui. Vozes
 adicionais entram por *Configurações → Hora e idioma → Voz → Adicionar vozes*.
+
+## D7 — contornos do Smart App Control já testados
+
+Todos falharam. Registrado para ninguém repetir o caminho.
+
+| Tentativa | Resultado |
+|---|---|
+| `Start-Process CognitiveHUD.exe` | Bloqueado — política de Controle de Aplicativo |
+| `Unblock-File` antes de executar | Bloqueado — SAC não é a *zona* do arquivo |
+| `dotnet run` | Bloqueado — `Win32Exception 4551`; o SAC barra o arquivo, não quem o lança |
+| `dotnet exec CognitiveHUD.dll` (com apphost) | `0xC000027B` |
+| `UseAppHost=false` + `dotnet CognitiveHUD.dll` | `0xC000027B` e **nenhum log** — sem apphost o bootstrapper do Windows App SDK não inicializa. Revertido: piora o build. |
+
+Desligar o SAC é decisão do dono da máquina: *Segurança do Windows →
+Controle de aplicativo e navegador → Smart App Control → Desativar*.
+Reativar exige reinstalar o Windows.
