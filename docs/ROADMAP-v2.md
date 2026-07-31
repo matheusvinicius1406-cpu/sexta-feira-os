@@ -154,5 +154,23 @@ centro daquele Grid media zero e nunca aparecia.
 | D4 | `GrpcClient` nunca exercitado contra um kernel real | `Services/GrpcClient.cs` | A seção de voz assume "primeiro transcript = STT, resto = resposta". Convenção não validada. |
 | D5 | Rajdhani registrada mas não usada | `Arc.Typography.xaml` | Os quatro arquivos compartilham a família interna "Rajdhani"; o relógio caiu para JetBrains Mono. |
 | D6 | Voz não produz som nem captura áudio | `Services/ArcVoiceLoop.cs` | **Suspeita principal:** o `SpeechToText` do CommunityToolkit usa `Windows.Media.SpeechRecognition`, que exige app **empacotado (MSIX)**. Rodamos com `WindowsPackageType=None`. Autoteste em `%LOCALAPPDATA%\SextaFeira\startup-crash.log` confirma. |
-| D7 | Smart App Control bloqueia o binário recém-compilado | ambiente | `VerifiedAndReputablePolicyState = 1`. Executável não assinado e sem reputação é barrado ao iniciar. Impede verificação automatizada. |
+| D7 | Smart App Control bloqueia todo binário recém-compilado | ambiente | `VerifiedAndReputablePolicyState = 1`. Executável não assinado e sem reputação é barrado ao iniciar. Impede verificação automatizada. |
 
+
+## Voz — o que a máquina tem
+
+Levantado em 2026-07-31, sem depender de executar o app:
+
+| Item | Resultado |
+|---|---|
+| Vozes OneCore (as que o MAUI usa) | `Microsoft Daniel` (pt-BR, **masculina**), `Microsoft Maria` (pt-BR) |
+| Vozes SAPI | `Maria Desktop` (pt-BR), `Zira Desktop` (en-US) — ambas femininas |
+| Microfone — política global | `Allow` |
+| Microfone — apps desktop | `Allow` |
+
+Permissão **não** é o bloqueio, e há voz masculina instalada. O app passa a
+preferi-la explicitamente (`MaleVoiceHints` em `ArcVoiceLoop`).
+
+Não existe "voz do J.A.R.V.I.S." para instalar: o que dá para escolher é a
+melhor voz disponível no sistema. Daniel é a única masculina aqui. Vozes
+adicionais entram por *Configurações → Hora e idioma → Voz → Adicionar vozes*.

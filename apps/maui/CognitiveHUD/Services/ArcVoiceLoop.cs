@@ -69,6 +69,11 @@ public sealed class ArcVoiceLoop : IAsyncDisposable
         }
         catch (Exception ex) { Log($"TTS FALHOU: {ex.GetType().Name}: {ex.Message}"); }
 
+        // Speak on boot. This is the proof that synthesis works on its own —
+        // it used to be reachable only after a successful recognition, so a
+        // broken recogniser made the whole assistant mute.
+        await SpeakAsync("Arc online. Sistemas nominais.");
+
         // ── Recognition ─────────────────────────────────────
         try
         {
@@ -193,18 +198,51 @@ public sealed class ArcVoiceLoop : IAsyncDisposable
         }
     }
 
-    /// <summary>Prefers a voice matching the system language, else the default.</summary>
+    /// <summary>
+    /// Picks the assistant's voice.
+    ///
+    /// Preference order: a male voice in the system language, then any voice
+    /// in that language, then anything installed. Male first because the
+    /// assistant has a name and a character — falling back to whatever the OS
+    /// lists first makes it sound like a different program each machine.
+    /// On this box that resolves to Microsoft Daniel (pt-BR).
+    /// </summary>
+    private static readonly string[] MaleVoiceHints =
+        { "daniel", "david", "mark", "guy", "ricardo", "male" };
+
+    private static Locale? _cachedLocale;
+    private static bool _localeResolved;
+
     private static async Task<Locale?> PreferredLocaleAsync()
     {
+        if (_localeResolved) return _cachedLocale;
+        _localeResolved = true;
+
         try
         {
             var wanted = System.Globalization.CultureInfo.CurrentCulture.TwoLetterISOLanguageName;
-            var locales = await TextToSpeech.Default.GetLocalesAsync();
-            return locales.FirstOrDefault(l =>
-                       l.Language.StartsWith(wanted, StringComparison.OrdinalIgnoreCase))
-                   ?? locales.FirstOrDefault();
+            var locales = (await TextToSpeech.Default.GetLocalesAsync()).ToList();
+            Log($"vozes disponiveis: {locales.Count}");
+            foreach (var l in locales.Take(8)) Log($"  voz: {l.Name} [{l.Language}-{l.Country}]");
+
+            bool InLanguage(Locale l) =>
+                l.Language.StartsWith(wanted, StringComparison.OrdinalIgnoreCase);
+            bool SoundsMale(Locale l) =>
+                MaleVoiceHints.Any(h => l.Name.Contains(h, StringComparison.OrdinalIgnoreCase));
+
+            _cachedLocale = locales.FirstOrDefault(l => InLanguage(l) && SoundsMale(l))
+                         ?? locales.FirstOrDefault(InLanguage)
+                         ?? locales.FirstOrDefault(SoundsMale)
+                         ?? locales.FirstOrDefault();
+
+            Log($"voz escolhida: {_cachedLocale?.Name ?? "(padrao do sistema)"}");
         }
-        catch { return null; }
+        catch (Exception ex)
+        {
+            Log($"GetLocalesAsync falhou: {ex.GetType().Name}: {ex.Message}");
+            _cachedLocale = null;
+        }
+        return _cachedLocale;
     }
 
     public void Stop() => _listenCts?.Cancel();
