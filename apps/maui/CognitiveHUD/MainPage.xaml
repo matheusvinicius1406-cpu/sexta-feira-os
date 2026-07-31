@@ -109,20 +109,8 @@
             </VerticalStackLayout>
         </VerticalStackLayout>
 
-        <!-- 4 · identity block. Offset below the reactor at runtime — the core
-                is the brightest region on screen, so text never sits in it. -->
-        <VerticalStackLayout x:Name="IdentityBlock"
-                             Spacing="8"
-                             InputTransparent="True"
-                             HorizontalOptions="Center"
-                             VerticalOptions="Start">
-            <Label x:Name="Clock" Text="--:--" Style="{StaticResource Arc.Text.Clock}"
-                   HorizontalOptions="Center" />
-            <Label x:Name="Greeting" Text="GOOD EVENING, MATHEUS"
-                   Style="{StaticResource Arc.Text.Label}" HorizontalOptions="Center" />
-        </VerticalStackLayout>
 
-        <!-- 5 · boot veil -->
+        <!-- 4 · boot veil -->
         <Grid x:Name="Boot" BackgroundColor="{StaticResource Arc.Color.Void}">
             <VerticalStackLayout Spacing="20" HorizontalOptions="Center" VerticalOptions="Center">
                 <Label Text="ARC" FontFamily="ArcDataLight" FontSize="15"

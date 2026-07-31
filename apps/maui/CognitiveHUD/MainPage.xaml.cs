@@ -4,6 +4,7 @@ using SkiaSharp;
 using SkiaSharp.Views.Maui;
 using SextaFeira.UIEngine.Design;
 using SextaFeira.UIEngine.Reactor;
+using SextaFeira.CognitiveHUD.Services;
 
 namespace SextaFeira.CognitiveHUD;
 
@@ -36,10 +37,30 @@ public partial class MainPage : ContentPage
     private float _density = 1f;
     private SKTypeface? _wordmarkFace;
 
-    public MainPage()
+    private readonly ArcVoiceLoop _voice;
+    private readonly ICognitionService _cognition;
+    private string _clockText = "--:--";
+    private string _greetingText = "";
+    private string _caption = "";
+
+    public MainPage(ArcVoiceLoop voice, ICognitionService cognition)
     {
         InitializeComponent();
+        _voice = voice;
+        _cognition = cognition;
         _brain = new ArcBrain(_model, ApplyChip);
+
+        // The reactor follows the microphone, not a control: opening the mic
+        // is what makes the core pulse, and the first spoken word brightens it.
+        _voice.PhaseChanged += phase => MainThread.BeginInvokeOnMainThread(() =>
+        {
+            var state = ArcVoiceLoop.ToReactorState(phase);
+            _model.State = state;
+            ApplyChip(state);
+            if (phase == VoicePhase.Idle) _caption = "";
+        });
+        _voice.Transcript += (text, heard) => MainThread.BeginInvokeOnMainThread(() =>
+            _caption = heard ? $"“{text}”" : text);
         _wordmarkFace = LoadWordmarkTypeface();
         BuildLabelPool(ArcModules.All.Length);
     }
@@ -138,28 +159,8 @@ public partial class MainPage : ContentPage
 
         Surface.InvalidateSurface();
         PositionLabels();
-        PositionIdentity();
     }
 
-    /// <summary>
-    /// Parks the clock and greeting below the reactor and the wordmark.
-    ///
-    /// Driven from the frame tick, not from the paint callback: mutating
-    /// layout while Skia is painting is the wrong thread of control and the
-    /// change can be dropped entirely.
-    /// </summary>
-    private void PositionIdentity()
-    {
-        if (_renderer.CoreRadius <= 0f || Surface.Height <= 0) return;
-
-        // Anchored to the top with a computed margin rather than centred with
-        // a translation: every centred overlay in this Grid measured to zero
-        // and never appeared, while the Start/End-anchored ones all render.
-        double centre = Surface.Height / 2.0;
-        double offset = _renderer.CoreRadius * ArcGeometry.ClockOffset / _density;
-        IdentityBlock.Margin = new Thickness(0, centre + offset, 0, 0);
-        IdentityBlock.Opacity = _model.Depth > 0 ? 0.30 : 1.0;
-    }
 
     private float Proximity()
     {
@@ -178,6 +179,10 @@ public partial class MainPage : ContentPage
         _renderer.Render(canvas, size, _model);
         _renderer.DrawOrbit(canvas, _items, _model);
         _renderer.DrawWordmark(canvas, "J.A.R.V.I.S.", _wordmarkFace, _model);
+        _renderer.DrawIdentity(canvas, _clockText, _greetingText,
+                               _wordmarkFace, _wordmarkFace, _model);
+        if (!string.IsNullOrEmpty(_caption))
+            _renderer.DrawCaption(canvas, _caption, _wordmarkFace, _model);
     }
 
     private void OnSurfaceTouch(object? sender, SKTouchEventArgs e)
@@ -205,7 +210,11 @@ public partial class MainPage : ContentPage
                     }
                     else if (_model.Depth == 2)
                     {
-                        _brain.Observe(BrainSignal.Command);
+                        var module = ArcModules.All[_model.ActiveIndex];
+                        if (module.Id == "voice" && module.Children[hit] == "Listen")
+                            _ = StartVoiceTurnAsync();
+                        else
+                            _brain.Observe(BrainSignal.Command);
                     }
                 }
             }
@@ -263,6 +272,29 @@ public partial class MainPage : ContentPage
         }
     }
 
+    /// <summary>
+    /// One spoken turn. The reply comes from the kernel when it is reachable;
+    /// when it is not, the assistant says so rather than staying silent —
+    /// a dead link should be audible, not invisible.
+    /// </summary>
+    private async Task StartVoiceTurnAsync()
+    {
+        await _voice.ListenOnceAsync(async heard =>
+        {
+            try
+            {
+                var reply = await _cognition.ChatAsync(heard);
+                return string.IsNullOrWhiteSpace(reply)
+                    ? "Não obtive resposta do núcleo."
+                    : reply;
+            }
+            catch (Exception)
+            {
+                return "O núcleo está fora do ar. Ouvi você, mas não posso pensar agora.";
+            }
+        });
+    }
+
     private static Color ArcColor(SKColor c) =>
         Color.FromRgba(c.Red, c.Green, c.Blue, c.Alpha);
 
@@ -289,7 +321,7 @@ public partial class MainPage : ContentPage
     private void UpdateTelemetry()
     {
         var now = DateTime.Now;
-        Clock.Text = now.ToString("HH:mm");
+        _clockText = now.ToString("HH:mm");
         DateOut.Text = now.ToString("ddd dd MMM", CultureInfo.InvariantCulture).ToUpperInvariant();
 
         var up = now - _startedAt;
@@ -308,7 +340,7 @@ public partial class MainPage : ContentPage
 
         int h = now.Hour;
         string part = h < 12 ? "MORNING" : h < 18 ? "AFTERNOON" : "EVENING";
-        Greeting.Text = $"GOOD {part}, MATHEUS";
+        _greetingText = $"GOOD {part}, MATHEUS";
     }
 
     private void ApplyChip(ReactorState state)

@@ -30,9 +30,9 @@ implementada. Ver `docs/design-system/`.
 | Build Windows + Android com 0 erros / 0 avisos | ✅ |
 | App abre e renderiza nativamente | ✅ |
 
-**Aberto:** o bloco de identidade (relógio + saudação) não renderiza.
-Descartados: posicionamento por `TranslationY`, falha da fonte Rajdhani,
-e ancoragem `Center`. Todo o resto da tela desenha. Ver §Débitos.
+**Resolvido:** o bloco de identidade agora é desenhado no canvas
+(`DrawIdentity`), contornando o layout do MAUI — todo overlay ancorado ao
+centro daquele Grid media zero e nunca aparecia.
 
 ---
 
@@ -148,9 +148,10 @@ e ancoragem `Center`. Todo o resto da tela desenha. Ver §Débitos.
 
 | # | Débito | Onde | Impacto |
 |---|---|---|---|
-| D1 | Bloco de identidade (relógio + saudação) não renderiza | `MainPage.xaml` / `PositionIdentity()` | Visual. Hora e saudação ausentes da tela inicial. |
+| ~~D1~~ | ~~Bloco de identidade não renderiza~~ — **resolvido**: desenhado no canvas | `ReactorRenderer.DrawIdentity` | — |
 | D2 | Itens orbitais podem sair da janela em alturas pequenas | `ArcGeometry.Orbit` | O raio de órbita é fixo em `2.40 R` e não considera a altura útil. |
 | D3 | As 15 HUD Pages ainda usam a paleta antiga (`#0A0A12`) | `Pages/*.xaml` | Inconsistência com os tokens ARC (`Void #000308`). ~155 literais. |
 | D4 | `GrpcClient` nunca exercitado contra um kernel real | `Services/GrpcClient.cs` | A seção de voz assume "primeiro transcript = STT, resto = resposta". Convenção não validada. |
 | D5 | Rajdhani registrada mas não usada | `Arc.Typography.xaml` | Os quatro arquivos compartilham a família interna "Rajdhani"; o relógio caiu para JetBrains Mono. |
+| D6 | Voz implementada mas **não verificada ponta a ponta** | `Services/ArcVoiceLoop.cs` | Compila e está ligada ao reator, mas captura de microfone e síntese nunca foram exercitadas com áudio real. |
 

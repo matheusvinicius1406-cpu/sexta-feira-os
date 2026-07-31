@@ -1,3 +1,5 @@
+using CommunityToolkit.Maui;
+using CommunityToolkit.Maui.Media;
 using Microsoft.Extensions.Logging;
 using SkiaSharp.Views.Maui.Controls.Hosting;
 using SextaFeira.CognitiveHUD.Pages;
@@ -46,6 +48,7 @@ public static class MauiProgram
         builder
             .UseMauiApp<App>()
             .UseSkiaSharp()
+            .UseMauiCommunityToolkit()
             .ConfigureFonts(fonts =>
             {
                 // ── ARC Design System typography ──────────────
@@ -71,6 +74,10 @@ public static class MauiProgram
         var navigationRoot = BuildNavigationTree();
 
         // ── Infrastructure Services ──────────────────────────
+        // Voice: on-device recogniser + synthesiser. Nothing leaves the machine.
+        builder.Services.AddSingleton(SpeechToText.Default);
+        builder.Services.AddSingleton<ArcVoiceLoop>();
+
         builder.Services.AddSingleton<ApiClient>();
         builder.Services.AddSingleton<GrpcClient>(_ => new GrpcClient("http://127.0.0.1:50051"));
         // Startup Pipeline — mirrors Python StartupPipeline

@@ -42,6 +42,9 @@
     <PackageReference Include="Microsoft.Maui.Controls.Compatibility" Version="8.0.100" />
     <PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="8.0.0" />
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.2.2" />
+    <!-- SpeechToText. TTS comes from MAUI Essentials; STT does not exist
+         there in .NET 8, so the toolkit supplies the on-device recogniser. -->
+    <PackageReference Include="CommunityToolkit.Maui" Version="9.1.0" />
     <PackageReference Include="SkiaSharp.Views.Maui.Controls" Version="2.88.7" />
     <!-- gRPC -->
     <PackageReference Include="Grpc.Net.Client" Version="2.62.0" />

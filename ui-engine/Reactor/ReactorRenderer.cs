@@ -1,3 +1,4 @@
+using System.Text;
 using SkiaSharp;
 using SextaFeira.UIEngine.Design;
 
@@ -634,6 +635,75 @@ public sealed class ReactorRenderer : IDisposable
         _text.Shader = shader;
         canvas.DrawText(text, _cx, baseline, _text);
         _text.Shader = null;
+    }
+
+    /// <summary>
+    /// Paints the clock and greeting under the wordmark.
+    ///
+    /// Drawn on the canvas rather than composed as MAUI labels: every
+    /// overlay anchored to the centre of the host Grid measured to zero and
+    /// never appeared, while the canvas draws here reliably. At 0.30 R the
+    /// clock is large enough that Skia's rasteriser is fine.
+    /// </summary>
+    public void DrawIdentity(SKCanvas canvas, string clock, string greeting,
+                             SKTypeface? clockFace, SKTypeface? captionFace,
+                             ReactorModel m)
+    {
+        float fade = m.Depth > 0 ? 0.30f : 1f;
+        float cs = m.CoreScale;
+
+        float clockSize = _r * 0.30f;
+        float clockBaseline = _cy + R(ArcGeometry.ClockOffset, cs);
+        _text.Typeface = clockFace;
+        _text.TextSize = clockSize;
+        _text.TextAlign = SKTextAlign.Center;
+        _text.Shader = null;
+        _text.Color = ArcTokens.InkHi.Fade(fade);
+        canvas.DrawText(clock, _cx, clockBaseline, _text);
+
+        float capSize = _r * 0.115f;
+        _text.Typeface = captionFace;
+        _text.TextSize = capSize;
+        _text.Color = ArcTokens.InkLo.Fade(fade);
+        canvas.DrawText(greeting, _cx, clockBaseline + capSize * 2.1f, _text);
+    }
+
+    /// <summary>
+    /// The live caption — what was just heard, or what is being said.
+    /// Sits low on the screen so it never competes with the reactor.
+    /// </summary>
+    public void DrawCaption(SKCanvas canvas, string text, SKTypeface? face, ReactorModel m)
+    {
+        float size = _r * 0.155f;
+        float y = _cy + _r * 4.2f;
+
+        _text.Typeface = face;
+        _text.TextSize = size;
+        _text.TextAlign = SKTextAlign.Center;
+        _text.Shader = null;
+        _text.Color = ArcTokens.InkHi;
+
+        // Wrap by hand: SKPaint measures but does not break lines, and a long
+        // reply spilling off both edges is worse than no caption at all.
+        float maxWidth = _r * 11f;
+        var words = text.Split(' ');
+        var line = new StringBuilder();
+        var lines = new List<string>();
+        foreach (var word in words)
+        {
+            var candidate = line.Length == 0 ? word : line + " " + word;
+            if (_text.MeasureText(candidate) > maxWidth && line.Length > 0)
+            {
+                lines.Add(line.ToString());
+                line.Clear().Append(word);
+            }
+            else { line.Clear().Append(candidate); }
+            if (lines.Count == 3) break;
+        }
+        if (line.Length > 0 && lines.Count < 3) lines.Add(line.ToString());
+
+        for (int i = 0; i < lines.Count; i++)
+            canvas.DrawText(lines[i], _cx, y + i * size * 1.5f, _text);
     }
 
     public void Dispose()
