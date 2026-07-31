@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8" ?>
-<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+<pages:HudBasePage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+                   xmlns:pages="clr-namespace:SextaFeira.CognitiveHUD.Pages"
              x:Class="SextaFeira.CognitiveHUD.Pages.WorldPage"
              BackgroundColor="#0A0A12" Shell.NavBarIsVisible="False">
     <Grid>
@@ -8,24 +9,24 @@
         <Grid Padding="16,56,16,16" RowDefinitions="Auto,1,*,Auto">
             <HorizontalStackLayout Grid.Row="0" Spacing="24">
                 <VerticalStackLayout>
-                    <Label Text="ENTIDADES" TextColor="#555577" FontSize="8" FontFamily="Courier New" />
-                    <Label x:Name="EntityCountLabel" Text="—" TextColor="#00E5FF" FontSize="22" FontFamily="Courier New" />
+                    <Label Text="ENTIDADES" TextColor="#555577" FontSize="8" FontFamily="ArcData" />
+                    <Label x:Name="EntityCountLabel" Text="—" TextColor="#00E5FF" FontSize="22" FontFamily="ArcData" />
                 </VerticalStackLayout>
                 <VerticalStackLayout>
-                    <Label Text="RELAÇÕES" TextColor="#555577" FontSize="8" FontFamily="Courier New" />
-                    <Label x:Name="RelCountLabel" Text="—" TextColor="#7C4DFF" FontSize="22" FontFamily="Courier New" />
+                    <Label Text="RELAÇÕES" TextColor="#555577" FontSize="8" FontFamily="ArcData" />
+                    <Label x:Name="RelCountLabel" Text="—" TextColor="#7C4DFF" FontSize="22" FontFamily="ArcData" />
                 </VerticalStackLayout>
                 <VerticalStackLayout>
-                    <Label Text="ESTADO" TextColor="#555577" FontSize="8" FontFamily="Courier New" />
-                    <Label x:Name="StateLabel" Text="—" TextColor="#FFD600" FontSize="14" FontFamily="Courier New" />
+                    <Label Text="ESTADO" TextColor="#555577" FontSize="8" FontFamily="ArcData" />
+                    <Label x:Name="StateLabel" Text="—" TextColor="#FFD600" FontSize="14" FontFamily="ArcData" />
                 </VerticalStackLayout>
             </HorizontalStackLayout>
             <BoxView Grid.Row="1" HeightRequest="1" Color="#1A1A3E" Margin="0,8" />
             <Frame Grid.Row="2" BackgroundColor="#12121E" BorderColor="#333355"
                    CornerRadius="12" Padding="12" HasShadow="False">
                 <VerticalStackLayout Spacing="8">
-                    <Label Text="🌍 MODELO DE MUNDO" TextColor="#555577" FontSize="8" FontFamily="Courier New" />
-                    <Label Text="Carregando..." TextColor="#444466" FontSize="11" FontFamily="Courier New" />
+                    <Label Text="🌍 MODELO DE MUNDO" TextColor="#555577" FontSize="8" FontFamily="ArcData" />
+                    <Label Text="Carregando..." TextColor="#444466" FontSize="11" FontFamily="ArcData" />
                 </VerticalStackLayout>
             </Frame>
             <HorizontalStackLayout Grid.Row="3" Spacing="12" HorizontalOptions="Center" Margin="0,8,0,0">
@@ -33,4 +34,4 @@
             </HorizontalStackLayout>
         </Grid>
     </Grid>
-</ContentPage>
+</pages:HudBasePage>

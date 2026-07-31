@@ -22,6 +22,19 @@
 
     <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">21.0</SupportedOSPlatformVersion>
     <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">10.0.17763.0</SupportedOSPlatformVersion>
+
+    <!-- Unpackaged Win32 build. There is no AppxManifest and this runs as a
+         desktop executable, not an MSIX deployment. Without this the Windows
+         SDK targets fail before the compiler is ever reached. -->
+    <WindowsPackageType Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">None</WindowsPackageType>
+
+    <!-- Ship the Windows App Runtime alongside the executable.
+         Unpackaged WinUI apps otherwise need the matching runtime installed
+         machine-wide; MAUI 8 pulls WindowsAppSDK 1.5, and a machine with only
+         1.1/1.7/1.8 fails in the bootstrapper — the process starts, never
+         creates a window, and exits silently with no event-log entry. -->
+    <WindowsAppSDKSelfContained Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">true</WindowsAppSDKSelfContained>
+    <SelfContained Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">true</SelfContained>
   </PropertyGroup>
 
   <ItemGroup>
@@ -43,9 +56,33 @@
     <ProjectReference Include="..\..\..\ui-engine\SextaFeira.UIEngine.csproj" />
   </ItemGroup>
 
-  <!-- gRPC proto files — auto-generate C# stubs at build time -->
+  <!-- ARC typography. The MAUI SDK auto-globs *.xaml as MauiXaml but not
+       fonts, so these must be declared. The OFL licences ship alongside the
+       .ttf files as the licence requires, but are not fonts themselves. -->
   <ItemGroup>
-    <Protobuf Include="..\..\..\shared\protobuf\*.proto" GrpcServices="Client" />
+    <MauiFont Include="Resources\Fonts\*.ttf" />
+    <None Include="Resources\Fonts\*.txt" />
   </ItemGroup>
+
+  <!-- gRPC proto files — auto-generate C# stubs at build time.
+       ProtoRoot is explicit because the .proto files live outside the project
+       cone; without it Grpc.Tools guesses per-file roots, which breaks as soon
+       as one proto imports another. -->
+  <ItemGroup>
+    <Protobuf Include="..\..\..\shared\protobuf\*.proto"
+              ProtoRoot="..\..\..\shared\protobuf"
+              GrpcServices="Client" />
+  </ItemGroup>
+
+  <!-- Grpc.Tools hooks codegen to BeforeCompile, which is reached through
+       CoreCompile. On Windows that is too late and never happens: the WinUI
+       markup pipeline compiles the whole assembly first via XamlPreCompile
+       (output lands in obj\...\intermediatexaml\), that pass fails on the
+       missing SextaFeira.*.V1 types, and the build aborts before CoreCompile
+       is ever reached. Running codegen ahead of XamlPreCompile fixes it;
+       CoreCompile stays listed for the Android head, which has no XAML pass. -->
+  <Target Name="_ArcProtobufCodegen"
+          BeforeTargets="XamlPreCompile;CoreCompile"
+          DependsOnTargets="Protobuf_Compile" />
 
 </Project>

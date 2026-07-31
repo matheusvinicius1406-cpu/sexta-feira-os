@@ -18,6 +18,19 @@ public record MemoryLink(
     string TargetId,
     string Label);
 
+/// <summary>
+/// Request to link two memories.
+///
+/// Exists because [RelayCommand] generates commands that take at most one
+/// argument — a three-parameter method cannot become a bindable command.
+/// Bundling the arguments keeps the operation usable from XAML via
+/// CommandParameter.
+/// </summary>
+public record MemoryLinkRequest(
+    string SourceId,
+    string TargetId,
+    string Relation = "related");
+
 /// <summary>Memory graph — nodes + edges for visualization.</summary>
 public record MemoryGraph(
     IReadOnlyList<MemoryNode> Nodes,

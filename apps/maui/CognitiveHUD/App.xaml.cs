@@ -16,15 +16,16 @@ public partial class App : Application
 
     protected override Window CreateWindow(IActivationState? activationState)
     {
-        // Use static fallback if Handler is not ready yet
-        var services = ServiceProvider ?? Handler?.MauiContext?.Services;
-        if (services is not null)
-        {
-            _ = RunStartupPipelineAsync(services);
-        }
+        // Use static fallback if Handler is not ready yet.
+        var services = ServiceProvider ?? Handler?.MauiContext?.Services
+            ?? throw new InvalidOperationException(
+                "No service provider available at window creation — MauiProgram must set App.ServiceProvider.");
 
-        var mainPage = services?.GetRequiredService<MainPage>() ?? new MainPage();
-        return new Window(mainPage);
+        _ = RunStartupPipelineAsync(services);
+
+        // No `new MainPage()` fallback: the page needs its view model injected,
+        // and a hand-constructed one could never satisfy that.
+        return new Window(services.GetRequiredService<MainPage>());
     }
 
     private static async Task RunStartupPipelineAsync(IServiceProvider services)

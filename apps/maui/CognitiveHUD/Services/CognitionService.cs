@@ -6,7 +6,7 @@ namespace SextaFeira.CognitiveHUD.Services;
 /// Cognition service — mirrors Python CognitionAdapter.
 /// Manages chat streams, health checks, and brain state.
 /// </summary>
-public class CognitionService : ICognitionService
+public class CognitionService : ICognitionService, ICognitionEngine
 {
     private readonly GrpcClient _grpc;
     private readonly IEventBus _eventBus;
@@ -65,4 +65,14 @@ public class CognitionService : ICognitionService
         }
         return reply.ToString();
     }
+
+    // ── IEngine ─────────────────────────────────────────────
+    public string Name => "Cognition";
+
+    public Task InitializeAsync() => Task.CompletedTask;
+
+    public async Task<bool> HealthAsync() =>
+        await _grpc.CheckHealthCoreAsync() is not null;
+
+    public Task ShutdownAsync() => Task.CompletedTask;
 }

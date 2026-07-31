@@ -4,23 +4,20 @@
              x:Class="SextaFeira.CognitiveHUD.App">
     <Application.Resources>
         <ResourceDictionary>
-            <!-- Neon Dark Theme Colors -->
-            <Color x:Key="BackgroundColor">#0A0A12</Color>
-            <Color x:Key="SurfaceColor">#12121E</Color>
-            <Color x:Key="PrimaryColor">#00E5FF</Color>
-            <Color x:Key="SecondaryColor">#7C4DFF</Color>
-            <Color x:Key="AccentColor">#FF6D00</Color>
-            <Color x:Key="TextPrimaryColor">#E0E0FF</Color>
-            <Color x:Key="TextSecondaryColor">#8888AA</Color>
-            <Color x:Key="GlowColor">#00E5FF</Color>
-            <Color x:Key="ErrorColor">#FF1744</Color>
-            <Color x:Key="SuccessColor">#00E676</Color>
+            <!--
+                ARC Design System.
 
-            <!-- Font Sizes -->
-            <x:Double x:Key="FontSizeSmall">10</x:Double>
-            <x:Double x:Key="FontSizeMedium">14</x:Double>
-            <x:Double x:Key="FontSizeLarge">18</x:Double>
-            <x:Double x:Key="FontSizeXLarge">24</x:Double>
+                Colours must be merged before typography: the text styles
+                resolve Arc.Color.* keys at parse time, and a merged
+                dictionary can only see what was merged before it.
+
+                Every colour, size and spacing value in the app comes from
+                here. No literals in pages — docs/design-system/07-CHECKLISTS.md §3.1.
+            -->
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="Resources/Styles/Arc.Colors.xaml" />
+                <ResourceDictionary Source="Resources/Styles/Arc.Typography.xaml" />
+            </ResourceDictionary.MergedDictionaries>
         </ResourceDictionary>
     </Application.Resources>
 </Application>

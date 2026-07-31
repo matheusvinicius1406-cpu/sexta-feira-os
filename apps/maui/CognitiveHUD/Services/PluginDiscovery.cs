@@ -16,10 +16,13 @@ public class PluginDiscovery
     /// <summary>Return a manifest of all registered plugins.</summary>
     public IReadOnlyList<PluginManifest> ListCapabilities()
     {
+        // EntryPoint carries the concrete plugin type. It used to land in a
+        // second, lightweight PluginManifest declared in this file, which
+        // collided with the real one in PluginManifest.cs.
         return _registry.All.Select(kvp => new PluginManifest(
-            kvp.Value.PluginId,
-            kvp.Value.DisplayName,
-            kvp.Value.GetType().Name)).ToList().AsReadOnly();
+            PluginId: kvp.Value.PluginId,
+            DisplayName: kvp.Value.DisplayName,
+            EntryPoint: kvp.Value.GetType().Name)).ToList().AsReadOnly();
     }
 
     /// <summary>Find plugins matching a capability keyword.</summary>
@@ -41,6 +44,3 @@ public class PluginDiscovery
         return await plugin.ExecuteAsync(ctx);
     }
 }
-
-/// <summary>Lightweight plugin descriptor for discovery.</summary>
-public record PluginManifest(string PluginId, string DisplayName, string TypeName);

@@ -15,7 +15,9 @@ public record HealthStatus(
     string Version,
     bool OllamaOnline,
     bool VoiceAvailable,
-    int UptimeSeconds);
+    // int64 on the wire — the proto reports uptime as a 64-bit count and
+    // narrowing it here is what broke both call sites.
+    long UptimeSeconds);
 
 /// <summary>Conversation state for tracking multi-turn chat.</summary>
 public record Conversation(

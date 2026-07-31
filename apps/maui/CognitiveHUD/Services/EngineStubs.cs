@@ -22,6 +22,13 @@ public sealed class DecisionEngineStub : DefaultEngine, IDecisionEngine
 public sealed class WorldModelEngineStub : DefaultEngine, IWorldModelEngine
 {
     public WorldModelEngineStub() : base("WorldModel") { }
+
+    /// <summary>
+    /// No world model is wired up yet, so there is no snapshot to report.
+    /// Returning null rather than a zeroed WorldState keeps "not implemented"
+    /// distinguishable from "implemented and empty" at the call site.
+    /// </summary>
+    public Task<WorldState?> GetStateAsync() => Task.FromResult<WorldState?>(null);
 }
 
 /// <summary>Placeholder stub for SchedulerEngine until real implementation.</summary>

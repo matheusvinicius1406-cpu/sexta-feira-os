@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!--
+    ARC Design System — colour tokens for the MAUI control tree.
+
+    Mirrors ui-engine/Design/ArcTokens.cs, which serves the Skia canvas.
+    The two must never diverge — docs/design-system/07-CHECKLISTS.md §3.3
+    describes the test that enforces it.
+
+    Do not add a literal colour anywhere else in the app.
+-->
+<ResourceDictionary xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml">
+
+    <!-- ══ Ground ══════════════════════════════════════════
+         Neutrals biased toward the accent hue. Never #000000. -->
+    <Color x:Key="Arc.Color.Void">#000308</Color>
+    <Color x:Key="Arc.Color.Abyss">#060A12</Color>
+    <Color x:Key="Arc.Color.Graphite">#0E1520</Color>
+    <Color x:Key="Arc.Color.Slate">#16202E</Color>
+    <Color x:Key="Arc.Color.Steel">#2A3A4E</Color>
+
+    <!-- ══ Accent ══════════════════════════════════════════ -->
+    <Color x:Key="Arc.Color.Arc">#2E7DFF</Color>
+    <Color x:Key="Arc.Color.ArcDeep">#0B47B8</Color>
+    <Color x:Key="Arc.Color.Plasma">#35D6FF</Color>
+    <Color x:Key="Arc.Color.Ignition">#C9F4FF</Color>
+
+    <!-- ══ Semantic — state, never decoration ══════════════
+         These do not count as the accent and must not appear
+         outside an active state. -->
+    <Color x:Key="Arc.Color.Vital">#2EE6A8</Color>
+    <Color x:Key="Arc.Color.Caution">#FFB23D</Color>
+    <Color x:Key="Arc.Color.Breach">#FF4D6A</Color>
+
+    <!-- ══ Ink — hierarchy by luminance ════════════════════
+         Contrast measured against Void (WCAG 2.1).
+         InkLo is 0.66 alpha because that is the lowest value
+         clearing 4.5:1; 0.42 measured 2.48:1 and failed. -->
+    <Color x:Key="Arc.Color.InkHi">#F0E9F4FF</Color>    <!-- 16.27:1  AAA -->
+    <Color x:Key="Arc.Color.Ink">#B8C8DBF0</Color>      <!--  7.61:1  AAA -->
+    <Color x:Key="Arc.Color.InkLo">#A8A0B8D4</Color>    <!--  4.73:1  AA  -->
+    <Color x:Key="Arc.Color.InkGhost">#338CA8C8</Color> <!--  1.32:1  non-text only -->
+
+    <!-- ══ Glass ═══════════════════════════════════════════
+         Elevation is blur + border opacity. No drop shadows. -->
+    <Color x:Key="Arc.Color.Glass">#8C0E1520</Color>
+    <Color x:Key="Arc.Color.GlassHi">#9E1C2A3E</Color>
+    <Color x:Key="Arc.Color.Hairline">#2978AAEB</Color>
+    <Color x:Key="Arc.Color.HairlineHi">#6178BEFF</Color>
+
+    <!-- ══ Metal ramp — the reactor's chrome ═══════════════
+         Biased hard toward blue: not neutral steel, but steel
+         drowning in the light of what it contains. -->
+    <Color x:Key="Arc.Color.MetalDeep">#050A16</Color>
+    <Color x:Key="Arc.Color.MetalShadow">#101E36</Color>
+    <Color x:Key="Arc.Color.MetalMid">#2D4468</Color>
+    <Color x:Key="Arc.Color.MetalLight">#6E9AD0</Color>
+    <Color x:Key="Arc.Color.MetalSpec">#D6ECFF</Color>
+
+    <!-- ══ Chrome ramp — the J.A.R.V.I.S. wordmark ═════════
+         Vertical, 7 stops. The dark band at 0.50 is the
+         specular horizon — remove it and the metal collapses
+         into a plain blue gradient. -->
+    <Color x:Key="Arc.Color.Chrome0">#F2FAFF</Color>
+    <Color x:Key="Arc.Color.Chrome1">#BEDFF9</Color>
+    <Color x:Key="Arc.Color.Chrome2">#639BD6</Color>
+    <Color x:Key="Arc.Color.Chrome3">#143A66</Color>
+    <Color x:Key="Arc.Color.Chrome4">#3F7EC2</Color>
+    <Color x:Key="Arc.Color.Chrome5">#96C6EC</Color>
+    <Color x:Key="Arc.Color.Chrome6">#E4F3FF</Color>
+
+    <!-- Gradient for any MAUI surface that needs the chrome look.
+         The wordmark itself is drawn in Skia — a Label cannot take a
+         gradient fill. -->
+    <LinearGradientBrush x:Key="Arc.Brush.Chrome" StartPoint="0,0" EndPoint="0,1">
+        <GradientStop Color="{StaticResource Arc.Color.Chrome0}" Offset="0.00" />
+        <GradientStop Color="{StaticResource Arc.Color.Chrome1}" Offset="0.20" />
+        <GradientStop Color="{StaticResource Arc.Color.Chrome2}" Offset="0.40" />
+        <GradientStop Color="{StaticResource Arc.Color.Chrome3}" Offset="0.50" />
+        <GradientStop Color="{StaticResource Arc.Color.Chrome4}" Offset="0.58" />
+        <GradientStop Color="{StaticResource Arc.Color.Chrome5}" Offset="0.76" />
+        <GradientStop Color="{StaticResource Arc.Color.Chrome6}" Offset="1.00" />
+    </LinearGradientBrush>
+
+    <!-- ══ Brushes ═════════════════════════════════════════ -->
+    <SolidColorBrush x:Key="Arc.Brush.Void" Color="{StaticResource Arc.Color.Void}" />
+    <SolidColorBrush x:Key="Arc.Brush.Glass" Color="{StaticResource Arc.Color.Glass}" />
+    <SolidColorBrush x:Key="Arc.Brush.GlassHi" Color="{StaticResource Arc.Color.GlassHi}" />
+    <SolidColorBrush x:Key="Arc.Brush.Hairline" Color="{StaticResource Arc.Color.Hairline}" />
+    <SolidColorBrush x:Key="Arc.Brush.Plasma" Color="{StaticResource Arc.Color.Plasma}" />
+
+    <!-- ══ Spacing — base 4, no values outside the scale ═══ -->
+    <x:Double x:Key="Arc.Space.1">4</x:Double>
+    <x:Double x:Key="Arc.Space.2">8</x:Double>
+    <x:Double x:Key="Arc.Space.3">12</x:Double>
+    <x:Double x:Key="Arc.Space.4">16</x:Double>
+    <x:Double x:Key="Arc.Space.5">24</x:Double>
+    <x:Double x:Key="Arc.Space.6">32</x:Double>
+    <x:Double x:Key="Arc.Space.7">48</x:Double>
+    <x:Double x:Key="Arc.Space.8">64</x:Double>
+
+    <!-- ══ Radius ══════════════════════════════════════════ -->
+    <x:Double x:Key="Arc.Radius.Sm">2</x:Double>
+    <x:Double x:Key="Arc.Radius.Md">4</x:Double>
+    <x:Double x:Key="Arc.Radius.Lg">8</x:Double>
+    <x:Double x:Key="Arc.Radius.Pill">999</x:Double>
+
+</ResourceDictionary>

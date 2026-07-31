@@ -5,7 +5,7 @@ namespace SextaFeira.CognitiveHUD.Services;
 /// Manages constrained decision-making with audit trail.
 /// Currently a stub — real implementation when decision gRPC endpoints exist.
 /// </summary>
-public class DecisionService
+public class DecisionService : IDecisionService
 {
     private readonly IEventBus _eventBus;
 

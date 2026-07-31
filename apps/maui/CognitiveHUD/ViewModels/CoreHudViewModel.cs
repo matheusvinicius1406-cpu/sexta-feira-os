@@ -123,7 +123,9 @@ public partial class CoreHudViewModel : ObservableObject
             // Fire particle burst at midpoint
             float cx = (float)(RadialMenu?.CenterX ?? 0f);
             float cy = (float)(RadialMenu?.CenterY ?? 0f);
-            TransitionBurst.ParticleCount = 30 + _currentDepth * 10;
+            // Read through the generated property, not the backing field —
+            // the field bypasses change notification.
+            TransitionBurst.ParticleCount = 30 + CurrentDepth * 10;
             TransitionBurst.Play(cx, cy);
 
             // Update core status for the new depth
