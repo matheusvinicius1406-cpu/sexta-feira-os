@@ -101,6 +101,7 @@ public partial class MainPage : ContentPage
 
         UpdateTelemetry();
         _ = RunBootAsync();
+        _ = _voice.SelfTestAsync();
     }
 
     protected override void OnDisappearing()

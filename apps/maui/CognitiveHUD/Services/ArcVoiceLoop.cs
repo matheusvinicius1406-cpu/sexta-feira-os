@@ -39,6 +39,45 @@ public sealed class ArcVoiceLoop : IAsyncDisposable
         _bus = bus;
     }
 
+    /// <summary>Appends to the same log the startup crash handler uses.</summary>
+    private static void Log(string message) => MauiProgram.LogStartupCrash("voice", message);
+
+    /// <summary>
+    /// Probes both halves of the voice stack and writes what it finds.
+    ///
+    /// Audio failures are invisible from the outside — a silent app looks
+    /// identical whether the synthesiser is missing, the microphone is
+    /// blocked, or the turn never started. This turns that into a readable
+    /// answer on disk.
+    /// </summary>
+    public async Task SelfTestAsync()
+    {
+        // ── Synthesis ───────────────────────────────────────
+        try
+        {
+            var locales = (await TextToSpeech.Default.GetLocalesAsync()).ToList();
+            Log($"TTS locales: {locales.Count}");
+            if (locales.Count > 0)
+            {
+                var sample = string.Join(", ", locales.Take(5).Select(l => l.Language + "/" + l.Name));
+                Log($"TTS sample: {sample}");
+            }
+            else
+            {
+                Log("TTS: nenhuma voz instalada — SpeakAsync nao produzira som");
+            }
+        }
+        catch (Exception ex) { Log($"TTS FALHOU: {ex.GetType().Name}: {ex.Message}"); }
+
+        // ── Recognition ─────────────────────────────────────
+        try
+        {
+            var granted = await _stt.RequestPermissions(CancellationToken.None);
+            Log($"STT permissao: {granted}");
+        }
+        catch (Exception ex) { Log($"STT FALHOU: {ex.GetType().Name}: {ex.Message}"); }
+    }
+
     private void SetPhase(VoicePhase phase)
     {
         if (Phase == phase) return;
@@ -65,8 +104,11 @@ public sealed class ArcVoiceLoop : IAsyncDisposable
         if (Phase is VoicePhase.Listening or VoicePhase.Thinking or VoicePhase.Speaking)
             return;
 
-        var granted = await _stt.RequestPermissions(CancellationToken.None);
-        if (!granted) { SetPhase(VoicePhase.Denied); return; }
+        Log("turno iniciado");
+        bool granted;
+        try { granted = await _stt.RequestPermissions(CancellationToken.None); }
+        catch (Exception ex) { Log($"permissao lancou: {ex.GetType().Name}: {ex.Message}"); SetPhase(VoicePhase.Unavailable); return; }
+        if (!granted) { Log("permissao negada"); SetPhase(VoicePhase.Denied); return; }
 
         _listenCts = new CancellationTokenSource();
         var heard = string.Empty;
@@ -91,15 +133,17 @@ public sealed class ArcVoiceLoop : IAsyncDisposable
             heard = result.IsSuccessful ? result.Text : heard;
         }
         catch (OperationCanceledException) { /* user stopped the turn */ }
-        catch (Exception)
+        catch (Exception ex)
         {
             // No recogniser on this platform, or the engine failed to start.
+            Log($"ListenAsync falhou: {ex.GetType().Name}: {ex.Message}");
             SetPhase(VoicePhase.Unavailable);
             return;
         }
 
         if (string.IsNullOrWhiteSpace(heard)) { SetPhase(VoicePhase.Idle); return; }
 
+        Log($"ouvido: {heard}");
         LastHeard = heard;
         Transcript?.Invoke(heard, true);
         await _bus.PublishAsync("voice.heard", new Dictionary<string, object>
@@ -121,6 +165,7 @@ public sealed class ArcVoiceLoop : IAsyncDisposable
     {
         if (string.IsNullOrWhiteSpace(text)) return;
 
+        Log($"falando: {text}");
         LastSpoken = text;
         SetPhase(VoicePhase.Speaking);
         Transcript?.Invoke(text, false);
@@ -139,10 +184,11 @@ public sealed class ArcVoiceLoop : IAsyncDisposable
                 Volume = 1.0f,
             });
         }
-        catch (Exception)
+        catch (Exception ex)
         {
             // No synthesiser installed. The reply still reached the HUD as
             // text, so the turn is degraded rather than lost.
+            Log($"SpeakAsync falhou: {ex.GetType().Name}: {ex.Message}");
             SetPhase(VoicePhase.Unavailable);
         }
     }

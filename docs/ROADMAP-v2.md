@@ -153,5 +153,6 @@ centro daquele Grid media zero e nunca aparecia.
 | D3 | As 15 HUD Pages ainda usam a paleta antiga (`#0A0A12`) | `Pages/*.xaml` | Inconsistência com os tokens ARC (`Void #000308`). ~155 literais. |
 | D4 | `GrpcClient` nunca exercitado contra um kernel real | `Services/GrpcClient.cs` | A seção de voz assume "primeiro transcript = STT, resto = resposta". Convenção não validada. |
 | D5 | Rajdhani registrada mas não usada | `Arc.Typography.xaml` | Os quatro arquivos compartilham a família interna "Rajdhani"; o relógio caiu para JetBrains Mono. |
-| D6 | Voz implementada mas **não verificada ponta a ponta** | `Services/ArcVoiceLoop.cs` | Compila e está ligada ao reator, mas captura de microfone e síntese nunca foram exercitadas com áudio real. |
+| D6 | Voz não produz som nem captura áudio | `Services/ArcVoiceLoop.cs` | **Suspeita principal:** o `SpeechToText` do CommunityToolkit usa `Windows.Media.SpeechRecognition`, que exige app **empacotado (MSIX)**. Rodamos com `WindowsPackageType=None`. Autoteste em `%LOCALAPPDATA%\SextaFeira\startup-crash.log` confirma. |
+| D7 | Smart App Control bloqueia o binário recém-compilado | ambiente | `VerifiedAndReputablePolicyState = 1`. Executável não assinado e sem reputação é barrado ao iniciar. Impede verificação automatizada. |
 
