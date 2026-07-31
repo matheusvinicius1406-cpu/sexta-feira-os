@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8" ?>
-<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+<pages:HudBasePage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+                   xmlns:pages="clr-namespace:SextaFeira.CognitiveHUD.Pages"
              x:Class="SextaFeira.CognitiveHUD.Pages.BrainPage"
              BackgroundColor="#0A0A12" Shell.NavBarIsVisible="False">
     <Grid>
@@ -9,16 +10,16 @@
             <!-- Status row -->
             <HorizontalStackLayout Grid.Row="0" Spacing="24">
                 <VerticalStackLayout>
-                    <Label Text="ESTADO" TextColor="#555577" FontSize="8" FontFamily="Courier New" />
-                    <Label x:Name="StateLabel" Text="ocioso" TextColor="#00E5FF" FontSize="14" FontFamily="Courier New" />
+                    <Label Text="ESTADO" TextColor="#555577" FontSize="8" FontFamily="ArcData" />
+                    <Label x:Name="StateLabel" Text="ocioso" TextColor="#00E5FF" FontSize="14" FontFamily="ArcData" />
                 </VerticalStackLayout>
                 <VerticalStackLayout>
-                    <Label Text="CONF." TextColor="#555577" FontSize="8" FontFamily="Courier New" />
-                    <Label x:Name="ConfLabel" Text="—%" TextColor="#7C4DFF" FontSize="14" FontFamily="Courier New" />
+                    <Label Text="CONF." TextColor="#555577" FontSize="8" FontFamily="ArcData" />
+                    <Label x:Name="ConfLabel" Text="—%" TextColor="#7C4DFF" FontSize="14" FontFamily="ArcData" />
                 </VerticalStackLayout>
                 <VerticalStackLayout>
-                    <Label Text="MODELO" TextColor="#555577" FontSize="8" FontFamily="Courier New" />
-                    <Label x:Name="ModelLabel" Text="local" TextColor="#FFD600" FontSize="14" FontFamily="Courier New" />
+                    <Label Text="MODELO" TextColor="#555577" FontSize="8" FontFamily="ArcData" />
+                    <Label x:Name="ModelLabel" Text="local" TextColor="#FFD600" FontSize="14" FontFamily="ArcData" />
                 </VerticalStackLayout>
             </HorizontalStackLayout>
 
@@ -28,14 +29,14 @@
             <Frame Grid.Row="2" BackgroundColor="#12121E" BorderColor="#333355"
                    CornerRadius="12" Padding="12" HasShadow="False">
                 <VerticalStackLayout Spacing="6">
-                    <Label Text="⊜ RACIOCÍNIO" TextColor="#555577" FontSize="8" FontFamily="Courier New" />
+                    <Label Text="⊜ RACIOCÍNIO" TextColor="#555577" FontSize="8" FontFamily="ArcData" />
                     <Label x:Name="ReasonLabel" Text="—"
-                           TextColor="#8888AA" FontSize="11" FontFamily="Courier New"
+                           TextColor="#8888AA" FontSize="11" FontFamily="ArcData"
                            MaxLines="8" LineBreakMode="WordWrap" />
                     <BoxView HeightRequest="1" Color="#1A1A3E" />
                     <HorizontalStackLayout Spacing="8">
-                        <Label Text="↺ 0.0s" TextColor="#444466" FontSize="8" FontFamily="Courier New" />
-                        <Label Text="⚙ 0 tools" TextColor="#444466" FontSize="8" FontFamily="Courier New" />
+                        <Label Text="↺ 0.0s" TextColor="#444466" FontSize="8" FontFamily="ArcData" />
+                        <Label Text="⚙ 0 tools" TextColor="#444466" FontSize="8" FontFamily="ArcData" />
                     </HorizontalStackLayout>
                 </VerticalStackLayout>
             </Frame>
@@ -51,4 +52,4 @@
             </HorizontalStackLayout>
         </Grid>
     </Grid>
-</ContentPage>
+</pages:HudBasePage>

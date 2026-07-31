@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8" ?>
-<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+<pages:HudBasePage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+                   xmlns:pages="clr-namespace:SextaFeira.CognitiveHUD.Pages"
              x:Class="SextaFeira.CognitiveHUD.Pages.LearningPage"
              BackgroundColor="#0A0A12" Shell.NavBarIsVisible="False">
     <Grid>
@@ -8,16 +9,16 @@
         <Grid Padding="16,56,16,16" RowDefinitions="Auto,1,*,Auto">
             <HorizontalStackLayout Grid.Row="0" Spacing="24">
                 <VerticalStackLayout>
-                    <Label Text="SKILLS" TextColor="#555577" FontSize="8" FontFamily="Courier New" />
-                    <Label Text="3" TextColor="#00E5FF" FontSize="22" FontFamily="Courier New" />
+                    <Label Text="SKILLS" TextColor="#555577" FontSize="8" FontFamily="ArcData" />
+                    <Label Text="3" TextColor="#00E5FF" FontSize="22" FontFamily="ArcData" />
                 </VerticalStackLayout>
                 <VerticalStackLayout>
-                    <Label Text="CONF. MÉDIA" TextColor="#555577" FontSize="8" FontFamily="Courier New" />
-                    <Label Text="85%" TextColor="#7C4DFF" FontSize="22" FontFamily="Courier New" />
+                    <Label Text="CONF. MÉDIA" TextColor="#555577" FontSize="8" FontFamily="ArcData" />
+                    <Label Text="85%" TextColor="#7C4DFF" FontSize="22" FontFamily="ArcData" />
                 </VerticalStackLayout>
                 <VerticalStackLayout>
-                    <Label Text="AMOSTRAS" TextColor="#555577" FontSize="8" FontFamily="Courier New" />
-                    <Label Text="69" TextColor="#FFD600" FontSize="22" FontFamily="Courier New" />
+                    <Label Text="AMOSTRAS" TextColor="#555577" FontSize="8" FontFamily="ArcData" />
+                    <Label Text="69" TextColor="#FFD600" FontSize="22" FontFamily="ArcData" />
                 </VerticalStackLayout>
             </HorizontalStackLayout>
             <BoxView Grid.Row="1" HeightRequest="1" Color="#1A1A3E" Margin="0,8" />
@@ -25,23 +26,23 @@
                 <VerticalStackLayout Spacing="6">
                     <Frame BackgroundColor="#12121E" BorderColor="#2A2A4E" CornerRadius="10" Padding="10" HasShadow="False">
                         <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto">
-                            <Label Text="Saudação matinal" TextColor="#E0E0FF" FontSize="11" FontFamily="Courier New" />
-                            <Label Grid.Column="1" Text="92%" TextColor="#00E676" FontSize="11" FontFamily="Courier New" />
-                            <Label Grid.Row="1" Grid.ColumnSpan="2" Text="23 amostras" TextColor="#555577" FontSize="8" FontFamily="Courier New" />
+                            <Label Text="Saudação matinal" TextColor="#E0E0FF" FontSize="11" FontFamily="ArcData" />
+                            <Label Grid.Column="1" Text="92%" TextColor="#00E676" FontSize="11" FontFamily="ArcData" />
+                            <Label Grid.Row="1" Grid.ColumnSpan="2" Text="23 amostras" TextColor="#555577" FontSize="8" FontFamily="ArcData" />
                         </Grid>
                     </Frame>
                     <Frame BackgroundColor="#12121E" BorderColor="#2A2A4E" CornerRadius="10" Padding="10" HasShadow="False">
                         <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto">
-                            <Label Text="Preferência musical" TextColor="#E0E0FF" FontSize="11" FontFamily="Courier New" />
-                            <Label Grid.Column="1" Text="78%" TextColor="#FFD600" FontSize="11" FontFamily="Courier New" />
-                            <Label Grid.Row="1" Grid.ColumnSpan="2" Text="15 amostras" TextColor="#555577" FontSize="8" FontFamily="Courier New" />
+                            <Label Text="Preferência musical" TextColor="#E0E0FF" FontSize="11" FontFamily="ArcData" />
+                            <Label Grid.Column="1" Text="78%" TextColor="#FFD600" FontSize="11" FontFamily="ArcData" />
+                            <Label Grid.Row="1" Grid.ColumnSpan="2" Text="15 amostras" TextColor="#555577" FontSize="8" FontFamily="ArcData" />
                         </Grid>
                     </Frame>
                     <Frame BackgroundColor="#12121E" BorderColor="#2A2A4E" CornerRadius="10" Padding="10" HasShadow="False">
                         <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto">
-                            <Label Text="Horário de trabalho" TextColor="#E0E0FF" FontSize="11" FontFamily="Courier New" />
-                            <Label Grid.Column="1" Text="85%" TextColor="#00E5FF" FontSize="11" FontFamily="Courier New" />
-                            <Label Grid.Row="1" Grid.ColumnSpan="2" Text="31 amostras" TextColor="#555577" FontSize="8" FontFamily="Courier New" />
+                            <Label Text="Horário de trabalho" TextColor="#E0E0FF" FontSize="11" FontFamily="ArcData" />
+                            <Label Grid.Column="1" Text="85%" TextColor="#00E5FF" FontSize="11" FontFamily="ArcData" />
+                            <Label Grid.Row="1" Grid.ColumnSpan="2" Text="31 amostras" TextColor="#555577" FontSize="8" FontFamily="ArcData" />
                         </Grid>
                     </Frame>
                 </VerticalStackLayout>
@@ -51,4 +52,4 @@
             </HorizontalStackLayout>
         </Grid>
     </Grid>
-</ContentPage>
+</pages:HudBasePage>

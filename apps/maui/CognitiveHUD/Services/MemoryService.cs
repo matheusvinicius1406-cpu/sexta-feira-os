@@ -6,7 +6,7 @@ namespace SextaFeira.CognitiveHUD.Services;
 /// Memory service — mirrors Python MemoryAdapter.
 /// Wraps gRPC memory operations with domain-appropriate DTOs.
 /// </summary>
-public class MemoryService : IMemoryService
+public class MemoryService : IMemoryService, IMemoryEngine
 {
     private readonly GrpcClient _grpc;
     private readonly IEventBus _eventBus;
@@ -108,7 +108,7 @@ public class MemoryService : IMemoryService
         return new MemoryGraph(nodes.AsReadOnly(), edges.AsReadOnly());
     }
 
-    private static MemoryNode ToMemoryNode(CognitiveCore.V1.MemoryNode pb)
+    private static MemoryNode ToMemoryNode(SextaFeira.Cognitive.V1.MemoryNode pb)
     {
         return new MemoryNode(
             Id: pb.Id, Content: pb.Content, Title: pb.Title ?? "",
@@ -117,4 +117,14 @@ public class MemoryService : IMemoryService
             CreatedAt: pb.CreatedAt?.ToDateTime(),
             UpdatedAt: pb.UpdatedAt?.ToDateTime());
     }
+
+    // ── IEngine ─────────────────────────────────────────────
+    public string Name => "Memory";
+
+    public Task InitializeAsync() => Task.CompletedTask;
+
+    public async Task<bool> HealthAsync() =>
+        await _grpc.CheckHealthCoreAsync() is not null;
+
+    public Task ShutdownAsync() => Task.CompletedTask;
 }

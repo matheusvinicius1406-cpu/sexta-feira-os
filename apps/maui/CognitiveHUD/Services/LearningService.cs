@@ -5,7 +5,7 @@ namespace SextaFeira.CognitiveHUD.Services;
 /// Manages continuous learning, pattern recognition, and skill acquisition.
 /// Currently a stub — real implementation when learning gRPC endpoints exist.
 /// </summary>
-public class LearningService
+public class LearningService : ILearningService
 {
     private readonly IEventBus _eventBus;
 

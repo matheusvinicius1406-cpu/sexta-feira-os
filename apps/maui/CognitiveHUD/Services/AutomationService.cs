@@ -6,7 +6,7 @@ namespace SextaFeira.CognitiveHUD.Services;
 /// Automation service — mirrors Python AutomationAdapter.
 /// Manages n8n workflows, event streaming, and device commands.
 /// </summary>
-public class AutomationService : IAutomationService
+public class AutomationService : IAutomationService, IAutomationEngine
 {
     private readonly GrpcClient _grpc;
 
@@ -25,4 +25,14 @@ public class AutomationService : IAutomationService
     {
         return await _grpc.ListWorkflowsCoreAsync();
     }
+
+    // ── IEngine ─────────────────────────────────────────────
+    public string Name => "Automation";
+
+    public Task InitializeAsync() => Task.CompletedTask;
+
+    public async Task<bool> HealthAsync() =>
+        await _grpc.CheckHealthCoreAsync() is not null;
+
+    public Task ShutdownAsync() => Task.CompletedTask;
 }

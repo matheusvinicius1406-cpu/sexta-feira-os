@@ -5,7 +5,7 @@ namespace SextaFeira.CognitiveHUD.Services;
 /// Manages goal-oriented plans, tasks, and objectives.
 /// Currently a stub — real implementation when planning gRPC endpoints exist.
 /// </summary>
-public class PlanningService
+public class PlanningService : IPlanningService
 {
     private readonly IEventBus _eventBus;
 

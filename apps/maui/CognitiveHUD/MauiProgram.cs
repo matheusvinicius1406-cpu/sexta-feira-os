@@ -12,16 +12,59 @@ namespace SextaFeira.CognitiveHUD;
 
 public static class MauiProgram
 {
+    /// <summary>
+    /// Where startup crashes are written. A WinUI app that throws before its
+    /// first window exists dies as a stowed exception (0xC000027B) with no
+    /// console, no event-log stack, and nothing to debug — so catch it here
+    /// and leave a readable trace on disk.
+    /// </summary>
+    public static readonly string CrashLogPath = Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+        "SextaFeira", "startup-crash.log");
+
+    public static void LogStartupCrash(string origin, object? error)
+    {
+        try
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(CrashLogPath)!);
+            File.AppendAllText(CrashLogPath,
+                $"===== {DateTime.Now:O} [{origin}]{Environment.NewLine}{error}{Environment.NewLine}{Environment.NewLine}");
+        }
+        catch { /* nothing useful to do if even logging fails */ }
+    }
+
+    private static void InstallCrashLogger()
+    {
+        AppDomain.CurrentDomain.UnhandledException += (_, e) => LogStartupCrash("AppDomain", e.ExceptionObject);
+        TaskScheduler.UnobservedTaskException += (_, e) => LogStartupCrash("TaskScheduler", e.Exception);
+    }
+
     public static MauiApp CreateMauiApp()
     {
+        InstallCrashLogger();
         var builder = MauiApp.CreateBuilder();
         builder
             .UseMauiApp<App>()
             .UseSkiaSharp()
             .ConfigureFonts(fonts =>
             {
-                fonts.AddFont("OpenSans-Regular.ttf", "OpenSansRegular");
-                fonts.AddFont("OpenSans-Semibold.ttf", "OpenSansSemibold");
+                // ── ARC Design System typography ──────────────
+                // Two families, two roles (docs/design-system/02-TIPOGRAFIA.md).
+                // Aliases are what XAML and Skia ask for; the file names are
+                // an implementation detail that must not leak into styles.
+
+                // Display — Rajdhani. Panel titles, the clock, and the
+                // J.A.R.V.I.S. wordmark (which needs the Bold cut).
+                fonts.AddFont("Rajdhani-Light.ttf",   "ArcDisplayLight");
+                fonts.AddFont("Rajdhani-Regular.ttf", "ArcDisplay");
+                fonts.AddFont("Rajdhani-Medium.ttf",  "ArcDisplayMedium");
+                fonts.AddFont("Rajdhani-Bold.ttf",    "ArcDisplayBold");
+
+                // Data — JetBrains Mono. The primary voice of the HUD:
+                // every label, readout and telemetry value.
+                fonts.AddFont("JetBrainsMono-Light.ttf",   "ArcDataLight");
+                fonts.AddFont("JetBrainsMono-Regular.ttf", "ArcData");
+                fonts.AddFont("JetBrainsMono-Medium.ttf",  "ArcDataMedium");
             });
 
         // Build the navigation tree root

@@ -5,7 +5,7 @@ namespace SextaFeira.CognitiveHUD.Services;
 /// Manages reminders, timed actions, and recurring tasks.
 /// Currently a stub — real implementation when scheduler gRPC endpoints exist.
 /// </summary>
-public class SchedulerService
+public class SchedulerService : ISchedulerService
 {
     private readonly IEventBus _eventBus;
 

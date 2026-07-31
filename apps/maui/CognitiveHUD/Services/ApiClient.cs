@@ -111,7 +111,7 @@ public class ApiClient
     }
 
     // ── Memory ─────────────────────────────────────────────
-    public async Task<MemorySearchResult?> SearchMemoryAsync(string query)
+    public async Task<MemorySearchResponse?> SearchMemoryAsync(string query)
     {
         try
         {
@@ -122,7 +122,7 @@ public class ApiClient
             if (!response.IsSuccessStatusCode)
                 return null;
 
-            return await response.Content.ReadFromJsonAsync<MemorySearchResult>();
+            return await response.Content.ReadFromJsonAsync<MemorySearchResponse>();
         }
         catch
         {
@@ -158,10 +158,10 @@ public record ChatResult(
     [property: JsonPropertyName("reply")] string Reply,
     [property: JsonPropertyName("conversation_id")] string ConversationId);
 
-public record MemorySearchResult(
-    [property: JsonPropertyName("results")] List<MemoryItem> Results);
+public record MemorySearchResponse(
+    [property: JsonPropertyName("results")] List<MemoryItemDto> Results);
 
-public record MemoryItem(
+public record MemoryItemDto(
     [property: JsonPropertyName("id")] string Id,
     [property: JsonPropertyName("content")] string Content,
     [property: JsonPropertyName("title")] string? Title,

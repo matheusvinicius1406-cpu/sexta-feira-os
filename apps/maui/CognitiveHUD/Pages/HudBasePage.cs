@@ -6,8 +6,9 @@ namespace SextaFeira.CognitiveHUD.Pages;
 /// <summary>
 /// Base class for all 15 HUD pages in the Sexta-Feira Cognitive OS.
 ///
-/// Each page defines its own XAML layout with a single <GraphicsView x:Name="HudCanvas" />
-/// plus module-specific content. This base class provides:
+/// Each page defines its own XAML layout with a single
+/// <c>&lt;GraphicsView x:Name="HudCanvas" /&gt;</c> plus module-specific
+/// content. This base class provides:
 /// - 60 FPS render loop via the page's HudCanvas
 /// - HudPageDrawable for ambient HUD effects (grid, glow, pulse rings)
 /// - IEventBus for publishing page lifecycle events
@@ -34,7 +35,7 @@ public abstract class HudBasePage : ContentPage
     protected HudBasePage()
     {
         BackgroundColor = Color.FromArgb("#0A0A12");
-        Shell.NavBarIsVisible = false;
+        Shell.SetNavBarIsVisible(this, false);
     }
 
     private T ResolveService<T>() where T : class
@@ -66,7 +67,7 @@ public abstract class HudBasePage : ContentPage
             StartRenderLoop();
         }
 
-        _ = Bus.PublishAsync($"hud.{ModuleId}.opened", new { module = ModuleId });
+        _ = Bus.PublishAsync($"hud.{ModuleId}.opened", new Dictionary<string, object> { ["module"] = ModuleId });
     }
 
     protected override void OnDisappearing()
@@ -79,7 +80,7 @@ public abstract class HudBasePage : ContentPage
             _hudCanvas.StartInteraction -= OnCanvasTap;
             _hudCanvas.Drawable = null;
         }
-        _ = Bus.PublishAsync($"hud.{ModuleId}.closed", new { module = ModuleId });
+        _ = Bus.PublishAsync($"hud.{ModuleId}.closed", new Dictionary<string, object> { ["module"] = ModuleId });
     }
 
     /// <summary>

@@ -21,7 +21,10 @@ public partial class AutomationViewModel : ObservableObject
         _eventBus = eventBus;
 
         // Subscribe to automation events
-        _eventBus.Subscribe("workflow.*", async evt =>
+        // Not async: the handler only logs. Marking it async without an await
+        // makes it run synchronously anyway, just with a state machine and a
+        // compiler warning attached.
+        _eventBus.Subscribe("workflow.*", evt =>
         {
             if (evt.Data.TryGetValue("workflow_id", out var wfId))
             {
@@ -32,9 +35,9 @@ public partial class AutomationViewModel : ObservableObject
                     _ => $"📢 {evt.EventType}: {wfId}",
                 };
 
-                // Ensure we're on the UI thread
                 System.Diagnostics.Debug.WriteLine(msg);
             }
+            return Task.CompletedTask;
         });
     }
 

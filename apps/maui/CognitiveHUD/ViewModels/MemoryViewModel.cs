@@ -139,13 +139,14 @@ public partial class MemoryViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private async Task LinkMemoriesAsync(string sourceId, string targetId, string relation = "related")
+    private async Task LinkMemoriesAsync(MemoryLinkRequest request)
     {
         IsLoading = true;
         ErrorMessage = null;
         try
         {
-            await _memoryService.LinkMemoriesAsync(sourceId, targetId, relation);
+            await _memoryService.LinkMemoriesAsync(
+                request.SourceId, request.TargetId, request.Relation);
         }
         catch (Exception ex)
         {
