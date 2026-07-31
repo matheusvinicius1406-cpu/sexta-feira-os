@@ -120,6 +120,14 @@ public partial class MainPage : ContentPage
         float dt = (float)(now - _lastFrame).TotalSeconds;
         _lastFrame = now;
 
+        // Derive the pixel/DIU ratio from the surface itself. DeviceDisplay
+        // reports the *display* scale, which is not the same number once the
+        // window is on a secondary monitor or the canvas is letterboxed —
+        // and every canvas-to-layout conversion below depends on getting it
+        // right.
+        if (Surface.Width > 0 && Surface.CanvasSize.Width > 0)
+            _density = (float)(Surface.CanvasSize.Width / Surface.Width);
+
         _items = ArcModules.ItemsFor(_model.Depth, _model.ActiveIndex);
         _model.ItemCount = _items.Length;
         _model.HoverIndex = _renderer.HitTest(_pointer, _items.Length, _model);
@@ -130,6 +138,27 @@ public partial class MainPage : ContentPage
 
         Surface.InvalidateSurface();
         PositionLabels();
+        PositionIdentity();
+    }
+
+    /// <summary>
+    /// Parks the clock and greeting below the reactor and the wordmark.
+    ///
+    /// Driven from the frame tick, not from the paint callback: mutating
+    /// layout while Skia is painting is the wrong thread of control and the
+    /// change can be dropped entirely.
+    /// </summary>
+    private void PositionIdentity()
+    {
+        if (_renderer.CoreRadius <= 0f || Surface.Height <= 0) return;
+
+        // Anchored to the top with a computed margin rather than centred with
+        // a translation: every centred overlay in this Grid measured to zero
+        // and never appeared, while the Start/End-anchored ones all render.
+        double centre = Surface.Height / 2.0;
+        double offset = _renderer.CoreRadius * ArcGeometry.ClockOffset / _density;
+        IdentityBlock.Margin = new Thickness(0, centre + offset, 0, 0);
+        IdentityBlock.Opacity = _model.Depth > 0 ? 0.30 : 1.0;
     }
 
     private float Proximity()
@@ -149,12 +178,6 @@ public partial class MainPage : ContentPage
         _renderer.Render(canvas, size, _model);
         _renderer.DrawOrbit(canvas, _items, _model);
         _renderer.DrawWordmark(canvas, "J.A.R.V.I.S.", _wordmarkFace, _model);
-
-        // Identity block clears the reactor and the wordmark. Canvas units are
-        // pixels; MAUI positions in device-independent units.
-        IdentityBlock.TranslationY =
-            _renderer.CoreRadius * ArcGeometry.ClockOffset / _density;
-        IdentityBlock.Opacity = _model.Depth > 0 ? 0.30 : 1.0;
     }
 
     private void OnSurfaceTouch(object? sender, SKTouchEventArgs e)

@@ -106,8 +106,12 @@
     <!-- The clock. The only large numeral in the system; it lives below
          the reactor, never inside it — the core is the brightest region
          on screen and text there would be unreadable. -->
+    <!-- ArcDataLight, not the display face: Rajdhani ships four files that
+         all share the internal family name "Rajdhani", and the Windows font
+         loader fails to pick a weight from that — the label rendered blank.
+         JetBrains Mono gives each weight its own family name and resolves. -->
     <Style x:Key="Arc.Text.Clock" TargetType="Label">
-        <Setter Property="FontFamily" Value="ArcDisplayLight" />
+        <Setter Property="FontFamily" Value="ArcDataLight" />
         <Setter Property="FontSize" Value="46" />
         <Setter Property="CharacterSpacing" Value="9" />
         <Setter Property="TextColor" Value="{StaticResource Arc.Color.InkHi}" />
