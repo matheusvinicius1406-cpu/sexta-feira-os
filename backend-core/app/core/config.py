@@ -69,7 +69,7 @@ class Settings(BaseSettings):
     # ============ Local Brain (Ollama) ============
     # This is the ONLY inference backend. It runs on your machine.
     ollama_endpoint: str = "http://127.0.0.1:11434"
-    brain_model: str = "llama3.2"  # your local reasoning model
+    brain_model: str = "llava:7b"  # your local reasoning model
     embedding_model: str = "nomic-embed-text"  # local embeddings
     brain_temperature: float = 0.7
     brain_max_tokens: int = 2048
@@ -119,7 +119,7 @@ class Settings(BaseSettings):
     graph_relation_labels: bool = True
 
     # ============ Vision (local, offline) ============
-    # Vision analysis uses Ollama vision models (llava, llama3.2-vision, etc.)
+    # Vision analysis uses Ollama vision models (llava, bakllava, etc.)
     # for image understanding, camera analysis, and document OCR.
     vision_enabled: bool = True
     vision_model: str = ""  # auto-detect if empty (llava preferred)

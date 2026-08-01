@@ -45,7 +45,7 @@ próprio modelo, basta apontar `BRAIN_MODEL` para ele — nada mais muda.
 ```bash
 # 1. Ollama (o cérebro local) — instala e roda 100% na sua máquina
 curl -fsSL https://ollama.com/install.sh | sh
-ollama pull llama3.2
+ollama pull llava:7b
 ollama pull nomic-embed-text
 
 # 2. Kernel

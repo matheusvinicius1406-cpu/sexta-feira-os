@@ -27,8 +27,6 @@ logger = logging.getLogger("sexta-feira.vision")
 VISION_MODELS = [
     "llava:7b",
     "llava:13b",
-    "llama3.2-vision:11b",
-    "llama3.2-vision:90b",
     "bakllava",
     "moondream",
 ]

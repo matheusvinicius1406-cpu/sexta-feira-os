@@ -2,7 +2,7 @@
 LocalBrain — the ONLY inference backend.
 
 It talks to a local Ollama server (default http://127.0.0.1:11434) for BOTH:
-  * reasoning / chat  (settings.brain_model, e.g. llama3.2)
+  * reasoning / chat  (settings.brain_model, e.g. llava:7b)
   * embeddings        (settings.embedding_model, e.g. nomic-embed-text)
 
 There is deliberately NO OpenAI / Claude / Gemini / cloud path. Nothing you
@@ -38,7 +38,7 @@ class LocalBrain:
         self.model = model or settings.brain_model
         self.embedding_model = embedding_model or settings.embedding_model
         # One shared client => connection pooling / keep-alive (no per-request TLS churn).
-        self._client = httpx.AsyncClient(base_url=self.endpoint, timeout=httpx.Timeout(120.0))
+        self._client = httpx.AsyncClient(base_url=self.endpoint, timeout=httpx.Timeout(300.0))  # 5min for llava:7b cold start
         logger.info("LocalBrain wired to %s (model=%s, embed=%s)",
                     self.endpoint, self.model, self.embedding_model)
 
