@@ -41,13 +41,13 @@ class VoiceAdapter:
 
     async def speak(self, text: str) -> bytes | None:
         voice = self._voice
-        if not voice or not voice.speaker:
+        if not voice or not voice.synthesizer:
             return None
         await publish_event("voice.speaking", {
             "text_length": len(text),
             "text_preview": text[:200],
         }, source="voice_adapter")
-        return await voice.speaker.speak(text)
+        return await voice.synthesizer.speak(text)
 
     async def chat(self, audio_bytes: bytes) -> dict | None:
         """Full voice cycle: transcribe → think → speak. Returns transcript + audio."""

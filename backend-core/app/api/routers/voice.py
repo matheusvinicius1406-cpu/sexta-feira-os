@@ -5,6 +5,9 @@ Voice — hearing and speaking, 100% local.
   POST /api/v1/voice/transcribe     audio file -> text (STT)
   POST /api/v1/voice/speak          text -> WAV audio (TTS)
   POST /api/v1/voice/chat           audio -> transcribe -> think -> reply (+ optional audio)
+  GET  /api/v1/voice/packs          list available voice packs
+  GET  /api/v1/voice/packs/{name}   get a voice pack by key
+  GET  /api/v1/voice/personality    random personality phrase
 
 Voice is an optional extra. If an engine isn't installed/configured, the
 relevant endpoint returns 503 with a clear message (same pattern as the brain).
@@ -25,6 +28,7 @@ from app.db.database import get_db
 from app.models.models import Owner
 from app.voice.box import VoiceBox
 from app.voice.stt import VoiceUnavailable
+from app.voice.voice_packs import list_packs, get_pack
 
 router = APIRouter(prefix="/api/v1/voice", tags=["voice"])
 
@@ -111,3 +115,43 @@ async def voice_chat(
         transcript=transcript, reply=reply,
         conversation_id=conv_id, audio_wav_base64=audio_b64,
     )
+
+
+# ── Voice Packs ───────────────────────────────────────────
+
+
+@router.get("/packs")
+async def get_voice_packs(
+    owner: Owner = Depends(get_current_owner),
+):
+    """List all available voice packs (personality presets)."""
+    return list_packs()
+
+
+@router.get("/packs/{pack_name}")
+async def get_voice_pack(
+    pack_name: str,
+    owner: Owner = Depends(get_current_owner),
+    voice: VoiceBox = Depends(get_voice),
+):
+    """Get a voice pack by name and set it as active."""
+    pack = get_pack(pack_name)
+    voice.set_pack(pack_name)
+    return {
+        "name": pack.name,
+        "description": pack.description,
+        "greeting": pack.greeting,
+        "farewell": pack.farewell,
+        "personality_phrases": pack.personality_phrases,
+    }
+
+
+@router.get("/personality")
+async def get_personality_phrase(
+    owner: Owner = Depends(get_current_owner),
+    voice: VoiceBox = Depends(get_voice),
+):
+    """Return a random personality phrase from the active voice pack."""
+    import random
+    phrases = voice.pack.personality_phrases
+    return {"phrase": random.choice(phrases), "pack": voice.pack.name}

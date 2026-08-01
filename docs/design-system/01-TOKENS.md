@@ -233,8 +233,14 @@ Uma passagem de brilho desfocada (`SKMaskFilter` sigma 9) é pintada **antes**, 
 
 **Raio base:**
 ```
-R = clamp(min(largura, altura) × 0.105, 52, 104)
+R_dp = clamp(min(largura_px, altura_px) / densidade × 0.105, 52, 104)
+R_px = R_dp × densidade
 ```
+
+> Os limites 52 e 104 são **dp, não pixels**. Um teto de 104px parece certo
+> num desktop 1x e desaba para ~38dp num celular 2,75x, encolhendo o HUD
+> inteiro e tornando o relógio ilegível. O clamp precisa morder na unidade
+> que a pessoa percebe.
 
 **Regra de contra-rotação:** camadas adjacentes nunca giram na mesma direção nem na mesma
 velocidade. Isso é o que produz a sensação de profundidade 3D sem 3D real.

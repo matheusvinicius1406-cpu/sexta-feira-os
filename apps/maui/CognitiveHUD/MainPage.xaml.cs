@@ -155,6 +155,8 @@ public partial class MainPage : ContentPage
         _model.HoverIndex = _renderer.HitTest(_pointer, _items.Length, _model);
         _model.Proximity = Proximity();
 
+        _renderer.Density = _density;
+
         _model.Update(dt);
         _brain.Tick(dt);
 

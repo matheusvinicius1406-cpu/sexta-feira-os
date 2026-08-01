@@ -3,9 +3,26 @@
 # Install on top of requirements.txt when you want the kernel to hear & speak:
 #     pip install -r requirements.txt -r requirements-voice.txt
 #
-# STT: faster-whisper (Whisper on your machine). Downloads the model once.
-# TTS: piper-tts (offline). You also need a Piper voice .onnx and set TTS_VOICE.
-#      Grab a pt-BR voice, e.g. from https://github.com/rhasspy/piper (voices).
+# === OPTION A: EdgeTTS (RECOMMENDED) ===
+# Microsoft Edge neural voices. Fast, natural, supports Portuguese.
+# Works on Python 3.14, no GPU needed. Requires internet for first call.
+# Set TTS_ENGINE=edge in .env (default).
+#
+# === OPTION B: VoiceBox (advanced, requires Docker) ===
+# Full voice studio with 7 TTS engines, voice cloning.
+# Install VoiceBox separately: https://github.com/jamiepine/voicebox
+# Set VOICEBOX_ENABLED=True in .env to activate.
+#
+# === OPTION C: Piper + faster-whisper (lightweight fallback) ===
+# Ultra-fast TTS (Piper) + local STT (faster-whisper). Works without GPU.
+# Set TTS_ENGINE=piper in .env to use these.
 # =========================================================
-faster-whisper==1.0.3
+
+# ── EdgeTTS (primary — neural voices, no GPU) ──────────────
+edge-tts>=7.0.0
+
+# ── Piper TTS (fallback, CPU-only) ──────────────────────────
 piper-tts==1.2.0
+
+# ── faster-whisper STT (local Whisper) ──────────────────────
+faster-whisper==1.0.3

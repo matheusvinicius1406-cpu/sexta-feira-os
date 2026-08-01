@@ -61,6 +61,13 @@ public sealed class ReactorRenderer : IDisposable
     // ── Frame geometry ──────────────────────────────────────
     private float _cx, _cy, _r;
 
+    /// <summary>
+    /// Pixels per density-independent unit for the surface being painted.
+    /// The host sets this; the core radius clamp depends on it, so leaving it
+    /// at 1 on a high-density screen renders the whole HUD a third of size.
+    /// </summary>
+    public float Density { get; set; } = 1f;
+
     /// <summary>Core radius in pixels for the last rendered frame.</summary>
     public float CoreRadius => _r;
     public SKPoint Center => new(_cx, _cy);
@@ -81,7 +88,7 @@ public sealed class ReactorRenderer : IDisposable
     {
         _cx = size.Width / 2f;
         _cy = size.Height / 2f;
-        _r  = ArcGeometry.CoreRadius(size.Width, size.Height);
+        _r  = ArcGeometry.CoreRadius(size.Width, size.Height, Density);
 
         canvas.Clear(ArcTokens.Void);
 

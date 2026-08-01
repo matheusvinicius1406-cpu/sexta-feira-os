@@ -51,6 +51,6 @@ class VoiceEngine(IEngine):
 
     async def speak(self, text: str) -> bytes | None:
         voice = self._voice
-        if not voice or not voice.speaker:
+        if not voice or not voice.synthesizer:
             return None
-        return await voice.speaker.speak(text)
+        return await voice.synthesizer.speak(text)

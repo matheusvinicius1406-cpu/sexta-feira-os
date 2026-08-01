@@ -68,5 +68,60 @@ class PiperSynthesizer(Synthesizer):
         return await asyncio.to_thread(self._speak_sync, text)
 
 
+class VoiceBoxSynthesizer(Synthesizer):
+    """TTS via jamiepine/voicebox REST API — 7 engines, voice cloning, local."""
+
+    def available(self) -> bool:
+        # Optimistically report available when voicebox_enabled.
+        # Actual connectivity is checked in speak(); failures
+        # raise VoiceUnavailable → API returns clean 503.
+        return True
+
+    async def speak(self, text: str) -> bytes:
+        from app.voice.voicebox_adapter import synthesize
+        audio = await synthesize(text)
+        if audio is None:
+            raise VoiceUnavailable(
+                "VoiceBox indisponível. Verifique se o servidor VoiceBox "
+                f"está rodando em {settings.voicebox_endpoint}"
+            )
+        return audio
+
+
+class EdgeTTSSynthesizer(Synthesizer):
+    """TTS via Microsoft Edge neural voices — no GPU, works on Python 3.14."""
+
+    def __init__(self) -> None:
+        self._impl = None
+
+    def available(self) -> bool:
+        try:
+            import edge_tts  # noqa: F401
+            return True
+        except ImportError:
+            return False
+
+    async def speak(self, text: str) -> bytes:
+        from app.voice.edge_tts_adapter import EdgeTTSSynthesizer
+        if self._impl is None:
+            self._impl = EdgeTTSSynthesizer()
+        return await self._impl.speak(text)
+
+
 def build_synthesizer() -> Synthesizer:
+    from app.core.config import settings
+    # Build priority list based on config
+    engine = settings.tts_engine.lower()
+    if engine == "voicebox" and settings.voicebox_enabled:
+        return VoiceBoxSynthesizer()
+    if engine == "edge":
+        s = EdgeTTSSynthesizer()
+        if s.available():
+            return s
+    if engine == "piper":
+        return PiperSynthesizer()
+    # Auto-detect: EdgeTTS > Piper > VoiceBox
+    edge = EdgeTTSSynthesizer()
+    if edge.available():
+        return edge
     return PiperSynthesizer()

@@ -70,6 +70,51 @@ class FasterWhisperTranscriber(Transcriber):
         return await asyncio.to_thread(self._transcribe_sync, audio, language)
 
 
+class VoiceBoxTranscriber(Transcriber):
+    """STT via jamiepine/voicebox Whisper integration — local, no cloud."""
+
+    def available(self) -> bool:
+        # Optimistically report available when voicebox_enabled.
+        # Actual connectivity is checked in transcribe(); failures
+        # raise VoiceUnavailable → API returns clean 503.
+        return True
+
+    async def transcribe(self, audio: bytes, language: str | None = None) -> str:
+        from app.voice.voicebox_adapter import transcribe as vb_transcribe
+        result = await vb_transcribe(audio, language)
+        if result is None:
+            raise VoiceUnavailable(
+                "VoiceBox STT indisponível. Verifique se o servidor "
+                f"VoiceBox está rodando em {settings.voicebox_endpoint}"
+            )
+        return result
+
+
+class SpeechRecognitionTranscriber(Transcriber):
+    """STT via Google free API — lightweight, works on Python 3.14."""
+
+    def available(self) -> bool:
+        try:
+            import speech_recognition  # noqa: F401
+            return True
+        except ImportError:
+            return False
+
+    async def transcribe(self, audio: bytes, language: str | None = None) -> str:
+        from app.voice.speech_recognition_adapter import SpeechRecognitionTranscriber
+        impl = SpeechRecognitionTranscriber()
+        return await impl.transcribe(audio, language)
+
+
 def build_transcriber() -> Transcriber:
-    # Only faster-whisper today; the interface keeps it swappable (Vosk, etc.).
+    from app.core.config import settings
+    if settings.voicebox_enabled:
+        return VoiceBoxTranscriber()
+    # Try faster-whisper first, then SpeechRecognition
+    whisper = FasterWhisperTranscriber()
+    if whisper.available():
+        return whisper
+    sr = SpeechRecognitionTranscriber()
+    if sr.available():
+        return sr
     return FasterWhisperTranscriber()

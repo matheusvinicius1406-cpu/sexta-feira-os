@@ -35,8 +35,10 @@ from app.api.routers import (  # noqa: E402
     memory,
     obsidian,
     planning,
+    radio,
     schedule,
     timetrack,
+    vision,
     voice,
     world,
 )
@@ -103,10 +105,12 @@ app.include_router(journal.router)
 app.include_router(timetrack.router)
 app.include_router(evals.router)
 app.include_router(voice.router)
+app.include_router(radio.router)
 app.include_router(automation.router)
 app.include_router(action.router)
 app.include_router(schedule.router)
 app.include_router(connectors.router)
+app.include_router(vision.router)
 app.include_router(obsidian.router)
 
 

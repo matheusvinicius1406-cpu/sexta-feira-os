@@ -80,6 +80,13 @@ class StopGrpcStep(ShutdownStep):
             await kernel._grpc_server.stop(grace=5.0)
 
 
+class StopVoiceBoxStep(ShutdownStep):
+    name = "stop_voicebox"
+    async def execute(self, kernel: Kernel) -> None:
+        from app.voice.voicebox_adapter import close_client
+        await close_client()
+
+
 class ShutdownPipeline:
     """Graceful kernel shutdown through ordered step classes."""
 
@@ -90,6 +97,7 @@ class ShutdownPipeline:
         StopAutomationsStep,
         StopBrainStep,
         StopGrpcStep,
+        StopVoiceBoxStep,
     ]
 
     def __init__(self, steps: list[type[ShutdownStep]] | None = None) -> None:

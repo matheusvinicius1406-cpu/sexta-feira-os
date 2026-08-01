@@ -13,12 +13,31 @@ public static class ArcGeometry
 
     /// <summary>Fraction of the shorter viewport axis the core occupies.</summary>
     public const float CoreFraction = 0.105f;
+
+    /// <summary>
+    /// Bounds on the core radius, in density-independent units.
+    ///
+    /// These are DIU, not pixels: a 104-pixel cap looks right on a 1x desktop
+    /// and collapses to ~38dp on a 2.75x phone, shrinking the whole HUD and
+    /// making the canvas-drawn clock illegible. The clamp has to bite in the
+    /// unit a human perceives, then convert back to the pixels Skia paints in.
+    /// </summary>
     public const float CoreMin = 52f;
     public const float CoreMax = 104f;
 
-    /// <summary>R for a given surface. All other values multiply this.</summary>
-    public static float CoreRadius(float width, float height) =>
-        Math.Clamp(Math.Min(width, height) * CoreFraction, CoreMin, CoreMax);
+    /// <summary>
+    /// R for a given surface, in canvas pixels. All other values multiply this.
+    /// </summary>
+    /// <param name="widthPx">Surface width in pixels (SKImageInfo.Width).</param>
+    /// <param name="heightPx">Surface height in pixels.</param>
+    /// <param name="density">Pixels per density-independent unit.</param>
+    public static float CoreRadius(float widthPx, float heightPx, float density = 1f)
+    {
+        if (density <= 0f) density = 1f;
+        float shorterDiu = Math.Min(widthPx, heightPx) / density;
+        float radiusDiu = Math.Clamp(shorterDiu * CoreFraction, CoreMin, CoreMax);
+        return radiusDiu * density;
+    }
 
     // ── Reactor body (multiples of R) ───────────────────────
     public const float HotCore    = 0.26f;
