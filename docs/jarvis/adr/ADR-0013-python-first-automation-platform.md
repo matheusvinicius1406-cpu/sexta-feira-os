@@ -83,9 +83,39 @@ consentimento explícito.
 ## Plano
 
 10 fases incrementais (AUTOMATION_PLATFORM.md §12), começando pelo **núcleo de domínio** sem
-execução. **Nenhum código nesta entrega** — apenas a arquitetura e este ADR, para aprovação.
+execução.
 
-## Notas de implementação
+## Estado da implementação (2026-08-01)
 
-Fase 0 (esta): `docs/jarvis/architecture/AUTOMATION_PLATFORM.md` + este ADR, entregues por
-**Pull Request** na branch `claude/automation-platform-arch`, sem alterações diretas na `main`.
+Fases 0, 1, 2, 3, 5, 6 e 10 entregues; 8 parcial. O **n8n foi removido**: não há mais
+`N8nClient`, bridge de callback, workflows JSON, servidor MCP nem serviço no
+`docker-compose`. O que existe hoje:
+
+| Peça | Onde | O que faz |
+|---|---|---|
+| Domínio | `automation/teia/domain/` | grafo, contratos de node/trigger, validação |
+| Orquestrador | `engine/orchestrator.py` | prontidão dos nós, roteamento, poda de ramos, guardas |
+| Operários | `engine/workers.py` | executam um nó cada: resolução, validação, retry, timeout |
+| Expressões | `engine/expressions.py` | `{{ }}` por busca de caminho — sem `eval`, sem código |
+| Persistência | `store.py` + migração `a1c7d2f4b8e0` | workflows, execuções, checkpoint por nó |
+| Gatilhos | `triggers/` | cron próprio, intervalo, evento (EventBus), webhook, manual |
+| Nodes | `nodes/` | 44 tipos: fluxo, dados, HTTP, IA local, kernel, arquivos, sistema |
+| Catálogo | `catalog.py` | 10 automações prontas, só com capacidades locais |
+| Interfaces | `api/routers/automation.py`, `cli.py` | REST + CLI sobre o mesmo objeto |
+
+**Pendentes:** plugins por entry point (Fase 4), broker distribuído (Fase 7), RAG/agente/MCP
+nos nodes de IA (resto da Fase 8), OpenTelemetry (Fase 9).
+
+### Decisões tomadas na implementação
+
+- **Cron próprio em vez de `croniter`.** ~100 linhas de aritmética pura, testadas, contra uma
+  dependência nova num kernel deliberadamente enxuto. A regra "biblioteca madura primeiro"
+  vale para não reescrever um motor — não para casar um horário.
+- **CLI com `argparse` em vez de Typer.** A ferramenta que precisa funcionar quando nada mais
+  está de pé não deve depender de um pacote a mais.
+- **Sem laços no grafo.** O workflow continua um DAG; repetição e reuso vêm do node
+  `sub_automacao`, com profundidade limitada — o que também mata a recursão infinita.
+- **Validação estática pula config com `{{ }}`.** O tipo real de um placeholder só existe em
+  execução; quem valida é o operário, no momento em que a resposta existe.
+- **O cérebro executa, o dono autoria.** `ToolKit` roda automações existentes mas não cria
+  nem edita nenhuma, então um prompt envenenado só alcança o que o dono já aprovou.

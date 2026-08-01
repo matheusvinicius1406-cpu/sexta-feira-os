@@ -81,9 +81,11 @@ Ou use `scripts/setup.sh` para fazer tudo isso de uma vez.
 | `POST` | `/api/v1/voice/transcribe` | áudio → texto (STT local, offline) |
 | `POST` | `/api/v1/voice/speak` | texto → áudio (TTS local, offline) |
 | `POST` | `/api/v1/voice/chat` | áudio → ouve, pensa (com memória) e responde (voz) |
-| `GET` | `/api/v1/automations` | lista seus workflows do n8n |
-| `POST` | `/api/v1/automations/trigger` | dispara um workflow (o Sexta-Feira **age**) |
-| `GET` | `/api/v1/automations/status` | o n8n local está no ar? |
+| `GET`/`POST` | `/api/v1/automations` | lista / cria suas automações (Teia) |
+| `POST` | `/api/v1/automations/{slug}/run` | executa uma automação (o Sexta-Feira **age**) |
+| `GET` | `/api/v1/automations/types` | todo tipo de nó e gatilho, com schema |
+| `GET` | `/api/v1/automations/executions` | trilha de execuções, nó a nó |
+| `POST` | `/api/v1/automations/webhook/{caminho}` | dispara uma automação por webhook |
 | `POST` | `/api/v1/actions/dispatch` | manda um corpo (celular/PC) executar uma ação |
 | `WS` | `/api/v1/actions/stream?token=…` | canal ao vivo do dispositivo (recebe ações, reporta) |
 | `GET` | `/api/v1/actions/pending` | fila do dispositivo (fallback por polling) |
@@ -103,19 +105,32 @@ pip install -r backend-core/requirements-voice.txt   # faster-whisper + piper
 # baixe uma voz Piper pt-BR (.onnx) e aponte TTS_VOICE no .env
 ```
 
-### Automações (as mãos — n8n local)
+### Automações (as mãos — Teia, em Python, dentro do kernel)
 
-O Sexta-Feira **age** através de um **n8n self-hosted** (centenas de integrações →
-milhares de automações). Tudo roda na sua máquina.
+O Sexta-Feira **age** pela **Teia**: um orquestrador e um pool de operários que rodam
+grafos de nós, no próprio processo do kernel. Não há serviço extra para subir, painel
+para abrir nem runtime Node.js — se o kernel está de pé, as automações estão.
+
+- **44 tipos de nó**: fluxo e dados, HTTP, IA local (Ollama), memória, World Model,
+  eventos, agenda, dispositivos, capacidades de API, arquivos e sistema.
+- **5 gatilhos**: manual, agenda (cron), intervalo, evento do kernel e webhook.
+- **10 automações prontas** instaladas no primeiro boot (backup do banco, vigia de disco,
+  sentinela do cérebro, captura rápida, briefing matinal, revisão noturna…).
 
 ```bash
-docker compose up -d n8n     # painel em http://127.0.0.1:5678 (só seu)
-# crie workflows com um nó Webhook; o kernel dispara por /api/v1/automations/trigger
-# para listar workflows, gere uma API key no n8n e coloque em N8N_API_KEY no .env
+# ver o que já veio pronto, e rodar uma
+python -m app.automation.teia.cli listar
+python -m app.automation.teia.cli rodar backup-do-kernel
+
+# capturar uma ideia de qualquer lugar da máquina
+curl -X POST http://127.0.0.1:8000/api/v1/automations/webhook/captura      -H 'Content-Type: application/json' -d '{"texto":"uma ideia"}'
 ```
 
-> Privacidade: o motor n8n é local. Uma automação que fala com um serviço externo
-> (enviar e-mail, etc.) o faz por sua escolha naquele fluxo — não é vazamento do cérebro.
+Guia completo (expressões, nós, cercas de segurança): `docs/jarvis/architecture/TEIA_GUIA.md`.
+
+> Privacidade: o motor é local. Uma automação que fala com um serviço externo (enviar
+> e-mail, etc.) o faz por sua escolha naquele fluxo — não é vazamento do cérebro. Os nós
+> de IA usam **só** o Ollama desta máquina.
 
 ## Ensinar o Sexta-Feira (fine-tuning)
 

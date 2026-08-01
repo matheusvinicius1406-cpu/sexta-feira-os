@@ -4,7 +4,7 @@ namespace SextaFeira.CognitiveHUD.Services;
 
 /// <summary>
 /// Automation service — mirrors Python AutomationAdapter.
-/// Manages n8n workflows, event streaming, and device commands.
+/// Manages Teia automations, event streaming, and device commands.
 /// </summary>
 public class AutomationService : IAutomationService, IAutomationEngine
 {

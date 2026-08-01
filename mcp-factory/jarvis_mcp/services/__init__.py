@@ -7,7 +7,6 @@ from .documentation import DocumentationService
 from .filesystem import FilesystemService
 from .github import GitHubService
 from .memory import MemoryService
-from .n8n import N8nService
 from .security import SecurityService
 from .testing import TestingService
 
@@ -18,5 +17,4 @@ __all__ = [
     "TestingService",
     "SecurityService",
     "GitHubService",
-    "N8nService",
 ]

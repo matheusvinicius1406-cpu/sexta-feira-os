@@ -229,53 +229,75 @@ def test_auto_links_get_named_relations(client, owner_headers):
         kernel.memory.brain.chat = orig_chat
 
 
-# ---------------- automations (n8n bridge) ----------------
+# ---------------- automations (Teia) ----------------
+# The platform itself is covered in test_teia_*.py; what belongs here is that the
+# kernel boots WITH it wired in.
 
 def test_automations_require_auth(client):
     assert client.get("/api/v1/automations/status").status_code == 401
 
 
-def test_automations_status_reports_offline(client, owner_headers):
-    # No n8n in CI => status returns 200 with online=False (not a crash).
+def test_the_kernel_boots_with_the_teia_wired_in(client, owner_headers):
+    """No external runtime to reach: the engine is up because the kernel is up."""
     body = client.get("/api/v1/automations/status", headers=owner_headers).json()
-    assert body["online"] is False
-    assert "endpoint" in body
+    assert body["engine"] == "teia"
+    assert body["online"] is True
+    assert body["node_types"] >= 40
 
 
-def test_list_automations_degrades_gracefully(client, owner_headers):
-    # No API key / no n8n => clean 503.
-    r = client.get("/api/v1/automations", headers=owner_headers)
-    assert r.status_code == 503
+def test_the_brain_can_run_an_automation_by_name(client, owner_headers):
+    """The ToolKit path: a slug in, a human-readable outcome out."""
+    import asyncio
 
-
-def test_trigger_degrades_gracefully(client, owner_headers):
-    # n8n unreachable in CI => clean 503.
-    r = client.post("/api/v1/automations/trigger",
-                    json={"webhook": "meu-fluxo", "payload": {"x": 1}},
-                    headers=owner_headers)
-    assert r.status_code == 503
-
-
-def test_trigger_succeeds_when_n8n_up(client, owner_headers):
-    # Deterministic success via a stubbed n8n client.
     from app.core.di import get_kernel
+    from app.db.database import SessionLocal
+    from app.models.models import Owner
 
-    n8n = get_kernel().automations
-    original = n8n.trigger
-
-    async def fake_trigger(webhook, payload=None):
-        return {"ok": True, "status_code": 200, "result": {"received": payload}}
-
-    n8n.trigger = fake_trigger
+    kernel = get_kernel()
+    toolkit = kernel._toolkit
+    db = SessionLocal()
     try:
-        r = client.post("/api/v1/automations/trigger",
-                        json={"webhook": "meu-fluxo", "payload": {"hello": "world"}},
-                        headers=owner_headers)
-        assert r.status_code == 200
-        assert r.json()["ok"] is True
-        assert r.json()["result"]["received"] == {"hello": "world"}
+        owner = db.query(Owner).first()
+        listed = asyncio.run(
+            toolkit.dispatch("list_automations", {}, db, owner.id)
+        )
+        assert "captura-rapida" in listed
+
+        result = asyncio.run(
+            toolkit.dispatch(
+                "run_automation",
+                {"name": "captura-rapida", "payload": {"texto": "via ferramenta"}},
+                db, owner.id,
+            )
+        )
+        assert "captura-rapida" in result
+
+        history = asyncio.run(
+            toolkit.dispatch("automation_history", {"name": "captura-rapida"}, db, owner.id)
+        )
+        assert "captura-rapida" in history
     finally:
-        n8n.trigger = original
+        db.close()
+
+
+def test_the_brain_cannot_run_an_automation_that_does_not_exist(client, owner_headers):
+    import asyncio
+
+    from app.core.di import get_kernel
+    from app.db.database import SessionLocal
+    from app.models.models import Owner
+
+    db = SessionLocal()
+    try:
+        owner = db.query(Owner).first()
+        answer = asyncio.run(
+            get_kernel()._toolkit.dispatch(
+                "run_automation", {"name": "inventada"}, db, owner.id
+            )
+        )
+        assert "não existe" in answer
+    finally:
+        db.close()
 
 
 # ---------------- agentic tool-calling (the brain acts on its own) ----------------

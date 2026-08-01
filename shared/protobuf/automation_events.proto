@@ -8,12 +8,12 @@ option go_package = "github.com/matheusvinicius1406-cpu/sexta-feira-os/shared/pr
 import "google/protobuf/timestamp.proto";
 
 // ─────────────────────────────────────────────────────────────
-// AutomationEvents — event-driven messages for the n8n bridge,
+// AutomationEvents — event-driven messages for the Teia automation engine,
 // device action protocol, and internal system events.
 // Used for async communication between the HUD and backend.
 // ─────────────────────────────────────────────────────────────
 service AutomationService {
-  // Trigger an n8n workflow
+  // Run a Teia automation (workflow_id is its slug)
   rpc TriggerWorkflow(TriggerWorkflowRequest) returns (TriggerWorkflowResponse);
 
   // List available workflows
@@ -30,7 +30,7 @@ service AutomationService {
 }
 
 // ═════════════════════════════════════════════════════════════
-// Automations (n8n bridge)
+// Automations (Teia)
 // ═════════════════════════════════════════════════════════════
 
 message WorkflowInfo {

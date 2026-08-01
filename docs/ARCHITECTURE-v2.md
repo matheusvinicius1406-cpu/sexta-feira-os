@@ -65,7 +65,7 @@
 │  Python / FastAPI                                             │
 │  ┌──────────┐ ┌──────────┐ ┌────────┐ ┌────────────────┐    │
 │  │ Cognition│ │ Memory   │ │ Voice  │ │ Automations    │    │
-│  │ (Ollama) │ │ (Neural) │ │(STT/TTS)│ │ (n8n bridge)   │    │
+│  │ (Ollama) │ │ (Neural) │ │(STT/TTS)│ │ (Teia)         │    │
 │  └──────────┘ └──────────┘ └────────┘ └────────────────┘    │
 │  ┌──────────┐ ┌──────────┐ ┌────────┐ ┌────────────────┐    │
 │  │ Planning │ │ Decision │ │Learning│ │ Connectors     │    │
@@ -150,7 +150,7 @@ Nível 0: Core (núcleo central)
 │   ├── Memória       → abre sub-módulos de memória
 │   ├── Agenda        → calendário/lembretes
 │   ├── Biblioteca    → base de conhecimento
-│   ├── Automações    → n8n workflows
+│   ├── Automações    → automações (Teia)
 │   ├── Dispositivos  → corpos pareados
 │   └── Configurações → ajustes do sistema
 │
@@ -210,7 +210,7 @@ cognitive-core/
 │   ├── api/routers/    → 15+ endpoints (chat, memória, voz, etc.)
 │   ├── brain/          → LocalBrain (Ollama), Memory, Cognition
 │   ├── voice/          → STT (faster-whisper), TTS (Piper)
-│   ├── automation/     → n8n bridge
+│   ├── automation/     → motor Teia
 │   ├── action/         → Protocolo de Ação (dispositivos)
 │   ├── connectors/     → API registry + Vault (Fernet)
 │   ├── planning/       → Planning Engine

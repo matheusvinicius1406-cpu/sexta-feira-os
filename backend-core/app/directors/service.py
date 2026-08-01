@@ -41,7 +41,7 @@ DEFAULT_DIRECTORS: list[dict] = [
     {"name": "memoria", "title": "Diretor de Memória",
      "domain": "curadoria do grafo de memória: organizar, conectar e resumir o que o dono sabe"},
     {"name": "automacao", "title": "Diretor de Automação",
-     "domain": "automações e fluxos (n8n), rotinas recorrentes e integrações entre serviços"},
+     "domain": "automações e fluxos (Teia), rotinas recorrentes e integrações entre serviços"},
     {"name": "aprendizagem", "title": "Diretor de Aprendizagem",
      "domain": "estudo do dono: planos de aprendizado, revisão, dificuldades recorrentes"},
     {"name": "dispositivos", "title": "Diretor de Dispositivos",

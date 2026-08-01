@@ -32,11 +32,12 @@ class DatabaseStep(BaseStep):
     name = "database"
     timeout = 10.0
     async def execute(self, kernel: Kernel) -> None:
+        from sqlalchemy import text
         from app.db.database import SessionLocal
+        from app.adapters._events import publish_event
         db = SessionLocal()
         try:
-            db.execute(db.bind.dialect.statement_compiler(dialect=None).__class__.__name__)
-            from app.adapters._events import publish_event
+            db.execute(text("SELECT 1"))
             await publish_event("database.connected")
         finally:
             db.close()
@@ -123,22 +124,45 @@ class DecisionStep(BaseStep):
 
 
 class AutomationStep(BaseStep):
+    """The kernel's hands: the action bus, the scheduler, connectors and the Teia.
+
+    The Teia gets a `Services` bag holding everything that exists at this point;
+    the services built later (journal, habits, time tracking) are attached by
+    CognitionStep, and the triggers are armed by BackgroundStep once the whole
+    kernel is up.
+    """
     name = "automation"
     timeout = 10.0
     critical = False
     async def execute(self, kernel: Kernel) -> None:
-        from app.automation.n8n import N8nClient
         from app.action.bus import CommandBus
         from app.action.service import ActionService
+        from app.adapters._events import publish_event
+        from app.automation.teia.engine.context import Services
+        from app.automation.teia.nodes.files import ensure_workspace
+        from app.automation.teia.service import TeiaService
         from app.connectors.service import ConnectorService
         from app.connectors.vault import Vault
         from app.schedule.service import Scheduler
-        from app.adapters._events import publish_event
-        kernel.automations = N8nClient()
+
         kernel.action_bus = CommandBus()
         kernel.actions = ActionService(kernel.action_bus)
         kernel.scheduler = Scheduler(kernel.actions, events=kernel.events, briefing=kernel.briefing)
         kernel.connectors = ConnectorService(Vault())
+
+        ensure_workspace()
+        kernel.automations = TeiaService(Services(
+            memory=kernel.memory, world=kernel.world, events=kernel.events,
+            scheduler=kernel.scheduler, actions=kernel.actions,
+            connectors=kernel.connectors, planning=kernel.planning,
+            decision=kernel.decision, learning=kernel.learning,
+            briefing=kernel.briefing, brain=kernel.brain,
+        ))
+        logger.info(
+            "Teia pronta — %d tipos de nó, %d de gatilho",
+            len(kernel.automations.registry.node_types()),
+            len(kernel.automations.registry.trigger_types()),
+        )
         await publish_event("automation.ready")
 
 
@@ -214,10 +238,18 @@ class CognitionStep(BaseStep):
             kernel.brain, kernel.memory, kernel._toolkit,
             world=kernel.world, extractor=extractor,
         )
+        # Finish wiring the Teia: these services only exist from here on, and its
+        # nodes reach them through the same bag AutomationStep created.
+        if kernel.automations:
+            services = kernel.automations.services
+            services.journal = kernel.journal
+            services.habits = kernel.habits
+            services.timetracker = kernel.timetracker
         await publish_event("cognition.ready")
 
 
 class GrpcStep(BaseStep):
+    critical = False
     name = "grpc"
     timeout = 10.0
     async def execute(self, kernel: Kernel) -> None:
@@ -237,6 +269,9 @@ class BackgroundStep(BaseStep):
         from app.core.config import settings
         from app.obsidian.watcher import ObsidianWatcher
         from app.adapters._events import publish_event
+
+        if kernel.automations:
+            _start_teia(kernel)
         if settings.scheduler_enabled and kernel.scheduler:
             kernel._scheduler_task = asyncio.create_task(kernel._scheduler_loop())
             logger.info("Scheduler running (every %ss)", settings.scheduler_interval_seconds)
@@ -250,6 +285,34 @@ class BackgroundStep(BaseStep):
             else:
                 logger.warning("Local brain OFFLINE at %s", settings.ollama_endpoint)
         await publish_event("background.ready")
+
+
+def _start_teia(kernel: Kernel) -> None:
+    """Seed the catalog, bridge the EventBus, arm the triggers, start the clock."""
+    from app.automation.teia import catalog
+    from app.core.config import settings
+    from app.db.database import SessionLocal
+    from app.models.models import Owner
+
+    teia = kernel.automations
+    if settings.teia_seed_catalog:
+        db = SessionLocal()
+        try:
+            owner = db.query(Owner).first()
+            if owner:
+                installed = catalog.seed(teia, db, owner.id)
+                if installed:
+                    logger.info("Teia: catálogo instalado (%s)", ", ".join(installed))
+        except Exception as e:  # noqa: BLE001 — a bad recipe never blocks the boot
+            logger.warning("Teia: catálogo não pôde ser instalado: %s", e)
+        finally:
+            db.close()
+
+    if kernel.events:
+        # Event triggers: every kernel event is offered to the armed automations.
+        kernel.events.subscribe("*", teia.triggers.on_event, "teia-triggers")
+
+    teia.start()
 
 
 class ReadyStep(BaseStep):

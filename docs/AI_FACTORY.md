@@ -89,7 +89,7 @@ and `AGENTS.md` is the shared memory both Claude and Codex read. Adding a bespok
 would add a fragile moving part with no capability we don't already have.
 
 MCP **would** earn its place for connecting to *external* systems this project already uses — e.g. an
-n8n MCP server to trigger/inspect workflows, an Obsidian vault MCP for the knowledge base, or a
+an Obsidian vault MCP for the knowledge base, or a
 GitHub MCP for richer PR automation. Those are read/write bridges to real services, which is exactly
 what MCP is for. Add them per-service, scoped to least privilege, when a task needs them — not as a
 generic inter-agent channel.

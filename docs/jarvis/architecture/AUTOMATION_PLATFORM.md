@@ -182,34 +182,42 @@ Regra: **biblioteca madura antes de implementação própria** (evita NIH).
 
 ## 12. Plano incremental (cada fase = uma branch + PR, CI verde)
 
-- **Fase 0 — Arquitetura + ADR** *(esta entrega)*: docs e contratos. Sem código.
+- **Fase 0 — Arquitetura + ADR** ✅ *entregue*: docs e contratos. Sem código.
 - **Fase 1 — Núcleo de domínio** ✅ *entregue*: `Workflow`/`Node`/`Trigger`/`Connection`
   (Pydantic), serialização JSON/YAML, `Registry` em memória, algoritmos de grafo (ordem
   topológica, ciclo) e validação estrutural + por catálogo. Testes. Sem execução.
   Código em `backend-core/app/automation/teia/`.
-- **Fase 2 — Engine in-process**: executor topológico assíncrono, `ExecutionContext`, erros
-  básicos; nodes embutidos (HTTP, transform, if/branch, set); CLI (Typer) para rodar um
-  arquivo de workflow.
-- **Fase 3 — Persistência + durabilidade**: estado em SQLAlchemy, checkpoints/resume,
-  retries/timeout, logs estruturados.
+- **Fase 2 — Engine in-process** ✅ *entregue*: `Orchestrator` + `WorkerPool` (os operários),
+  `RunContext`, expressões `{{ }}` seguras, poda de ramos, retries/timeout/cancelamento,
+  44 nodes embutidos, CLI (argparse). `engine/`, `nodes/`, `cli.py`.
+- **Fase 3 — Persistência + durabilidade** ✅ *entregue*: `automation_workflows`,
+  `automation_executions`, `automation_node_runs` (SQLAlchemy + Alembic); checkpoint por nó;
+  trilha de auditoria consultável pela API. `store.py`.
 - **Fase 4 — Plugins**: descoberta por entry points, formato de pacote, carga dinâmica,
-  plugin de exemplo.
-- **Fase 5 — Triggers**: webhook (FastAPI), schedule, **event (ponte EventBus)**, file-watch.
-- **Fase 6 — Conectores + credenciais**: cofre, abstração de conector, 2-3 integrações reais
-  via SDK.
-- **Fase 7 — Execução distribuída**: broker (arq) atrás do contrato `Executor`,
-  paralelismo/filas em escala.
-- **Fase 8 — IA nativa**: interface de LLM multi-provedor (default Ollama), RAG/embeddings/
-  vetores, node de agente, MCP, streaming, function calling — sob "só meu" (§7).
-- **Fase 9 — Observabilidade**: OpenTelemetry, métricas, hooks/eventos.
-- **Fase 10 — API do editor visual**: contrato de serialização + API para o frontend (o
-  frontend web é projeto à parte).
+  plugin de exemplo. *(pendente — o `Registry` já é o ponto de extensão)*
+- **Fase 5 — Triggers** ✅ *entregue*: webhook (FastAPI), agenda (cron próprio), intervalo,
+  **evento (ponte EventBus)**, manual. `triggers/`.
+- **Fase 6 — Conectores + credenciais** ✅ *entregue (via kernel)*: node `capacidade` usa o
+  registro de conectores do dono; `{{ secret.NOME }}` resolve pelo cofre Fernet e é
+  removido do que se persiste.
+- **Fase 7 — Execução distribuída**: broker (arq) atrás do contrato do executor.
+  *(pendente — o `WorkerPool` já isola o "como executar" do "o que executar")*
+- **Fase 8 — IA nativa** ✅ *parcial*: nodes `ia_perguntar`, `ia_json`, `ia_resumir` no
+  cérebro local (Ollama). RAG/agente/MCP pendentes.
+- **Fase 9 — Observabilidade**: OpenTelemetry e métricas. *(pendente — hoje há trilha
+  persistida por nó, log por execução e eventos no barramento)*
+- **Fase 10 — API do editor visual** ✅ *entregue*: `GET /api/v1/automations/types` publica o
+  JSON Schema de cada node e gatilho; o grafo entra e sai por JSON ou YAML.
 
-## 13. O que muda no projeto (migração do n8n)
+## 13. O que mudou no projeto (o n8n saiu)
 
-1. A Teia nasce como novo subsistema (`backend-core/app/automation/teia/` ou pacote próprio),
-   sem tocar no kernel cognitivo.
-2. O `N8nClient` atual vira **um conector legado** (não é removido) — workflows podem ser
-   migrados incrementalmente.
-3. A **Automation API** do North Star passa a apontar para a Teia como implementação nativa.
-4. Nenhuma mudança em `main` sem PR aprovado; cada fase entra revisada e com CI verde.
+1. A Teia é o subsistema de automação em `backend-core/app/automation/teia/`, sem tocar no
+   kernel cognitivo.
+2. O `N8nClient`, o bridge de callback, os workflows JSON e o serviço do docker-compose
+   **foram removidos**. Não há runtime Node.js no projeto.
+3. A **Automation API** do North Star é a Teia: mesma rota `/api/v1/automations`, agora
+   servida por um motor local. Clientes gRPC/HTTP continuam funcionando — o `workflow_id`
+   passou a ser o *slug* da automação.
+4. `ToolKit` do cérebro ganhou `run_automation`, `list_automations` e `automation_history`.
+   O cérebro **executa** automações; **criar e editar** continua sendo do dono (API/CLI), o
+   que limita o alcance de um prompt envenenado ao que já foi aprovado.

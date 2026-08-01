@@ -35,8 +35,6 @@ SERVERS: tuple[ServerSpec, ...] = (
                ("testing.run",)),
     ServerSpec("security", "security", "Dependency scan, permission audit, pre-exec validation.",
                ("security.scan", "security.audit")),
-    ServerSpec("n8n", "n8n", "Trigger/inspect n8n automations (future-facing, guarded).",
-               ("n8n.read", "n8n.trigger")),
 )
 
 SERVERS_BY_NAME = {s.name: s for s in SERVERS}

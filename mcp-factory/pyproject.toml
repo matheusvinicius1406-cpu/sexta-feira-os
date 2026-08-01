@@ -8,7 +8,7 @@ version = "0.1.0"
 description = "MCP infrastructure for the JARVIS / Sexta-Feira OS AI Development Factory"
 requires-python = ">=3.11"
 # The ONLY runtime dependency: the official MCP SDK (FastMCP). Everything else
-# — config parsing, guards, permissions, audit, HTTP to GitHub/n8n — is stdlib.
+# — config parsing, guards, permissions, audit, HTTP to GitHub — is stdlib.
 dependencies = [
   "mcp>=1.2.0",
 ]

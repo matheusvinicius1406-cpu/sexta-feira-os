@@ -22,24 +22,9 @@ services:
     #           count: all
     #           capabilities: [gpu]
 
-  # As mãos: n8n self-hosted (automações locais, milhares de integrações).
-  n8n:
-    image: n8nio/n8n:latest
-    container_name: sexta-feira-automations
-    environment:
-      N8N_HOST: 127.0.0.1
-      N8N_PORT: 5678
-      N8N_PROTOCOL: http
-      WEBHOOK_URL: http://127.0.0.1:5678/
-      N8N_SECURE_COOKIE: "false"
-      GENERIC_TIMEZONE: America/Sao_Paulo
-    volumes:
-      - n8n_data:/home/node/.n8n
-    ports:
-      - "127.0.0.1:5678:5678"            # loopback; o painel do n8n fica só p/ você
-    restart: unless-stopped
-
-  # O kernel cognitivo.
+  # O kernel cognitivo — e as mãos junto com ele.
+  # As automações (Teia) rodam DENTRO deste processo: não há mais um runtime
+  # de automação separado para subir, expor ou manter (ADR-0013).
   kernel:
     build:
       context: ./backend-core
@@ -48,18 +33,16 @@ services:
     env_file: .env
     environment:
       OLLAMA_ENDPOINT: http://ollama:11434
-      N8N_ENDPOINT: http://n8n:5678
       DATABASE_URL: sqlite:////data/sexta_feira_os.db
       ACCESS_MODE: ${ACCESS_MODE:-loopback}   # loopback = só esta máquina; 'lan' = rede local
+      TEIA_TIMEZONE: ${TEIA_TIMEZONE:-America/Sao_Paulo}
     volumes:
       - ./data:/data                     # sua memória persistente (fica no host)
     ports:
       - "127.0.0.1:8000:8000"            # loopback; use túnel p/ acesso remoto privado
     depends_on:
       - ollama
-      - n8n
     restart: unless-stopped
 
 volumes:
   ollama_models:
-  n8n_data:

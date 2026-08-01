@@ -2,9 +2,10 @@
 Shared test setup for the private local kernel.
 
 One env, one app, one lifespan for the whole test session. The kernel is a
-singleton whose async clients (brain, n8n) are closed on shutdown, so every test
-module MUST share a single TestClient — otherwise the first module to tear down
-would close the shared clients out from under the others. Hence session scope.
+singleton whose async clients (the brain) and background loops (the Teia's tick)
+are torn down on shutdown, so every test module MUST share a single TestClient —
+otherwise the first module to tear down would close the shared clients out from
+under the others. Hence session scope.
 """
 import os
 import uuid

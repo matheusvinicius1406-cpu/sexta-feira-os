@@ -9,7 +9,7 @@ and via plugins; Phase 1 fixes the contract and the metadata model.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import ClassVar
+from typing import Any, ClassVar
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -46,11 +46,18 @@ class Node(ABC):
 
     Subclasses set `metadata` and (optionally) override `config_model`, then
     implement `execute`. The type is registered by class in the Registry; the
-    engine instantiates it per execution (Phase 2).
+    engine instantiates one per node per execution, handing it the already
+    validated configuration (`self.config`) so `execute` never re-parses it.
     """
 
     metadata: ClassVar[NodeMetadata]
     config_model: ClassVar[type[BaseModel]] = EmptyConfig
+
+    def __init__(self, config: BaseModel | None = None):
+        # The engine always passes the parsed config, so `execute` can trust it.
+        # Constructing a node bare (to read metadata, or in a test) leaves it None
+        # rather than forcing a config the caller doesn't have.
+        self.config: Any = config
 
     def validate_config(self, config: dict) -> BaseModel:
         """Parse/validate a node's configuration against its schema.

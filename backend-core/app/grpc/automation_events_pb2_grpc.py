@@ -27,7 +27,7 @@ if _version_not_supported:
 
 class AutomationServiceStub:
     """─────────────────────────────────────────────────────────────
-    AutomationEvents — event-driven messages for the n8n bridge,
+    AutomationEvents — event-driven messages for the Teia automation engine,
     device action protocol, and internal system events.
     Used for async communication between the HUD and backend.
     ─────────────────────────────────────────────────────────────
@@ -68,14 +68,14 @@ class AutomationServiceStub:
 
 class AutomationServiceServicer:
     """─────────────────────────────────────────────────────────────
-    AutomationEvents — event-driven messages for the n8n bridge,
+    AutomationEvents — event-driven messages for the Teia automation engine,
     device action protocol, and internal system events.
     Used for async communication between the HUD and backend.
     ─────────────────────────────────────────────────────────────
     """
 
     def TriggerWorkflow(self, request, context):
-        """Trigger an n8n workflow
+        """Run a Teia automation (workflow_id is its slug)
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -147,7 +147,7 @@ def add_AutomationServiceServicer_to_server(servicer, server):
  # This class is part of an EXPERIMENTAL API.
 class AutomationService:
     """─────────────────────────────────────────────────────────────
-    AutomationEvents — event-driven messages for the n8n bridge,
+    AutomationEvents — event-driven messages for the Teia automation engine,
     device action protocol, and internal system events.
     Used for async communication between the HUD and backend.
     ─────────────────────────────────────────────────────────────

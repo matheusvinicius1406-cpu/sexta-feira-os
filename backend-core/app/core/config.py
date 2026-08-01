@@ -118,6 +118,16 @@ class Settings(BaseSettings):
     # back to "related" if the brain is offline.
     graph_relation_labels: bool = True
 
+    # ============ Vision (local, offline) ============
+    # Vision analysis uses Ollama vision models (llava, llama3.2-vision, etc.)
+    # for image understanding, camera analysis, and document OCR.
+    vision_enabled: bool = True
+    vision_model: str = ""  # auto-detect if empty (llava preferred)
+    vision_max_image_dim: int = 1024  # resize larger images
+    vision_jpeg_quality: int = 85
+    # Web search engine (DuckDuckGo by default, no API key needed)
+    web_search_enabled: bool = True
+
     # ============ Voice (local, offline) ============
     # Hearing (STT) and speaking (TTS) run on YOUR machine. Voice is an optional
     # extra (pip install -r requirements-voice.txt) and degrades gracefully: if
@@ -128,20 +138,50 @@ class Settings(BaseSettings):
     stt_language: str = "pt"
     stt_compute_type: str = "int8"  # int8|float16|float32
     stt_device: str = "cpu"  # cpu|cuda
-    tts_engine: str = "piper"
+    tts_engine: str = "edge"  # edge | piper | voicebox
     tts_voice: str = ""  # path to a Piper voice .onnx
     tts_speak_replies: bool = True
+    # VoiceBox integration (jamiepine/voicebox) — local voice studio
+    # with 7 TTS engines, voice cloning, Whisper STT, REST API + MCP.
+    # Runs as a separate process; the kernel calls it over HTTP.
+    voicebox_enabled: bool = False  # set True to use VoiceBox instead of Piper
+    voicebox_endpoint: str = "http://127.0.0.1:17493"  # VoiceBox REST API
+    voicebox_tts_engine: str = "kokoro"  # kokoro|chatterbox|qwen3|luxtts|tada|chatterbox-turbo
+    voicebox_voice_profile: str = ""  # name of a voice profile for cloning (optional)
+    voicebox_clone_audio: str = ""  # path to reference audio for voice cloning (optional)
 
-    # ============ Automations (n8n, self-hosted) ============
+    # ============ Automations — Teia (Python-first, in-process) ============
+    # The kernel's hands. Workflows are Python objects executed by our own
+    # orchestrator + worker pool; there is no external automation runtime and no
+    # Node.js. See ADR-0013 and docs/jarvis/architecture/AUTOMATION_PLATFORM.md.
     automations_enabled: bool = True
-    n8n_endpoint: str = "http://127.0.0.1:5678"
-    n8n_api_key: str = ""  # n8n Public API key (for listing)
-    n8n_webhook_prefix: str = "webhook"  # or 'webhook-test'
-    # Shared secret for n8n → Kernel callback authentication.
-    # n8n workflows send this in the X-N8N-Callback-Secret header when calling
-    # POST /api/v1/automations/callback. Generate with:
-    #   python -c "import secrets; print(secrets.token_urlsafe(32))"
-    n8n_callback_secret: str = ""
+    # How many nodes of ONE execution may run at the same time.
+    teia_max_parallel: int = 4
+    # Runaway guards: an automation that exceeds either of these is stopped.
+    teia_max_nodes_per_run: int = 200
+    teia_run_timeout_seconds: float = 900.0
+    # How deep `sub_automacao` may nest before it's treated as recursion.
+    teia_max_depth: int = 3
+    # How often the trigger manager checks the clock (cron/interval resolution).
+    teia_tick_seconds: int = 30
+    # Timezone for cron triggers. Empty = this machine's local time.
+    teia_timezone: str = ""
+    # Cap on how often event triggers may fire, per workflow, per minute — the
+    # backstop against two automations triggering each other forever.
+    teia_event_fires_per_minute: int = 30
+    # HTTP node limits.
+    teia_http_timeout_seconds: float = 30.0
+    teia_http_max_response_kb: int = 512
+    # Where file nodes may read and write. The workspace is always allowed (and
+    # created on boot); the Obsidian vault is added when configured.
+    teia_workspace: str = str(Path(__file__).resolve().parents[2] / "data" / "teia")
+    teia_allowed_paths: list[str] = []
+    # Running local programs from a workflow: off by default. When enabled, only
+    # the programs named here may run, and never through a shell.
+    teia_shell_enabled: bool = False
+    teia_shell_allowlist: list[str] = []
+    # Install the built-in automation catalog for the owner on first boot.
+    teia_seed_catalog: bool = True
 
     # ============ Connectors (API capabilities) ============
     vault_key: str = ""

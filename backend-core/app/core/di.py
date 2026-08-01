@@ -12,7 +12,7 @@ import uuid
 from app.action.bus import CommandBus
 from app.action.service import ActionService
 from app.auth.jwt import hash_password
-from app.automation.n8n import N8nClient
+from app.automation.teia.service import TeiaService
 from app.brain.cognition import Cognition
 from app.brain.engine import LocalBrain
 from app.brain.extractor import MemoryExtractor
@@ -62,7 +62,7 @@ class Kernel:
         self.evals: EvalHarness | None = None
         self.cognition: Cognition | None = None
         self.voice: VoiceBox | None = None
-        self.automations: N8nClient | None = None
+        self.automations: TeiaService | None = None
         self.action_bus: CommandBus | None = None
         self.actions: ActionService | None = None
         self.scheduler: Scheduler | None = None
@@ -154,10 +154,10 @@ class Kernel:
             self._scheduler_task.cancel()
             with contextlib.suppress(asyncio.CancelledError):
                 await self._scheduler_task
+        if self.automations:
+            await self.automations.stop()
         if self.brain:
             await self.brain.aclose()
-        if self.automations:
-            await self.automations.aclose()
         if self.connectors:
             await self.connectors.aclose()
 
@@ -257,7 +257,7 @@ def get_voice() -> VoiceBox:
     return _kernel.voice
 
 
-def get_automations() -> N8nClient:
+def get_automations() -> TeiaService:
     if not _kernel.automations:
         raise RuntimeError("Kernel not started")
     return _kernel.automations

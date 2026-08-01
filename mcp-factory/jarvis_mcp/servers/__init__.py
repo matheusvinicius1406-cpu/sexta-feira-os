@@ -13,7 +13,6 @@ BUILDERS = {
     "documentation": "jarvis_mcp.servers.documentation_server",
     "testing": "jarvis_mcp.servers.testing_server",
     "security": "jarvis_mcp.servers.security_server",
-    "n8n": "jarvis_mcp.servers.n8n_server",
 }
 
 __all__ = ["BUILDERS"]

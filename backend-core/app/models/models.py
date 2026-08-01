@@ -465,6 +465,88 @@ class Event(Base):
     processed_at = Column(DateTime, nullable=True)
 
 
+class AutomationWorkflow(Base):
+    """
+    A TEIA WORKFLOW — one automation the owner can run (ADR-0013).
+
+    `definition` is the serialized `Workflow` graph (nodes + connections +
+    triggers) exactly as the domain model produces it, so a workflow authored in
+    code, in YAML or in the API is the same object. `slug` is the stable name the
+    brain and the CLI call it by ("briefing-matinal").
+    """
+    __tablename__ = "automation_workflows"
+    __table_args__ = (
+        UniqueConstraint("owner_id", "slug", name="uq_automation_workflows_owner_slug"),
+    )
+
+    id = Column(String, primary_key=True, index=True)
+    owner_id = Column(String, ForeignKey("owner.id", ondelete="CASCADE"), index=True, nullable=False)
+    slug = Column(String, nullable=False, index=True)         # "briefing-matinal"
+    name = Column(String, nullable=False)                     # human label
+    description = Column(Text, nullable=True)
+    definition = Column(Text, nullable=False)                 # JSON of the Workflow graph
+    enabled = Column(Boolean, default=True, nullable=False)
+    tags = Column(Text, nullable=True)                        # JSON list of strings
+    source = Column(String, default="owner", index=True)     # catalog|owner|imported
+    version = Column(String, default="1.0.0")
+    created_at = Column(DateTime, default=_now, index=True)
+    updated_at = Column(DateTime, default=_now, onupdate=_now)
+    last_run_at = Column(DateTime, nullable=True, index=True)
+
+
+class AutomationExecution(Base):
+    """
+    One RUN of a workflow — the durable record the orchestrator checkpoints into.
+
+    Persisted before the first node executes and updated as the run advances, so
+    an interrupted run is visible (and resumable) instead of vanishing with the
+    process. This is the audit trail of everything the automation platform did.
+    """
+    __tablename__ = "automation_executions"
+
+    id = Column(String, primary_key=True, index=True)
+    owner_id = Column(String, ForeignKey("owner.id", ondelete="CASCADE"), index=True, nullable=False)
+    workflow_id = Column(
+        String, ForeignKey("automation_workflows.id", ondelete="CASCADE"), index=True, nullable=True
+    )
+    workflow_slug = Column(String, nullable=False, index=True)  # survives workflow deletion
+    status = Column(String, default="running", index=True)     # running|completed|failed|cancelled
+    trigger_type = Column(String, default="manual", index=True)  # manual|schedule|event|webhook|interval
+    trigger_payload = Column(Text, nullable=True)              # JSON that started the run
+    output = Column(Text, nullable=True)                       # JSON of the terminal nodes' output
+    error = Column(Text, nullable=True)
+    nodes_executed = Column(Integer, default=0)
+    duration_ms = Column(Integer, nullable=True)
+    correlation_id = Column(String, nullable=True, index=True)  # ties into the EventBus flow
+    started_at = Column(DateTime, default=_now, index=True)
+    finished_at = Column(DateTime, nullable=True)
+
+
+class AutomationNodeRun(Base):
+    """
+    One NODE inside one execution — the checkpoint granularity of the engine.
+
+    Written when a worker finishes a node (or gives up on it), which is what makes
+    a run resumable and lets you see exactly where an automation broke.
+    """
+    __tablename__ = "automation_node_runs"
+
+    id = Column(String, primary_key=True, index=True)
+    owner_id = Column(String, ForeignKey("owner.id", ondelete="CASCADE"), index=True, nullable=False)
+    execution_id = Column(
+        String, ForeignKey("automation_executions.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    node_id = Column(String, nullable=False, index=True)       # WorkflowNode.id
+    node_type = Column(String, nullable=False)                 # registered node type
+    status = Column(String, default="completed", index=True)  # completed|failed|skipped
+    attempt = Column(Integer, default=1)                       # 1-based; >1 means it was retried
+    output = Column(Text, nullable=True)                       # JSON (secrets redacted)
+    error = Column(Text, nullable=True)
+    duration_ms = Column(Integer, nullable=True)
+    started_at = Column(DateTime, default=_now)
+    finished_at = Column(DateTime, nullable=True)
+
+
 class Capability(Base):
     """
     A CONNECTOR: one owner-defined API call the brain can invoke by name ("execute

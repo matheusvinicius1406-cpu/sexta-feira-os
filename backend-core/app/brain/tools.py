@@ -4,11 +4,16 @@ ToolKit — what Sexta-Feira can DO on its own during a conversation.
 The brain (via Ollama tool-calling) can decide to:
   * remember(content)          -> save a durable fact to the graph memory
   * recall(query)              -> search its own memory
-  * run_automation(webhook,..) -> fire an n8n workflow (act in the world)
+  * run_automation(name, ..)   -> run a Teia automation (act in the world)
+  * list_automations(query)    -> see what automations exist
+  * automation_history(name)   -> check how the last runs went
 
 All of this happens from a plain sentence the owner speaks on the phone — no
-terminal, no hand-built payloads. The tools run locally; automations bridge to
-the local n8n.
+terminal, no hand-built payloads. Everything runs locally, in this process.
+
+The brain can RUN an automation the owner already has; it cannot write a new one
+or change one. Authoring stays with the owner (the API and the CLI), so a
+poisoned prompt can only reach behaviours the owner already approved.
 """
 from __future__ import annotations
 
@@ -18,6 +23,9 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from sqlalchemy.orm import Session
+
+from app.automation.teia.engine.errors import WorkflowNotFound
+from app.models.models import Owner
 
 logger = logging.getLogger("sexta-feira.tools")
 
@@ -43,7 +51,7 @@ def _compute_due(args: dict) -> datetime | None:
 class ToolKit:
     def __init__(self, memory, automations, actions=None, scheduler=None,
                  connectors=None, world=None, planning=None, decision=None, learning=None,
-                 briefing=None):
+                 briefing=None, vision=None, web_search=None, attachments=None):
         self.memory = memory
         self.automations = automations
         self.actions = actions        # ActionService | None
@@ -54,6 +62,9 @@ class ToolKit:
         self.decision = decision      # DecisionEngine | None — choose under constraints
         self.learning = learning      # LearningEngine | None — observe → learn → adapt
         self.briefing = briefing      # BriefingService | None — the daily report
+        self.vision = vision          # VisionEngine | None — enxergar o mundo
+        self.web_search = web_search  # WebSearch | None — acesso à internet
+        self.attachments = attachments  # AttachmentAnalyzer | None — analisar arquivos
         self.subagents = None         # SubAgentRunner | None (wired after construction)
         self.directors = None         # DirectorService | None (wired after construction)
 
@@ -61,15 +72,30 @@ class ToolKit:
         """The tool specs restricted to `allowed` names — used for sub-agents."""
         return [s for s in await self.specs() if s["function"]["name"] in allowed]
 
+    def _automation_names(self) -> list[str]:
+        """The owner's enabled automation slugs — used to hint the model."""
+        if not self.automations:
+            return []
+        db = self.automations.session_factory()
+        try:
+            owner = db.query(Owner).first()
+            if not owner:
+                return []
+            return [
+                row.slug
+                for row in self.automations.store.list(db, owner.id, enabled_only=True)
+            ]
+        finally:
+            db.close()
+
     async def specs(self) -> list[dict]:
         """OpenAI/Ollama-style tool schemas. Injects live automation names as a hint."""
         automations_hint = ""
         try:
-            workflows = await self.automations.list_workflows()
-            names = [w["name"] for w in workflows if w.get("name")]
+            names = self._automation_names()
             if names:
                 automations_hint = " Automações disponíveis: " + ", ".join(names[:30]) + "."
-        except Exception as e:  # noqa: BLE001 — n8n may be off; tools still work
+        except Exception as e:  # noqa: BLE001 — listing must never break tool specs
             logger.debug("automation list unavailable for tool specs: %s", e)
 
         return [
@@ -106,16 +132,48 @@ class ToolKit:
                 "function": {
                     "name": "run_automation",
                     "description": (
-                        "Dispara uma automação (workflow do n8n) pelo caminho do seu webhook, "
-                        "para AGIR no mundo (lembretes, mensagens, casa, etc.)." + automations_hint
+                        "Executa uma automação da Teia pelo nome (slug) para AGIR no mundo: "
+                        "briefing, backup, avisos, captura, etc. Use 'list_automations' antes "
+                        "se não souber o nome exato." + automations_hint
                     ),
                     "parameters": {
                         "type": "object",
                         "properties": {
-                            "webhook": {"type": "string", "description": "caminho do webhook do workflow"},
-                            "payload": {"type": "object", "description": "dados para a automação"},
+                            "name": {"type": "string", "description": "slug da automação, ex.: briefing-matinal"},
+                            "payload": {"type": "object", "description": "dados de entrada da automação"},
                         },
-                        "required": ["webhook"],
+                        "required": ["name"],
+                    },
+                },
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "list_automations",
+                    "description": (
+                        "Lista as automações do dono, com o que cada uma faz e se está ativa."
+                    ),
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "query": {"type": "string", "description": "filtro opcional por nome/descrição"},
+                        },
+                    },
+                },
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "automation_history",
+                    "description": (
+                        "Mostra como foram as últimas execuções de uma automação "
+                        "(status, duração, erro). Use para responder 'o backup rodou?'."
+                    ),
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "name": {"type": "string", "description": "slug da automação"},
+                        },
                     },
                 },
             },
@@ -438,6 +496,79 @@ class ToolKit:
                     },
                 },
             },
+            {
+                "type": "function",
+                "function": {
+                    "name": "analyze_image",
+                    "description": (
+                        "Analisa uma imagem usando o modelo de visão local (llava). "
+                        "Descreve o que vê, lê texto (OCR), identifica objetos. "
+                        "Útil para: câmera, fotos, screenshots, documentos."
+                    ),
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "image_base64": {"type": "string", "description": "imagem em base64"},
+                            "prompt": {"type": "string", "description": "pergunta/instrução sobre a imagem"},
+                        },
+                        "required": ["image_base64"],
+                    },
+                },
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "web_search",
+                    "description": (
+                        "Busca informações na internet via DuckDuckGo. "
+                        "Use para: notícias, previsão do tempo, cotações, dúvidas, pesquisas."
+                    ),
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "query": {"type": "string", "description": "o que buscar na internet"},
+                            "max_results": {"type": "number", "description": "máximo de resultados (padrão 5)"},
+                        },
+                        "required": ["query"],
+                    },
+                },
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "fetch_page",
+                    "description": (
+                        "Baixa e extrai o conteúdo de uma página web. "
+                        "Use quando precisar do conteúdo completo de um link."
+                    ),
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "url": {"type": "string", "description": "URL da página"},
+                        },
+                        "required": ["url"],
+                    },
+                },
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "play_music",
+                    "description": (
+                        "Toca música ou rádio. Busca no YouTube ou em estações de rádio. "
+                        "Filtro de anúncios automático. Ex.: 'toque jazz', 'rádio sertanejo', "
+                        "'toca Bohemian Rhapsody'."
+                    ),
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "query": {"type": "string", "description": "nome da música, artista ou gênero"},
+                            "source": {"type": "string", "description": "radio, youtube, ou auto"},
+                        },
+                        "required": ["query"],
+                    },
+                },
+            },
         ]
 
     async def dispatch(self, name: str, args: dict[str, Any], db: Session, owner_id: str) -> str:
@@ -457,8 +588,42 @@ class ToolKit:
                     return "Nada relevante na memória."
                 return "Encontrei:\n" + "\n".join(f"- {m.content}" for m in results)
             if name == "run_automation":
-                out = await self.automations.trigger(args.get("webhook", ""), args.get("payload") or {})
-                return "Automação disparada." if out.get("ok") else f"Falha na automação: {out.get('error', '?')}"
+                if not self.automations:
+                    return "Automações indisponíveis."
+                slug = (args.get("name") or args.get("automacao") or args.get("webhook") or "").strip()
+                if not slug:
+                    return "Diga qual automação executar (use 'list_automations')."
+                try:
+                    result = await self.automations.run_slug(
+                        owner_id, slug, args.get("payload") or {}
+                    )
+                except WorkflowNotFound as e:
+                    return str(e)
+                return result.summary()
+            if name == "list_automations":
+                if not self.automations:
+                    return "Automações indisponíveis."
+                rows = self.automations.list(db, owner_id, query=args.get("query"))
+                if not rows:
+                    return "Nenhuma automação cadastrada ainda."
+                return "Automações:\n" + "\n".join(
+                    f"- {r['slug']}{'' if r['enabled'] else ' (desativada)'}: "
+                    f"{r['description'] or r['name']}"
+                    for r in rows[:40]
+                )
+            if name == "automation_history":
+                if not self.automations:
+                    return "Automações indisponíveis."
+                runs = self.automations.executions.list(
+                    db, owner_id, slug=(args.get("name") or "").strip() or None, limit=10
+                )
+                if not runs:
+                    return "Nenhuma execução registrada ainda."
+                return "Últimas execuções:\n" + "\n".join(
+                    f"- {r.workflow_slug} [{r.status}] {r.duration_ms or 0} ms"
+                    + (f" — {r.error}" if r.error else "")
+                    for r in runs
+                )
             if name == "device_action":
                 if not self.actions:
                     return "Ações em dispositivos não estão disponíveis."
@@ -625,6 +790,51 @@ class ToolKit:
                     db, owner_id, args.get("director", ""), args.get("task", "")
                 )
                 return f"Diretor ({args.get('director', '?')}): {result[:1500]}"
+            if name == "analyze_image":
+                if not self.vision:
+                    return "Visão indisponível (modelo llava não instalado). Rode: ollama pull llava:7b"
+                result = await self.vision.analyze_image(
+                    args.get("image_base64", ""),
+                    args.get("prompt", "Descreva esta imagem.")
+                )
+                return f"Análise: {result[:2000]}"
+            if name == "web_search":
+                if not self.web_search:
+                    return "Busca web indisponível."
+                results = await self.web_search.search(
+                    args.get("query", ""),
+                    max_results=int(args.get("max_results", 5) or 5)
+                )
+                if not results:
+                    return "Nenhum resultado encontrado."
+                lines = [f"- {r.title}: {r.snippet}\n  {r.url}" for r in results]
+                return "Resultados da busca:\n" + "\n".join(lines)
+            if name == "fetch_page":
+                if not self.web_search:
+                    return "Busca web indisponível."
+                result = await self.web_search.fetch_page(args.get("url", ""))
+                if not result.get("success"):
+                    return f"Falha ao acessar {args.get('url', '?')}: {result.get('error', '?')}"
+                content = result.get("content", "")[:2000]
+                return f"📄 {result.get('title', '')}\n\n{content}"
+            if name == "play_music":
+                # Radio integration — search and return playable tracks
+                try:
+                    from app.api.routers.radio import get_radio
+                    radio = get_radio()
+                    search_result = await radio.play_search(
+                        args.get("query", ""),
+                        source=args.get("source", "auto")
+                    )
+                    tracks = search_result.get("tracks", [])
+                    if not tracks:
+                        return "Nenhuma música/estação encontrada."
+                    lines = []
+                    for t in tracks[:5]:
+                        lines.append(f"🎵 {t['title']} — {t.get('artist', '')} [{t['stream_type']}]")
+                    return f"Encontrei {len(tracks)} opções:\n" + "\n".join(lines)
+                except Exception as e:
+                    return f"Erro ao buscar música: {e}"
             return f"Ferramenta desconhecida: {name}"
         except Exception as e:  # noqa: BLE001 — a tool failure must not crash the turn
             logger.warning("tool '%s' failed: %s", name, e)

@@ -3,43 +3,95 @@
   "mcpServers": {
     "jarvis-core": {
       "command": "python",
-      "args": ["-m", "jarvis_mcp", "core"],
-      "env": { "PYTHONPATH": "mcp-factory", "JARVIS_AGENT": "architect", "JARVIS_FACTORY_CONFIG": "mcp-factory/config/factory.toml" }
+      "args": [
+        "-m",
+        "jarvis_mcp",
+        "core"
+      ],
+      "env": {
+        "PYTHONPATH": "mcp-factory",
+        "JARVIS_AGENT": "architect",
+        "JARVIS_FACTORY_CONFIG": "mcp-factory/config/factory.toml"
+      }
     },
     "jarvis-filesystem": {
       "command": "python",
-      "args": ["-m", "jarvis_mcp", "filesystem"],
-      "env": { "PYTHONPATH": "mcp-factory", "JARVIS_AGENT": "architect", "JARVIS_FACTORY_CONFIG": "mcp-factory/config/factory.toml" }
+      "args": [
+        "-m",
+        "jarvis_mcp",
+        "filesystem"
+      ],
+      "env": {
+        "PYTHONPATH": "mcp-factory",
+        "JARVIS_AGENT": "architect",
+        "JARVIS_FACTORY_CONFIG": "mcp-factory/config/factory.toml"
+      }
     },
     "jarvis-github": {
       "command": "python",
-      "args": ["-m", "jarvis_mcp", "github"],
-      "env": { "PYTHONPATH": "mcp-factory", "JARVIS_AGENT": "architect", "JARVIS_FACTORY_CONFIG": "mcp-factory/config/factory.toml", "GITHUB_TOKEN": "" }
+      "args": [
+        "-m",
+        "jarvis_mcp",
+        "github"
+      ],
+      "env": {
+        "PYTHONPATH": "mcp-factory",
+        "JARVIS_AGENT": "architect",
+        "JARVIS_FACTORY_CONFIG": "mcp-factory/config/factory.toml",
+        "GITHUB_TOKEN": ""
+      }
     },
     "jarvis-memory": {
       "command": "python",
-      "args": ["-m", "jarvis_mcp", "memory"],
-      "env": { "PYTHONPATH": "mcp-factory", "JARVIS_AGENT": "architect", "JARVIS_FACTORY_CONFIG": "mcp-factory/config/factory.toml" }
+      "args": [
+        "-m",
+        "jarvis_mcp",
+        "memory"
+      ],
+      "env": {
+        "PYTHONPATH": "mcp-factory",
+        "JARVIS_AGENT": "architect",
+        "JARVIS_FACTORY_CONFIG": "mcp-factory/config/factory.toml"
+      }
     },
     "jarvis-documentation": {
       "command": "python",
-      "args": ["-m", "jarvis_mcp", "documentation"],
-      "env": { "PYTHONPATH": "mcp-factory", "JARVIS_AGENT": "architect", "JARVIS_FACTORY_CONFIG": "mcp-factory/config/factory.toml" }
+      "args": [
+        "-m",
+        "jarvis_mcp",
+        "documentation"
+      ],
+      "env": {
+        "PYTHONPATH": "mcp-factory",
+        "JARVIS_AGENT": "architect",
+        "JARVIS_FACTORY_CONFIG": "mcp-factory/config/factory.toml"
+      }
     },
     "jarvis-testing": {
       "command": "python",
-      "args": ["-m", "jarvis_mcp", "testing"],
-      "env": { "PYTHONPATH": "mcp-factory", "JARVIS_AGENT": "architect", "JARVIS_FACTORY_CONFIG": "mcp-factory/config/factory.toml" }
+      "args": [
+        "-m",
+        "jarvis_mcp",
+        "testing"
+      ],
+      "env": {
+        "PYTHONPATH": "mcp-factory",
+        "JARVIS_AGENT": "architect",
+        "JARVIS_FACTORY_CONFIG": "mcp-factory/config/factory.toml"
+      }
     },
     "jarvis-security": {
       "command": "python",
-      "args": ["-m", "jarvis_mcp", "security"],
-      "env": { "PYTHONPATH": "mcp-factory", "JARVIS_AGENT": "architect", "JARVIS_FACTORY_CONFIG": "mcp-factory/config/factory.toml" }
-    },
-    "jarvis-n8n": {
-      "command": "python",
-      "args": ["-m", "jarvis_mcp", "n8n"],
-      "env": { "PYTHONPATH": "mcp-factory", "JARVIS_AGENT": "architect", "JARVIS_FACTORY_CONFIG": "mcp-factory/config/factory.toml", "N8N_BASE_URL": "", "N8N_API_KEY": "" }
+      "args": [
+        "-m",
+        "jarvis_mcp",
+        "security"
+      ],
+      "env": {
+        "PYTHONPATH": "mcp-factory",
+        "JARVIS_AGENT": "architect",
+        "JARVIS_FACTORY_CONFIG": "mcp-factory/config/factory.toml"
+      }
     }
   }
 }

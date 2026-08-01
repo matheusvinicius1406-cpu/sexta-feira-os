@@ -473,7 +473,7 @@ private fun FeatureTogglesSection(
         ToggleItem(
             icon = Icons.Filled.PlayArrow,
             title = "Automações",
-            description = "Tarefas automáticas (n8n)",
+            description = "Tarefas automáticas (Teia)",
             checked = uiState.automationEnabled,
             onCheckChange = { viewModel.onAutomationEnabledChanged(it) },
         )

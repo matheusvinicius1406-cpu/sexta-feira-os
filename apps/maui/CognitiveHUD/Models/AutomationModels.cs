@@ -1,6 +1,6 @@
 namespace SextaFeira.CognitiveHUD.Models;
 
-/// <summary>An n8n workflow descriptor.</summary>
+/// <summary>A Teia automation descriptor (Id is the slug).</summary>
 public record WorkflowInfo(
     string Id,
     string Name,

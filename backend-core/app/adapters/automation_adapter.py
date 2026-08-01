@@ -1,14 +1,18 @@
 """
-AutomationAdapter — wraps n8n workflows, the EventBus, and the ActionBus.
+AutomationAdapter — wraps the Teia, the EventBus, and the ActionBus for gRPC.
+
+Single-owner product: gRPC callers (the desktop HUD, the car screen) are already
+inside the owner's trust boundary, so the adapter resolves "the owner" from the
+database rather than carrying an identity on every call.
 """
 from __future__ import annotations
 
 import asyncio
-import json
 import logging
-from typing import Any
 
 from app.core.di import get_kernel
+from app.db.database import SessionLocal
+from app.models.models import Owner
 
 logger = logging.getLogger("sexta-feira.adapter.automation")
 
@@ -23,6 +27,15 @@ class AutomationAdapter:
     def _automations(self):
         return self._kernel.automations if self._kernel else None
 
+    @staticmethod
+    def _owner_id() -> str | None:
+        db = SessionLocal()
+        try:
+            owner = db.query(Owner).first()
+            return owner.id if owner else None
+        finally:
+            db.close()
+
     @property
     def _events(self):
         return self._kernel.events if self._kernel else None
@@ -35,19 +48,33 @@ class AutomationAdapter:
 
     async def trigger_workflow(self, workflow_id: str,
                                params: dict[str, str] | None = None) -> str | None:
-        n8n = self._automations
-        if not n8n:
+        """Run an automation by slug. Returns the execution id, or None if it failed."""
+        teia = self._automations
+        if not teia:
             raise RuntimeError("Automations not loaded")
-        return await n8n.trigger(
-            workflow_id=workflow_id,
-            params=params or {},
-        )
+        owner_id = self._owner_id()
+        if not owner_id:
+            raise RuntimeError("No owner yet — pair the kernel first")
+
+        result = await teia.run_slug(owner_id, workflow_id, dict(params or {}))
+        return result.execution_id if result.ok else None
 
     async def list_workflows(self) -> list[dict]:
-        n8n = self._automations
-        if not n8n:
+        teia = self._automations
+        if not teia:
             raise RuntimeError("Automations not loaded")
-        return await n8n.list_workflows()
+        owner_id = self._owner_id()
+        if not owner_id:
+            return []
+
+        db = SessionLocal()
+        try:
+            return [
+                {"id": row["slug"], "name": row["name"], "active": row["enabled"]}
+                for row in teia.list(db, owner_id)
+            ]
+        finally:
+            db.close()
 
     # ── Events ────────────────────────────────────────────
 

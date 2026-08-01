@@ -74,3 +74,12 @@ nul
 # orchestrator submodule
 orchestrator/
 orchestrator
+
+# VoiceBox (third-party, installed separately)
+tools/voicebox/backend/.venv/
+tools/voicebox/backend/data/
+
+# ── Teia ──────────────────────────────────────────
+# Workspace das automações: inbox, arquivos que elas escrevem e os backups do
+# banco. É estado da sua máquina, não do repositório.
+backend-core/data/teia/

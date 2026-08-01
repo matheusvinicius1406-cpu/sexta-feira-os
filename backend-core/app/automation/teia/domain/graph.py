@@ -12,7 +12,7 @@ The domain does NOT depend on the Registry implementation: validation accepts a
 from __future__ import annotations
 
 import uuid
-from typing import Protocol, runtime_checkable
+from typing import Literal, Protocol, runtime_checkable
 
 from pydantic import BaseModel, Field, ValidationError
 
@@ -40,6 +40,22 @@ class Position(BaseModel):
     y: float = 0.0
 
 
+class NodePolicy(BaseModel):
+    """How the engine should run a node — retries, timeout, failure handling.
+
+    Separate from the node's own `config` so a node type never has to know about
+    scheduling concerns, and so the same policy vocabulary applies to every type.
+    """
+
+    max_attempts: int = Field(default=1, ge=1, le=10)
+    backoff_seconds: float = Field(default=1.0, ge=0.0, le=300.0)
+    timeout_seconds: float = Field(default=60.0, gt=0.0, le=3600.0)
+    # "fail" stops the whole run; "continue" marks this branch dead and lets the
+    # rest of the graph finish (an `error` output port, when connected, wins over
+    # both — the failure becomes data instead of an interruption).
+    on_error: Literal["fail", "continue"] = "fail"
+
+
 class WorkflowNode(BaseModel):
     """An instance of a node type inside a workflow."""
 
@@ -47,6 +63,7 @@ class WorkflowNode(BaseModel):
     type: str = Field(..., min_length=1)          # registered node type id
     name: str = ""
     config: dict = Field(default_factory=dict)
+    policy: NodePolicy = Field(default_factory=NodePolicy)
     position: Position = Field(default_factory=Position)
 
 
@@ -72,6 +89,24 @@ def _as_id(node: str | WorkflowNode) -> str:
     return node.id if isinstance(node, WorkflowNode) else node
 
 
+def has_placeholder(value: object) -> bool:
+    """Does this config (or any part of it) still hold a `{{ ... }}` placeholder?
+
+    A placeholder's real type is only known once the engine resolves it against a
+    running execution, so a config that contains one cannot be type-checked ahead
+    of time — `{{ vars.n }}` is a string here and an int at run time. Static
+    validation therefore skips those nodes; the worker validates the resolved
+    config instead, which is the moment the answer actually exists.
+    """
+    if isinstance(value, str):
+        return "{{" in value
+    if isinstance(value, dict):
+        return any(has_placeholder(v) for v in value.values())
+    if isinstance(value, (list, tuple)):
+        return any(has_placeholder(v) for v in value)
+    return False
+
+
 class Workflow(BaseModel):
     """A serializable automation workflow: nodes + connections + triggers."""
 
@@ -88,10 +123,12 @@ class Workflow(BaseModel):
     def add_node(
         self, type: str, config: dict | None = None, *,
         id: str | None = None, name: str = "", position: Position | None = None,
+        policy: NodePolicy | dict | None = None,
     ) -> WorkflowNode:
         node = WorkflowNode(
             id=id or _short_id("node"), type=type, name=name or type,
             config=config or {}, position=position or Position(),
+            policy=NodePolicy.model_validate(policy) if policy is not None else NodePolicy(),
         )
         self.nodes.append(node)
         return node
@@ -202,6 +239,8 @@ class Workflow(BaseModel):
             if node_cls is None:
                 problems.append(f"tipo de nó desconhecido: '{n.type}' (nó {n.id})")
                 continue
+            if has_placeholder(n.config):
+                continue                    # checked at run time, once resolved
             try:
                 node_cls.config_model.model_validate(n.config or {})
             except ValidationError as e:

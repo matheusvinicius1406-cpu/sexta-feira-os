@@ -1,1 +1,1 @@
-"""Automations: the kernel's hands. Bridges to a local, self-hosted n8n."""
+"""Automations: the kernel's hands — the Teia engine, native Python (ADR-0013)."""

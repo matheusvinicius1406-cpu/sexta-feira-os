@@ -14,6 +14,10 @@
 - ✅ Streaming token-a-token no app (SSE via `/api/v1/chat/stream`).
 - ✅ CI (GitHub Actions): pytest + lint + build Android a cada push.
 - ✅ Hilt/DI no app + API client cobrindo os 24 endpoints do kernel.
+- ✅ **Teia — plataforma de automação própria, em Python** (ADR-0013): orquestrador +
+  operários, 44 tipos de nó, 5 gatilhos (cron/intervalo/evento/webhook/manual), trilha de
+  execução por nó, API REST + CLI e 10 automações prontas. **O n8n foi removido** — não há
+  mais runtime Node.js no projeto.
 
 ## Próximo (curto prazo)
 
@@ -27,6 +31,9 @@
 - [ ] Ferramentas/ações locais (agenda, lembretes, dispositivos) com confirmação do dono.
 - [ ] Migrações de schema (Alembic) e índice vetorial (sqlite-vec/FAISS) para memória grande.
 - [ ] Agentes especializados (planejador, analista) roteados pelo cérebro.
+- [ ] Teia — plugins por entry point (Fase 4): nós de terceiros como pacotes Python.
+- [ ] Teia — editor visual no app, sobre `GET /api/v1/automations/types` (Fase 10 já expõe
+      o schema de cada nó).
 
 ## Longo prazo (presença ambiente)
 
