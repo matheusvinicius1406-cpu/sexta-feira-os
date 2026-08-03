@@ -1,9 +1,13 @@
 import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react'
 import path from 'path'
 
+/**
+ * The ARC HUD is one canvas and two hand-written modules — no framework, no 3D
+ * library. The Three.js/R3F chunking that used to live here described the old
+ * React interface and now only produced four empty chunks, so it is gone. The
+ * whole interface ships in ~21 kB.
+ */
 export default defineConfig({
-  plugins: [react()],
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
@@ -12,25 +16,11 @@ export default defineConfig({
   build: {
     target: 'esnext',
     minify: 'esbuild',
-    rollupOptions: {
-      output: {
-        manualChunks: {
-          // Core 3D — largest bundle
-          three: ['three'],
-          // R3F + postprocessing
-          r3f: ['@react-three/fiber', '@react-three/postprocessing', 'postprocessing'],
-          // Animation
-          animation: ['framer-motion'],
-          // React + state management (stable, rarely changes)
-          vendor: ['react', 'react-dom', 'zustand'],
-        },
-      },
-    },
-    // Prevent chunk size warning for Three.js (it's always large)
-    chunkSizeWarningLimit: 1000,
   },
   server: {
     port: 3000,
+    // The kernel is same-origin from the browser's point of view, so it never
+    // has to deal with CORS — the dev server forwards /api to the backend.
     proxy: {
       '/api': {
         target: 'http://127.0.0.1:8000',

@@ -1,24 +1,434 @@
-<!DOCTYPE html>
-<html lang="en">
+<!doctype html>
+<html lang="pt-BR">
   <head>
-    <meta charset="UTF-8" />
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+    <meta name="color-scheme" content="dark" />
+    <meta name="theme-color" content="#000308" />
+    <title>ARC — Sexta-Feira OS</title>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>JARVIS OS — Cognitive Interface</title>
     <style>
-      * { margin: 0; padding: 0; box-sizing: border-box; }
-      html, body, #root {
-        width: 100%; height: 100%;
-        overflow: hidden;
-        background: #000;
-        font-family: 'Inter', system-ui, -apple-system, sans-serif;
-      }
-      canvas { display: block; }
-      ::-webkit-scrollbar { display: none; }
+  /* ═══════════════════════════════════════════════════════════
+     ARC DESIGN SYSTEM — TOKENS
+     Single-world dark HUD. Deliberate: "preto absoluto" is a
+     requirement of the brief, not an omitted second theme.
+     ═══════════════════════════════════════════════════════════ */
+  :root {
+    --void:        #000308;
+    --abyss:       #060A12;
+    --graphite:    #0E1520;
+    --slate:       #16202E;
+    --steel:       #2A3A4E;
+
+    --arc:         #2E7DFF;
+    --arc-deep:    #0B47B8;
+    --plasma:      #35D6FF;
+    --ignition:    #C9F4FF;
+
+    --vital:       #2EE6A8;
+    --caution:     #FFB23D;
+    --breach:      #FF4D6A;
+
+    --ink-hi:      rgba(233,244,255,0.94);
+    --ink:         rgba(200,219,240,0.72);
+    /* 0.66 is the lowest alpha clearing WCAG AA (4.73:1) on --void. */
+    --ink-lo:      rgba(160,184,212,0.66);
+    --ink-ghost:   rgba(140,168,200,0.20);
+
+    --glass:       rgba(14,21,32,0.55);
+    --glass-hi:    rgba(28,42,62,0.62);
+    --hairline:    rgba(120,170,235,0.16);
+    --hairline-hi: rgba(120,190,255,0.38);
+
+    --f-display: "Segoe UI Variable Display","Segoe UI Variable Text","Segoe UI",system-ui,-apple-system,"Helvetica Neue",Arial,sans-serif;
+    --f-data: "Cascadia Mono",Consolas,"SF Mono",ui-monospace,Menlo,"DejaVu Sans Mono",monospace;
+
+    --s1: 4px;  --s2: 8px;  --s3: 12px; --s4: 16px;
+    --s5: 24px; --s6: 32px; --s7: 48px; --s8: 64px;
+
+    --r-sm: 2px; --r-md: 4px; --r-lg: 8px; --r-pill: 999px;
+
+    --e-hud:  cubic-bezier(0.16, 1, 0.3, 1);
+    --e-snap: cubic-bezier(0.34, 1.4, 0.44, 1);
+    --e-exit: cubic-bezier(0.7, 0, 0.84, 0);
+  }
+
+  /* The viewer's light toggle must not shatter a committed dark world. */
+  :root[data-theme="light"] { color-scheme: dark; }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0; height: 100vh; overflow: hidden;
+    background: var(--void); color: var(--ink);
+    font-family: var(--f-data);
+    -webkit-font-smoothing: antialiased;
+    cursor: none;
+  }
+
+  #stage { position: fixed; inset: 0; }
+  #reactor { position: absolute; inset: 0; display: block; }
+
+  /* ── Atmosphere ───────────────────────────────────────── */
+  .vignette {
+    position: absolute; inset: 0; pointer-events: none;
+    background: radial-gradient(ellipse 70% 60% at 50% 50%,
+                transparent 0%, rgba(0,1,4,0.5) 72%, rgba(0,1,4,0.9) 100%);
+  }
+  .scanlines {
+    position: absolute; inset: 0; pointer-events: none; opacity: 0.3;
+    background: repeating-linear-gradient(
+      to bottom, rgba(120,180,255,0.026) 0 1px, transparent 1px 3px);
+  }
+  .sweep {
+    position: absolute; left: 0; right: 0; height: 42vh; pointer-events: none;
+    background: linear-gradient(to bottom,
+      transparent, rgba(46,125,255,0.026) 45%, rgba(53,214,255,0.048) 50%,
+      rgba(46,125,255,0.026) 55%, transparent);
+    animation: sweep 13s linear infinite;
+  }
+  @keyframes sweep {
+    from { transform: translateY(-60vh); } to { transform: translateY(140vh); }
+  }
+
+  /* ── Cursor ───────────────────────────────────────────── */
+  #cursor {
+    position: fixed; top: 0; left: 0; width: 26px; height: 26px;
+    margin: -13px 0 0 -13px; pointer-events: none; z-index: 90;
+    transition: opacity .3s; will-change: transform;
+  }
+  #cursor::before, #cursor::after { content: ""; position: absolute; border-radius: 50%; }
+  #cursor::before {
+    inset: 0; border: 1px solid var(--hairline-hi);
+    border-top-color: var(--plasma); border-bottom-color: transparent;
+    animation: cursorSpin 6s linear infinite;
+  }
+  #cursor::after {
+    inset: 10px; background: var(--plasma);
+    box-shadow: 0 0 10px 2px rgba(53,214,255,0.75);
+  }
+  @keyframes cursorSpin { to { transform: rotate(360deg); } }
+
+  /* ── Telemetry ────────────────────────────────────────── */
+  .hud-layer { position: absolute; inset: 0; pointer-events: none; }
+  .corner {
+    position: absolute; display: flex; flex-direction: column; gap: var(--s2);
+    padding: clamp(20px, 3.4vh, 40px) clamp(22px, 3.4vw, 48px);
+  }
+  .tl { top: 0; left: 0; }
+  .tr { top: 0; right: 0; align-items: flex-end; text-align: right; }
+  .bl { bottom: 0; left: 0; }
+  .br { bottom: 0; right: 0; align-items: flex-end; text-align: right; }
+
+  .label {
+    font-size: 9px; font-weight: 500; letter-spacing: 0.26em;
+    text-transform: uppercase; color: var(--ink-lo); text-indent: 0.26em;
+  }
+  .readout {
+    font-size: 11px; letter-spacing: 0.12em; color: var(--ink);
+    font-variant-numeric: tabular-nums;
+  }
+  .stack { display: flex; flex-direction: column; gap: 3px; }
+  .row { display: flex; align-items: center; gap: var(--s2); }
+
+  .chip {
+    display: inline-flex; align-items: center; gap: 7px;
+    padding: 5px 11px 5px 8px; border-radius: var(--r-pill);
+    border: 1px solid var(--hairline); background: var(--glass);
+    backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+    font-size: 9px; letter-spacing: 0.24em; text-transform: uppercase;
+    color: var(--ink); transition: all .5s var(--e-hud); text-indent: 0.24em;
+  }
+  .dot {
+    width: 5px; height: 5px; border-radius: 50%; background: var(--plasma);
+    box-shadow: 0 0 8px 1px currentColor; color: var(--plasma);
+    animation: breathe 3.2s ease-in-out infinite; flex: none;
+  }
+  @keyframes breathe { 0%,100% { opacity: .45; } 50% { opacity: 1; } }
+  .chip[data-state="listening"] { border-color: rgba(53,214,255,.5); color: var(--plasma); }
+  .chip[data-state="thinking"]  { border-color: rgba(46,125,255,.5); }
+  .chip[data-state="warning"]   { border-color: rgba(255,178,61,.5); color: var(--caution); }
+  .chip[data-state="warning"] .dot { background: var(--caution); color: var(--caution); }
+  .chip[data-state="error"]     { border-color: rgba(255,77,106,.55); color: var(--breach); }
+  .chip[data-state="error"] .dot { background: var(--breach); color: var(--breach); }
+  .chip[data-state="offline"]   { border-color: rgba(120,170,235,.10); color: var(--ink-lo); }
+  .chip[data-state="offline"] .dot {
+    background: var(--ink-lo); color: var(--ink-lo); box-shadow: none; animation: none;
+  }
+
+  /* ── Clock block, below the reactor ───────────────────── */
+  #timeblock {
+    position: absolute; left: 50%; transform: translateX(-50%);
+    top: calc(50% + var(--coreOffset, 210px));
+    display: flex; flex-direction: column; align-items: center; gap: 9px;
+    pointer-events: none; transition: opacity .6s var(--e-hud), transform .6s var(--e-hud);
+  }
+  /* Chrome wordmark. The dark band at 44–52% is the specular horizon —
+     it is what separates polished metal from a blue gradient. */
+  #wordmark {
+    font-family: var(--f-display); font-weight: 700;
+    font-size: clamp(21px, 3.1vh, 34px); line-height: 1;
+    letter-spacing: 0.15em; text-indent: 0.15em;
+    background-image: linear-gradient(180deg,
+      #F2FAFF 0%, #BEDFF9 20%, #639BD6 40%,
+      #143A66 50%, #3F7EC2 58%, #96C6EC 76%, #E4F3FF 100%);
+    background-size: 100% 220%;
+    background-position: 0 12%;
+    -webkit-background-clip: text; background-clip: text;
+    color: transparent; -webkit-text-fill-color: transparent;
+    filter: drop-shadow(0 0 20px rgba(53,214,255,0.45))
+            drop-shadow(0 1px 1px rgba(0,0,0,0.7));
+    animation: chrome 9s ease-in-out infinite;
+  }
+  @keyframes chrome {
+    0%, 100% { background-position: 0 12%; }
+    50%      { background-position: 0 88%; }
+  }
+
+  #clock {
+    font-family: var(--f-display); font-weight: 200;
+    font-size: clamp(19px, 2.7vh, 30px); line-height: 1;
+    letter-spacing: 0.24em; text-indent: 0.24em; color: var(--ink-hi);
+    font-variant-numeric: tabular-nums;
+    text-shadow: 0 0 28px rgba(53,214,255,0.36);
+  }
+  #greetline {
+    font-size: 9.5px; letter-spacing: 0.36em; text-transform: uppercase;
+    color: var(--ink-lo); text-indent: 0.36em; text-align: center;
+  }
+  body[data-depth="1"] #timeblock, body[data-depth="2"] #timeblock {
+    opacity: .3; transform: translateX(-50%) translateY(10px);
+  }
+
+  /* ── Orbital labels ───────────────────────────────────── */
+  #labels { position: absolute; inset: 0; pointer-events: none; }
+  .mlabel {
+    position: absolute; transform: translate(-50%, 0);
+    font-size: 8px; letter-spacing: 0.24em; text-transform: uppercase;
+    color: var(--ink-lo); white-space: nowrap; text-indent: 0.24em;
+    transition: color .3s var(--e-hud);
+  }
+  .mlabel.on { color: var(--ignition); text-shadow: 0 0 12px rgba(53,214,255,.6); }
+
+  /* ── Breadcrumb rail ──────────────────────────────────── */
+  #rail {
+    position: absolute; left: 50%; transform: translateX(-50%);
+    top: clamp(20px, 3.4vh, 40px); display: flex; align-items: center; gap: 10px;
+  }
+  .pip {
+    width: 4px; height: 4px; border-radius: 50%; background: var(--ink-ghost);
+    transition: all .45s var(--e-hud);
+  }
+  .pip.on {
+    background: var(--plasma); box-shadow: 0 0 9px 1px rgba(53,214,255,.8);
+    width: 5px; height: 5px;
+  }
+  #crumb {
+    font-size: 9px; letter-spacing: 0.3em; text-transform: uppercase;
+    color: var(--ink-lo); text-indent: 0.3em; min-width: 90px; text-align: center;
+  }
+
+  /* ── Voice overlay ────────────────────────────────────── */
+  #voice {
+    position: absolute; left: 50%; bottom: 11vh; transform: translateX(-50%) translateY(20px);
+    display: flex; flex-direction: column; align-items: center; gap: 13px;
+    opacity: 0; pointer-events: none; transition: all .55s var(--e-hud);
+    width: min(660px, 82vw);
+  }
+  #voice.on { opacity: 1; transform: translateX(-50%) translateY(0); }
+  #wave { display: flex; align-items: center; gap: 3px; height: 30px; }
+  #wave i {
+    display: block; width: 2px; border-radius: 1px; background: var(--plasma);
+    box-shadow: 0 0 8px rgba(53,214,255,.55); height: 4px;
+  }
+  #voiceCap {
+    font-size: 9px; letter-spacing: 0.34em; text-transform: uppercase;
+    color: var(--plasma); text-indent: 0.34em;
+  }
+  #transcript {
+    font-size: 11.5px; letter-spacing: 0.05em; line-height: 1.6;
+    color: var(--ink-hi); text-align: center; min-height: 19px;
+    max-width: 56ch;
+  }
+
+  /* ── Command palette ──────────────────────────────────── */
+  #palette {
+    position: absolute; inset: 0; display: grid; place-items: center;
+    background: rgba(0,3,8,.72);
+    backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+    opacity: 0; pointer-events: none; transition: opacity .35s var(--e-hud); z-index: 60;
+  }
+  #palette.on { opacity: 1; pointer-events: auto; }
+  .pal-box {
+    width: min(560px, 86vw); border: 1px solid var(--hairline-hi);
+    background: linear-gradient(180deg, rgba(22,32,46,.85), rgba(6,10,18,.92));
+    border-radius: var(--r-md); overflow: hidden;
+    box-shadow: 0 0 80px rgba(46,125,255,.16), inset 0 1px 0 rgba(140,190,255,.10);
+    transform: translateY(10px) scale(.98); transition: transform .4s var(--e-snap);
+  }
+  #palette.on .pal-box { transform: none; }
+  .pal-in {
+    display: flex; align-items: center; gap: 12px;
+    padding: 16px 18px; border-bottom: 1px solid var(--hairline);
+  }
+  .pal-in span { color: var(--plasma); font-size: 12px; }
+  .pal-in input {
+    flex: 1; background: transparent; border: 0; outline: none; color: var(--ink-hi);
+    font-family: var(--f-data); font-size: 12px; letter-spacing: 0.14em;
+  }
+  .pal-in input::placeholder { color: var(--ink-ghost); }
+  .pal-in input:focus-visible { outline: none; }
+  .pal-list { max-height: 260px; overflow-y: auto; }
+  .pal-item {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 11px 18px; font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase;
+    color: var(--ink); border-left: 2px solid transparent; transition: all .2s;
+  }
+  .pal-item:hover, .pal-item.sel {
+    background: rgba(46,125,255,.10); border-left-color: var(--plasma); color: var(--ink-hi);
+  }
+  .pal-item em { font-style: normal; color: var(--ink-ghost); font-size: 8.5px; letter-spacing: .18em; }
+
+  /* ── Boot ─────────────────────────────────────────────── */
+  #boot {
+    position: absolute; inset: 0; display: grid; place-items: center;
+    background: var(--void); z-index: 80; transition: opacity .9s var(--e-hud);
+  }
+  #boot.done { opacity: 0; pointer-events: none; }
+  .boot-in { display: flex; flex-direction: column; align-items: center; gap: 20px; }
+  .boot-in .mark {
+    font-family: var(--f-display); font-weight: 200; font-size: 15px;
+    letter-spacing: 0.86em; text-transform: uppercase; color: var(--ink-hi); text-indent: 0.86em;
+  }
+  .boot-bar { width: 190px; height: 1px; background: var(--ink-ghost); overflow: hidden; }
+  .boot-bar i {
+    display: block; height: 100%; width: 0; background: var(--plasma);
+    box-shadow: 0 0 12px var(--plasma); transition: width .2s linear;
+  }
+  .boot-log {
+    font-size: 8.5px; letter-spacing: 0.24em; text-transform: uppercase;
+    color: var(--ink-lo); min-height: 12px; text-indent: 0.24em;
+  }
+
+  /* ── Toast ────────────────────────────────────────────── */
+  #toast {
+    position: absolute; left: 50%; bottom: clamp(18px, 2.6vh, 32px);
+    transform: translateX(-50%) translateY(8px);
+    display: flex; align-items: center; gap: 10px;
+    padding: 9px 15px; border: 1px solid var(--hairline-hi);
+    background: var(--glass); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+    border-radius: var(--r-pill); font-size: 9px; letter-spacing: 0.24em;
+    text-transform: uppercase; color: var(--ink-hi); text-indent: 0.24em;
+    opacity: 0; pointer-events: none; transition: all .45s var(--e-hud); z-index: 50;
+  }
+  #toast.on { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  @media (max-width: 720px) {
+    .corner { padding: 16px 18px; }
+    .tr .stack, .bl .stack { display: none; }
+    #transcript { font-size: 10.5px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .sweep, .dot, #cursor::before, #wordmark { animation: none; }
+    * { transition-duration: .01ms !important; }
+  }
     </style>
   </head>
   <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
+<div id="stage">
+  <canvas id="reactor"></canvas>
+  <div class="sweep"></div>
+  <div class="vignette"></div>
+  <div class="scanlines"></div>
+
+  <div id="labels"></div>
+
+  <div class="hud-layer">
+    <div id="rail">
+      <span class="pip on"></span><span class="pip"></span><span class="pip"></span>
+      <span id="crumb">Core</span>
+    </div>
+
+    <div class="corner tl">
+      <div class="stack">
+        <div class="label">Operator</div>
+        <div class="readout" style="color:var(--ink-hi)">MATHEUS VINICIUS</div>
+      </div>
+      <div class="stack" style="margin-top:6px">
+        <div class="label">Clearance</div>
+        <div class="readout">ROOT · TIER 01</div>
+      </div>
+    </div>
+
+    <div class="corner tr">
+      <div class="stack">
+        <div class="label">Local</div>
+        <div class="readout" id="dateOut" style="color:var(--ink-hi)">—</div>
+      </div>
+      <div class="stack" style="margin-top:6px">
+        <div class="label">Uptime</div>
+        <div class="readout" id="uptimeOut">00:00:00</div>
+      </div>
+    </div>
+
+    <div class="corner bl">
+      <div class="stack">
+        <div class="label">Core Load</div>
+        <div class="readout" id="loadOut">—</div>
+      </div>
+      <div class="stack" style="margin-top:6px">
+        <div class="label">Latency</div>
+        <div class="readout" id="latOut">—</div>
+      </div>
+    </div>
+
+    <div class="corner br">
+      <div class="row">
+        <span class="chip" id="statusChip" data-state="idle">
+          <span class="dot"></span><span id="statusText">Standby</span>
+        </span>
+      </div>
+      <div class="stack" style="margin-top:8px; align-items:flex-end">
+        <div class="label">Link</div>
+        <div class="readout" id="linkOut">GRPC · 127.0.0.1:50051</div>
+      </div>
+    </div>
+
+    <div id="timeblock">
+      <div id="wordmark">J.A.R.V.I.S.</div>
+      <div id="clock">--:--</div>
+      <div id="greetline">Good evening, Matheus</div>
+    </div>
+
+    <div id="voice">
+      <div id="wave"></div>
+      <div id="voiceCap">Listening</div>
+      <div id="transcript"></div>
+    </div>
+  </div>
+
+  <div id="toast"><span class="dot"></span><span id="toastText">—</span></div>
+
+  <div id="palette" role="dialog" aria-label="Command palette">
+    <div class="pal-box">
+      <div class="pal-in">
+        <span>&#9656;</span>
+        <input id="palInput" placeholder="COMANDO, MÓDULO OU CONSULTA" aria-label="Comando" autocomplete="off" />
+      </div>
+      <div class="pal-list" id="palList"></div>
+    </div>
+  </div>
+
+  <div id="boot">
+    <div class="boot-in">
+      <div class="mark">ARC</div>
+      <div class="boot-bar"><i id="bootFill"></i></div>
+      <div class="boot-log" id="bootLog">INITIALIZING</div>
+    </div>
+  </div>
+
+  <div id="cursor"></div>
+</div>
+    <script type="module" src="/src/arc/main.js"></script>
   </body>
 </html>

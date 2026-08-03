@@ -3,12 +3,14 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "JARVIS OS — Next-Gen Cinematic AI Interface",
+  "description": "ARC — the J.A.R.V.I.S. HUD for Sexta-Feira OS",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "test": "node test/arc-smoke.mjs",
+    "check": "npm run test && npm run build"
   },
   "dependencies": {
     "@react-three/fiber": "^9.1.0",
