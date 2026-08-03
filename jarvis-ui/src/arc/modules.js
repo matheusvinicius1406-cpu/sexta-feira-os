@@ -1,0 +1,466 @@
+/**
+ * What each module's panel shows, and where it comes from.
+ *
+ * One entry per sub-item of the twelve modules in `main.js`. Each entry is a
+ * `load()` that returns rows the panel renders — nothing here formats pixels,
+ * and nothing here holds state.
+ *
+ * The hard rule, carried over from `kernel.js`: a panel shows a measurement or
+ * it shows why there is none. Several sub-items in the ARC design describe
+ * capabilities this OS does not have — SSH, VPN, browser tabs, threat feeds.
+ * Those are declared `absent`, with the reason, and the panel says so plainly.
+ * The alternative was to invent an endpoint per label so every panel would
+ * light up, which would mean twelve modules of decoration and no way for the
+ * owner to tell which parts of their own system are real.
+ *
+ * A loader either returns `{ rows }` (optionally `{ rows, note }`) or throws a
+ * KernelError, which the panel renders as the failure it was.
+ */
+import * as api from './api.js'
+
+/** Row helper: a labelled value. `null`/`undefined`/'' become an em dash. */
+const row = (k, v) => ({ k, v: v === null || v === undefined || v === '' ? '—' : String(v) })
+
+/** Declares a capability this kernel genuinely does not have. */
+const absent = (why) => ({ absent: why })
+
+const bytes = (n) => {
+  if (typeof n !== 'number' || !isFinite(n)) return '—'
+  const u = ['B', 'KB', 'MB', 'GB', 'TB']
+  let i = 0
+  let v = n
+  while (v >= 1024 && i < u.length - 1) { v /= 1024; i += 1 }
+  return `${v.toFixed(i === 0 ? 0 : 1)} ${u[i]}`
+}
+
+const pct = (n) => (typeof n === 'number' ? `${n.toFixed(1)} %` : '—')
+
+const duration = (s) => {
+  if (typeof s !== 'number' || s < 0) return '—'
+  const d = Math.floor(s / 86400)
+  const h = Math.floor(s / 3600) % 24
+  const m = Math.floor(s / 60) % 60
+  return d > 0 ? `${d}d ${h}h ${m}m` : h > 0 ? `${h}h ${m}m` : `${m}m`
+}
+
+const when = (iso) => {
+  if (!iso) return '—'
+  const d = new Date(iso)
+  return isNaN(d) ? String(iso) : d.toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })
+}
+
+/** Turn a list into rows, saying so when the list is legitimately empty. */
+const listing = (items, toRow, emptyNote) =>
+  items.length ? { rows: items.map(toRow) } : { rows: [], note: emptyNote }
+
+const truncate = (s, n = 88) => {
+  const t = String(s ?? '').replace(/\s+/g, ' ').trim()
+  return t.length > n ? `${t.slice(0, n - 1)}…` : t
+}
+
+export const PANELS = {
+  // ── AI: the brain itself ───────────────────────────────────
+  'ai/Models': async () => {
+    const [h, v] = await Promise.all([api.health(), api.visionStatus().catch(() => null)])
+    return {
+      rows: [
+        row('Brain model', h.brain_model),
+        row('Brain online', h.brain_online ? 'sim' : 'não'),
+        row('Kernel', `${h.app} ${h.version}`),
+        row('Access mode', h.access_mode),
+        row('Vision model', v?.model ?? v?.vision_model),
+        row('Vision online', v ? (v.available ?? v.healthy ? 'sim' : 'não') : '—'),
+      ],
+    }
+  },
+  'ai/Prompts': async () => {
+    const ds = await api.directors()
+    return listing(
+      ds,
+      (d) => row(d.name ?? d.slug, truncate(d.mandate ?? d.role ?? d.description)),
+      'nenhum diretor definido — cada um carrega o próprio mandato/prompt',
+    )
+  },
+  'ai/Context': async () => {
+    const d = await api.worldDigest()
+    const text = typeof d === 'string' ? d : (d.digest ?? JSON.stringify(d))
+    return {
+      rows: String(text).split('\n').filter(Boolean).map((line, i) => row(`#${i + 1}`, line)),
+      note: 'o digest que o kernel injeta em cada conversa',
+    }
+  },
+  'ai/Tuning': async () => {
+    const h = await api.health()
+    return {
+      rows: [row('Brain model', h.brain_model), row('Access mode', h.access_mode)],
+      note: 'temperatura e amostragem vivem no .env do kernel; não há endpoint de escrita',
+    }
+  },
+  'ai/Evals': async () => {
+    const [cases, runs] = await Promise.all([api.evalCases(), api.evalRuns().catch(() => [])])
+    return {
+      rows: [
+        row('Casos', cases.length),
+        row('Execuções', runs.length),
+        ...runs.slice(0, 6).map((r) => row(when(r.created_at), `${r.passed ?? '—'}/${r.total ?? '—'}`)),
+      ],
+    }
+  },
+
+  // ── Memory ─────────────────────────────────────────────────
+  'memory/Recent': async () => {
+    const ms = await api.memories()
+    return listing(
+      ms.slice(0, 12),
+      (m) => row(m.kind ?? 'fact', truncate(m.title || m.content)),
+      'nenhuma memória gravada ainda',
+    )
+  },
+  'memory/Semantic': async () => {
+    const g = await api.memoryGraph()
+    return {
+      rows: [
+        row('Nós', g.nodes?.length ?? 0),
+        row('Ligações', g.links?.length ?? g.edges?.length ?? 0),
+        ...(g.nodes ?? []).slice(0, 8).map((n) => row(n.kind ?? 'nó', truncate(n.title))),
+      ],
+      note: 'busca semântica: use a paleta (Ctrl+K) e digite uma consulta',
+    }
+  },
+  'memory/Episodic': async () => {
+    const es = await api.events()
+    return listing(
+      es.slice(0, 12),
+      (e) => row(when(e.created_at), e.type),
+      'nenhum evento registrado ainda',
+    )
+  },
+  'memory/Purge': async () => {
+    const ms = await api.memories()
+    return {
+      rows: [row('Memórias', ms.length)],
+      note: 'apagar é destrutivo e definitivo: feito por memória, via DELETE /memory/{id}',
+    }
+  },
+
+  // ── Agents: directors + the Teia ───────────────────────────
+  'agents/Active': async () => {
+    const [ds, st] = await Promise.all([api.directors(), api.automationStatus().catch(() => null)])
+    return {
+      rows: [
+        row('Diretores', ds.length),
+        row('Automações armadas', st?.armed ?? st?.enabled ?? '—'),
+        row('Em execução', st?.running ?? '—'),
+        ...ds.slice(0, 8).map((d) => row(d.name ?? d.slug, d.role ?? d.specialty ?? '—')),
+      ],
+    }
+  },
+  'agents/Queue': async () => {
+    const xs = await api.executions()
+    const items = Array.isArray(xs) ? xs : (xs.items ?? [])
+    return listing(
+      items.slice(0, 12),
+      (x) => row(x.workflow_id ?? x.slug ?? x.id, `${x.status} · ${when(x.started_at ?? x.created_at)}`),
+      'nenhuma execução na fila',
+    )
+  },
+  'agents/Registry': async () => {
+    const t = await api.automationTypes()
+    const nodes = t.nodes ?? t.node_types ?? []
+    const triggers = t.triggers ?? t.trigger_types ?? []
+    return {
+      rows: [
+        row('Tipos de nó', nodes.length),
+        row('Tipos de gatilho', triggers.length),
+        row('Gatilhos', triggers.join(', ')),
+      ],
+      note: `nós: ${nodes.join(', ')}`,
+    }
+  },
+  'agents/Logs': async () => {
+    const xs = await api.executions()
+    const items = Array.isArray(xs) ? xs : (xs.items ?? [])
+    const failed = items.filter((x) => x.status && x.status !== 'sucesso' && x.status !== 'success')
+    return listing(
+      failed.slice(0, 12),
+      (x) => row(x.workflow_id ?? x.id, `${x.status}${x.error ? ` · ${truncate(x.error, 60)}` : ''}`),
+      'nenhuma execução com falha',
+    )
+  },
+  'agents/Spawn': async () => {
+    const as = await api.automations()
+    return listing(
+      as.slice(0, 12),
+      (a) => row(a.slug ?? a.name, a.enabled ? 'armada' : 'desarmada'),
+      'nenhuma automação instalada — instale o catálogo pela API',
+    )
+  },
+
+  // ── Files / vault ──────────────────────────────────────────
+  'files/Recent': async () => {
+    const s = await api.obsidianStatus()
+    return {
+      rows: [
+        row('Vault', s.vault_path),
+        row('Configurado', s.default_path_configured ? 'sim' : 'não'),
+        row('Observando', s.watching ? 'sim' : 'não'),
+        row('Notas', s.note_count ?? s.notes ?? '—'),
+      ],
+    }
+  },
+  'files/Index': async () => {
+    const g = await api.memoryGraph()
+    return {
+      rows: [row('Nós indexados', g.nodes?.length ?? 0), row('Ligações', g.links?.length ?? 0)],
+      note: 'o índice do vault é o próprio grafo de memória',
+    }
+  },
+  'files/Vault': async () => {
+    const s = await api.obsidianStatus()
+    return { rows: Object.entries(s).map(([k, v]) => row(k, typeof v === 'object' ? JSON.stringify(v) : v)) }
+  },
+  'files/Sync': async () => {
+    const s = await api.obsidianStatus()
+    return {
+      rows: [row('Vault', s.vault_path), row('Observando', s.watching ? 'sim' : 'não')],
+      note: 'importar/exportar escrevem no seu disco: disparados explicitamente, nunca por abrir um painel',
+    }
+  },
+
+  // ── Projects: planning ─────────────────────────────────────
+  'projects/Active': async () => {
+    const gs = await api.goals()
+    const open = gs.filter((g) => ['pending', 'active', 'blocked'].includes(g.status))
+    return listing(
+      open,
+      (g) => row(truncate(g.title, 44), `${g.status} · ${Math.round((g.progress ?? 0) * 100)}%`),
+      'nenhuma meta aberta',
+    )
+  },
+  'projects/Archive': async () => {
+    const gs = await api.goals()
+    const done = gs.filter((g) => ['done', 'completed', 'cancelled'].includes(g.status))
+    return listing(done, (g) => row(truncate(g.title, 44), g.status), 'nada arquivado ainda')
+  },
+  'projects/Tasks': async () => {
+    const b = await api.board()
+    const cols = Object.entries(b ?? {})
+    return listing(
+      cols,
+      ([name, items]) => row(name, Array.isArray(items) ? items.length : String(items)),
+      'quadro vazio',
+    )
+  },
+  'projects/Timeline': async () => {
+    const b = await api.briefingLatest().catch(() => null)
+    if (!b) return { rows: [], note: 'nenhum briefing gerado ainda' }
+    return {
+      rows: String(b.summary ?? '').split('\n').filter(Boolean).map((l, i) => row(`#${i + 1}`, l)),
+      note: `briefing de ${when(b.created_at)}`,
+    }
+  },
+
+  // ── Terminal ───────────────────────────────────────────────
+  'terminal/Shell': async () =>
+    absent(
+      'este kernel não expõe shell por HTTP. Executar programa é capacidade da Teia ' +
+      '(nó "programa"), dentro de uma automação revisada — não um prompt aberto na rede.',
+    ),
+  'terminal/History': async () => {
+    const xs = await api.executions()
+    const items = Array.isArray(xs) ? xs : (xs.items ?? [])
+    return listing(
+      items.slice(0, 15),
+      (x) => row(when(x.started_at ?? x.created_at), `${x.workflow_id ?? x.id} · ${x.status}`),
+      'nenhuma execução registrada',
+    )
+  },
+  'terminal/Jobs': async () => {
+    const ts = await api.schedule()
+    return listing(
+      ts,
+      (t) => row(t.name ?? t.id, `${t.action ?? ''} · ${when(t.next_run_at ?? t.run_at)}`),
+      'nenhuma tarefa agendada',
+    )
+  },
+  'terminal/SSH': async () =>
+    absent('o kernel não fala SSH. Ele roda na sua máquina; não há sessão remota a listar.'),
+
+  // ── Browser: the kernel's reach into the web ───────────────
+  'browser/Tabs': async () =>
+    absent('o kernel não controla um navegador. O alcance dele à web é busca, em Research.'),
+  'browser/Research': async () => ({
+    rows: [],
+    note: 'busca web: abra a paleta (Ctrl+K) e digite `buscar <termo>`',
+  }),
+  'browser/Capture': async () => ({
+    rows: [],
+    note: 'buscar e trazer o conteúdo do melhor resultado: paleta (Ctrl+K), `buscar <termo>`',
+  }),
+  'browser/Marks': async () =>
+    absent('não há favoritos: o que vale ser guardado vira memória, em Memory.'),
+
+  // ── Security ───────────────────────────────────────────────
+  'security/Keys': async () => {
+    const ss = await api.secrets()
+    const names = Array.isArray(ss) ? ss : (ss.secrets ?? [])
+    return listing(
+      names,
+      (s) => row(typeof s === 'string' ? s : (s.name ?? '—'), 'guardado no cofre'),
+      'nenhum segredo guardado',
+    )
+  },
+  'security/Audit': async () => {
+    const es = await api.events()
+    return listing(
+      es.slice(0, 15),
+      (e) => row(when(e.created_at), `${e.type} · ${e.source ?? ''}`),
+      'nenhum evento para auditar',
+    )
+  },
+  'security/Perms': async () => {
+    const [ds, h] = await Promise.all([api.devices(), api.health()])
+    return {
+      rows: [
+        row('Access mode', h.access_mode),
+        row('Aparelhos pareados', ds.length),
+        ...ds.map((d) => row(d.name ?? d.id, d.revoked ? 'revogado' : 'ativo')),
+      ],
+    }
+  },
+  'security/Threats': async () =>
+    absent('não há detecção de ameaças neste kernel. O que existe é a trilha de eventos, em Audit.'),
+
+  // ── Voice ──────────────────────────────────────────────────
+  'voice/Listen': async () => {
+    const s = await api.voiceStatus()
+    return {
+      rows: Object.entries(s).map(([k, v]) => row(k, typeof v === 'object' ? JSON.stringify(v) : v)),
+      note: 'segure V para falar com o Jarvis; solte para ele responder',
+    }
+  },
+  'voice/Voices': async () => {
+    const ps = await api.voicePacks()
+    const packs = Array.isArray(ps) ? ps : (ps.packs ?? [])
+    return listing(
+      packs,
+      (p) => row(typeof p === 'string' ? p : (p.name ?? '—'), typeof p === 'object' ? (p.description ?? '') : ''),
+      'nenhum pacote de voz instalado',
+    )
+  },
+  'voice/Phrases': async () => {
+    const p = await api.voicePersonality()
+    return { rows: Object.entries(p).map(([k, v]) => row(k, typeof v === 'object' ? JSON.stringify(v) : v)) }
+  },
+  'voice/Latency': async () => ({
+    rows: [],
+    note: 'a latência medida do kernel fica no trilho à direita, em LATENCY',
+  }),
+
+  // ── Network ────────────────────────────────────────────────
+  'network/Nodes': async () => {
+    const h = await api.health()
+    return {
+      rows: [
+        row('Kernel', `${h.app} ${h.version}`),
+        row('Access mode', h.access_mode),
+        row('Origem', location.host),
+        row('Brain online', h.brain_online ? 'sim' : 'não'),
+      ],
+    }
+  },
+  'network/Traffic': async () =>
+    absent('o kernel não contabiliza tráfego de rede. O que ele mede está em System.'),
+  'network/Devices': async () => {
+    const ds = await api.devices()
+    return listing(
+      ds,
+      (d) => row(d.name ?? d.id, `${d.platform ?? ''} · ${d.revoked ? 'revogado' : 'ativo'}`),
+      'nenhum aparelho pareado',
+    )
+  },
+  'network/VPN': async () =>
+    absent('o kernel não gerencia VPN. Ele escuta em loopback ou na LAN — veja Access mode em Nodes.'),
+
+  // ── System: the host, measured ─────────────────────────────
+  'system/CPU': async () => {
+    const s = await api.system()
+    return {
+      rows: [
+        row('Uso', pct(s.cpu.percent)),
+        row('Núcleos lógicos', s.cpu.cores_logical),
+        row('Núcleos físicos', s.cpu.cores_physical),
+        row('Host', `${s.host.system} ${s.host.release} · ${s.host.machine}`),
+        row('Uptime', duration(s.uptime_seconds)),
+      ],
+    }
+  },
+  'system/Memory': async () => {
+    const s = await api.system()
+    return {
+      rows: [
+        row('Uso', pct(s.memory.percent)),
+        row('Usada', bytes(s.memory.used_bytes)),
+        row('Disponível', bytes(s.memory.available_bytes)),
+        row('Total', bytes(s.memory.total_bytes)),
+      ],
+    }
+  },
+  'system/Disk': async () => {
+    const s = await api.system()
+    return {
+      rows: [
+        row('Uso', pct(s.disk.percent)),
+        row('Usado', bytes(s.disk.used_bytes)),
+        row('Livre', bytes(s.disk.free_bytes)),
+        row('Total', bytes(s.disk.total_bytes)),
+      ],
+    }
+  },
+  'system/Power': async () => {
+    const s = await api.system()
+    if (!s.battery) return absent(s.unavailable?.battery ?? 'esta máquina não reporta bateria')
+    return {
+      rows: [
+        row('Carga', pct(s.battery.percent)),
+        row('Na tomada', s.battery.plugged ? 'sim' : 'não'),
+        row('Restante', s.battery.seconds_left === null ? '—' : duration(s.battery.seconds_left)),
+      ],
+    }
+  },
+  'system/Temp': async () => {
+    const s = await api.system()
+    return absent(s.unavailable?.temperature ?? 'temperatura não é legível nesta plataforma')
+  },
+
+  // ── Settings ───────────────────────────────────────────────
+  'settings/Core': async () => {
+    const h = await api.health()
+    return { rows: Object.entries(h).map(([k, v]) => row(k, v)) }
+  },
+  'settings/Voice': async () => {
+    const s = await api.voiceStatus()
+    return { rows: Object.entries(s).map(([k, v]) => row(k, typeof v === 'object' ? JSON.stringify(v) : v)) }
+  },
+  'settings/Theme': async () => ({
+    rows: [row('Tema', 'ARC — único'), row('Movimento', matchMedia('(prefers-reduced-motion: reduce)').matches ? 'reduzido (respeitando o sistema)' : 'completo')],
+    note: 'o tema acompanha a preferência de movimento do sistema operacional',
+  }),
+  'settings/About': async () => {
+    const h = await api.health()
+    return {
+      rows: [
+        row('Sistema', h.app),
+        row('Versão', h.version),
+        row('Cérebro', h.brain_model),
+        row('Modo de acesso', h.access_mode),
+      ],
+      note: 'roda inteiro na sua máquina; nada sai daqui',
+    }
+  },
+}
+
+/** The loader for a module/sub-item pair, or null when none is mapped. */
+export function panelFor(moduleId, item) {
+  return PANELS[`${moduleId}/${item}`] ?? null
+}

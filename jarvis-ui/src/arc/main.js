@@ -11,8 +11,16 @@
  * replies, the staged link failures and the random core load that made a static
  * mockup look alive. Those are replaced by `./kernel.js`, which reads the real
  * kernel. A HUD that invents its readings is a screensaver.
+ *
+ * The twelve modules are wired through `./modules.js` (what each sub-item reads)
+ * and `./panel.js` (where it lands). `./live.js` owns the conversation, the
+ * microphone and the camera, and it is what moves the reactor: `thinking` means
+ * the kernel is thinking, `speaking` means audio is playing.
  */
 import * as Kernel from './kernel.js'
+import * as Panel from './panel.js'
+import * as Live from './live.js'
+import * as Api from './api.js'
 
 (() => {
   "use strict";
@@ -717,7 +725,9 @@ import * as Kernel from './kernel.js'
         Brain.observe("navigate", MODULES[hit].label);
       } else if (S.depth === 2) {
         const m = MODULES[S.activeIdx];
-        Brain.observe("command", `${m.label} · ${m.kids[hit]}`);
+        // The sub-item used to raise a toast and nothing else. It now opens the
+        // module's real reading from the kernel.
+        Panel.open(m.id, m.label, m.kids[hit]);
       }
     }
   }
@@ -732,21 +742,58 @@ import * as Kernel from './kernel.js'
       d === 0 ? "Core" : d === 1 ? "Core · Modules" : `Core · ${MODULES[S.activeIdx].label}`;
   }
 
+  /** True while the operator is typing, so shortcuts do not eat their text. */
+  const typing = () => {
+    const t = document.activeElement;
+    return t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA");
+  };
+
   addEventListener("keydown", e => {
     if (e.key === "Escape") {
       if (pal.classList.contains("on")) { closePal(); return; }
+      // Innermost surface first: a panel or the chat closes before the radial
+      // navigation moves, or Escape would rip the whole view out from under
+      // someone who only wanted to dismiss a reading.
+      if (Panel.isOpen()) { Panel.close(); return; }
+      if (Live.chatIsOpen()) { Live.closeChat(); return; }
       setDepth(Math.max(0, S.depth - 1));
+      return;
     }
-    if ((e.key.toLowerCase() === "k" && (e.metaKey || e.ctrlKey)) || e.key === "/") {
-      e.preventDefault(); openPal();
+    if ((e.key.toLowerCase() === "k" && (e.metaKey || e.ctrlKey)) || (e.key === "/" && !typing())) {
+      e.preventDefault(); openPal(); return;
     }
-    if (e.key.toLowerCase() === "v" && !pal.classList.contains("on")) {
-      Brain.observe("wake");
+    if (typing()) return;
+
+    // Hold V to talk. Held, not toggled: the microphone is open for exactly as
+    // long as a key is down, so it cannot be left recording by accident.
+    if (e.key.toLowerCase() === "v" && !e.repeat && !pal.classList.contains("on")) {
+      e.preventDefault();
+      Live.startListening();
+      return;
+    }
+    if (e.key.toLowerCase() === "c" && !pal.classList.contains("on")) {
+      e.preventDefault();
+      Live.cameraIsOn() ? (Live.stopCamera(), toast("Câmera desligada")) : Live.look();
+      return;
+    }
+    if (e.key === "Enter" && !pal.classList.contains("on")) {
+      e.preventDefault(); Live.openChat(); return;
     }
     if (e.key === " " && !pal.classList.contains("on")) {
       e.preventDefault(); setDepth(S.depth === 0 ? 1 : 0);
     }
   });
+
+  addEventListener("keyup", e => {
+    if (e.key.toLowerCase() === "v" && Live.isListening()) {
+      e.preventDefault();
+      Live.stopListeningAndSend();
+    }
+  });
+
+  // A page torn down with the microphone or camera still open would leave the
+  // capture indicator lit with nothing behind it.
+  addEventListener("pagehide", () => Live.releaseAll());
 
   /* ═══════════════════════════════════════════════════════
      11 — BRAIN
@@ -803,6 +850,47 @@ import * as Kernel from './kernel.js'
     };
   })();
 
+  /**
+   * Two things move the reactor and they must not fight.
+   *
+   * The /health poll reports the LINK (offline, warning, idle). `live.js`
+   * reports ACTIVITY (listening, thinking, speaking). The poll fires every two
+   * seconds, so without an arbiter a health tick landing mid-answer would wipe
+   * `speaking` back to `idle` while audio was still playing — the reactor
+   * would go quiet and the HUD would be lying about what it was doing.
+   *
+   * Activity wins while it lasts. A link fault still wins over activity, since
+   * a dead kernel is the more important fact and nothing can be in flight.
+   */
+  const LINK_FAULTS = new Set(["offline", "error", "warning"]);
+  let activity = null;       // what live.js says is happening, or null
+  let linkState = "idle";    // what the last health poll reported
+
+  function arbitrate() {
+    if (LINK_FAULTS.has(linkState)) Brain.set(linkState);
+    else Brain.set(activity ?? linkState);
+  }
+
+  function onLinkState(state) { linkState = state; arbitrate(); }
+  function onActivity(state) {
+    activity = state === "idle" ? null : state;
+    arbitrate();
+  }
+
+  Live.configure({ onState: onActivity, onTranscript: (t) => Brain.transcript(t) });
+
+  /* — Chat input — */
+  const chatInput = document.getElementById("chatInput");
+  chatInput.addEventListener("keydown", e => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      const text = chatInput.value;
+      chatInput.value = "";
+      Live.say(text);
+    }
+    if (e.key === "Escape") { e.preventDefault(); Live.closeChat(); }
+  });
+
   /* — Waveform — */
   const wave = document.getElementById("wave");
   const bars = Array.from({ length: 34 }, () => {
@@ -819,13 +907,51 @@ import * as Kernel from './kernel.js'
     { t: m.label, s: "Module", go: () => { S.activeIdx = MODULES.indexOf(m); setDepth(2); } },
     ...m.kids.map(k => ({
       t: `${m.label} · ${k}`, s: "Action",
-      go: () => Brain.observe("command", `${m.label} · ${k}`),
+      go: () => { S.activeIdx = MODULES.indexOf(m); setDepth(2); Panel.open(m.id, m.label, k); },
     })),
   ]);
 
+  /**
+   * Typed input that is not a module name is still meant for the assistant.
+   * These entries make the palette answer for it — `buscar X` reaches the web
+   * through the kernel, anything else is a question for the brain. Without
+   * them, typing a real question would silently match nothing.
+   */
+  function dynamicCommands(raw) {
+    const q = raw.trim();
+    if (!q) return [];
+    const search = q.match(/^buscar\s+(.+)/i);
+    if (search) {
+      const term = search[1];
+      return [{
+        t: `Buscar na web: ${term}`, s: "Web",
+        go: () => Panel.openCustom("Browser · Research", async () => {
+          const r = await Api.webSearch(term);
+          return {
+            rows: (r.results ?? []).slice(0, 8).map(x => ({ k: x.title ?? "—", v: x.url ?? x.href ?? "—" })),
+            note: r.results?.length ? `${r.results.length} resultado(s) para "${term}"` : "nenhum resultado",
+          };
+        }),
+      }];
+    }
+    return [
+      { t: `Perguntar: ${q}`, s: "Chat", go: () => Live.say(q) },
+      { t: `Lembrar: ${q}`, s: "Memory", go: () => Panel.openCustom("Memory · Semantic", async () => {
+        const ms = await Api.recall(q);
+        return {
+          rows: ms.map(m => ({ k: m.kind ?? "fato", v: m.title || m.content })),
+          note: ms.length ? `${ms.length} memória(s) para "${q}"` : "nada lembrado sobre isso",
+        };
+      }) },
+    ];
+  }
+
   function renderPal(q) {
     const query = (q || "").toLowerCase();
-    const f = COMMANDS.filter(c => c.t.toLowerCase().includes(query)).slice(0, 24);
+    const f = [
+      ...dynamicCommands(q || ""),
+      ...COMMANDS.filter(c => c.t.toLowerCase().includes(query)),
+    ].slice(0, 24);
     palList.innerHTML = "";
     f.forEach((c, i) => {
       const el = document.createElement("div");
@@ -963,8 +1089,9 @@ import * as Kernel from './kernel.js'
     setDepth(0);
     requestAnimationFrame(frame);
 
-    // From here on, the link is what the reactor answers to.
-    Kernel.start((state) => Brain.set(state));
+    // From here on, the link is one of the two inputs the reactor answers to;
+    // the other is live activity. `arbitrate` decides between them.
+    Kernel.start(onLinkState);
 
     if (reduceMotion) { bootEl.classList.add("done"); Brain.start(); return; }
     let i = 0;
@@ -978,7 +1105,7 @@ import * as Kernel from './kernel.js'
         Brain.start();
         setTimeout(() => toast(
           Kernel.snapshot.connected
-            ? `Kernel v${Kernel.snapshot.version} — toque no núcleo`
+            ? "Enter fala · V escuta · C vê · Ctrl+K comanda"
             : "Kernel offline — suba o backend em 127.0.0.1:8000"), 900);
       }, 420);
     };

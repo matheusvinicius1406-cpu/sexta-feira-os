@@ -289,6 +289,102 @@
   }
   .pal-item em { font-style: normal; color: var(--ink-ghost); font-size: 8.5px; letter-spacing: .18em; }
 
+  /* ── Module panel ─────────────────────────────────────────
+     Where a sub-item's real reading lands. Anchored right so it
+     never covers the reactor, which stays the focus of the HUD. */
+  #panel {
+    position: absolute; top: 50%; right: clamp(16px, 3vw, 40px);
+    transform: translateY(-50%) translateX(16px);
+    width: min(420px, 40vw); max-height: 68vh;
+    display: flex; flex-direction: column;
+    border: 1px solid var(--hairline-hi); border-radius: var(--r-md);
+    background: linear-gradient(180deg, rgba(22,32,46,.88), rgba(6,10,18,.94));
+    backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+    box-shadow: 0 0 70px rgba(46,125,255,.14), inset 0 1px 0 rgba(140,190,255,.10);
+    opacity: 0; pointer-events: none; transition: all .4s var(--e-hud); z-index: 55;
+  }
+  #panel.on { opacity: 1; pointer-events: auto; transform: translateY(-50%) translateX(0); }
+  .pn-head {
+    display: flex; align-items: baseline; justify-content: space-between; gap: 12px;
+    padding: 14px 16px; border-bottom: 1px solid var(--hairline);
+  }
+  .pn-title {
+    font-size: 10px; letter-spacing: 0.26em; text-transform: uppercase;
+    color: var(--ink-hi); text-indent: 0.26em;
+  }
+  .pn-src { font-size: 8px; letter-spacing: 0.18em; color: var(--ink-ghost); text-transform: uppercase; }
+  .pn-body { overflow-y: auto; padding: 6px 0; }
+  .pn-row {
+    display: flex; align-items: baseline; justify-content: space-between; gap: 14px;
+    padding: 8px 16px; font-size: 10px; letter-spacing: 0.08em;
+  }
+  .pn-row + .pn-row { border-top: 1px solid rgba(120,170,235,.07); }
+  .pn-k { color: var(--ink-lo); text-transform: uppercase; letter-spacing: 0.18em; font-size: 8.5px; flex: 0 0 auto; max-width: 45%; }
+  .pn-v { color: var(--ink-hi); text-align: right; word-break: break-word; }
+  .pn-note, .pn-absent, .pn-error {
+    padding: 12px 16px; font-size: 9.5px; line-height: 1.65; letter-spacing: 0.06em;
+  }
+  .pn-note   { color: var(--ink-lo); border-top: 1px solid var(--hairline); }
+  /* A capability this OS does not have, and an error, must never look alike:
+     one is a fact about the system, the other is something to go fix. */
+  .pn-absent { color: var(--ink-lo); }
+  .pn-error  { color: var(--breach); }
+  .pn-load   { padding: 14px 16px; font-size: 9px; letter-spacing: .24em; color: var(--plasma); text-transform: uppercase; }
+
+  /* ── Chat ─────────────────────────────────────────────── */
+  #chat {
+    position: absolute; left: 50%; bottom: clamp(56px, 8vh, 96px);
+    transform: translateX(-50%) translateY(14px);
+    width: min(680px, 84vw); display: flex; flex-direction: column; gap: 10px;
+    opacity: 0; pointer-events: none; transition: all .45s var(--e-hud); z-index: 58;
+  }
+  #chat.on { opacity: 1; pointer-events: auto; transform: translateX(-50%) translateY(0); }
+  #chatLog {
+    display: flex; flex-direction: column; gap: 9px;
+    max-height: 42vh; overflow-y: auto; padding: 2px;
+  }
+  .ch-msg {
+    padding: 9px 13px; border-radius: var(--r-md); font-size: 11px; line-height: 1.6;
+    letter-spacing: 0.03em; max-width: 84%; white-space: pre-wrap; word-break: break-word;
+    border: 1px solid var(--hairline);
+    background: var(--glass); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+  }
+  .ch-msg.me   { align-self: flex-end; color: var(--ink-hi); border-color: var(--hairline-hi); }
+  .ch-msg.jv   { align-self: flex-start; color: var(--ink-hi); border-left: 2px solid var(--plasma); }
+  .ch-msg.err  { align-self: flex-start; color: var(--breach); border-left: 2px solid var(--breach); }
+  .ch-msg.wait { align-self: flex-start; color: var(--plasma); letter-spacing: .2em; font-size: 9px; text-transform: uppercase; }
+  .ch-in {
+    display: flex; align-items: center; gap: 12px;
+    padding: 13px 16px; border: 1px solid var(--hairline-hi); border-radius: var(--r-md);
+    background: linear-gradient(180deg, rgba(22,32,46,.86), rgba(6,10,18,.92));
+    backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
+  }
+  .ch-in span { color: var(--plasma); font-size: 12px; }
+  .ch-in input {
+    flex: 1; background: transparent; border: 0; outline: none; color: var(--ink-hi);
+    font-family: var(--f-data); font-size: 12px; letter-spacing: 0.08em;
+  }
+  .ch-in input::placeholder { color: var(--ink-ghost); letter-spacing: 0.16em; }
+
+  /* ── Camera ───────────────────────────────────────────────
+     Kept in the DOM and visible while a frame is being taken:
+     a camera that reads the room with no on-screen sign of it
+     would be a surveillance device, not an assistant. */
+  #cam {
+    position: absolute; right: clamp(16px, 3vw, 40px); bottom: clamp(16px, 3vh, 36px);
+    width: 180px; border: 1px solid var(--hairline-hi); border-radius: var(--r-md);
+    overflow: hidden; opacity: 0; pointer-events: none;
+    transition: opacity .4s var(--e-hud); z-index: 56;
+    box-shadow: 0 0 50px rgba(46,125,255,.16);
+  }
+  #cam.on { opacity: 1; }
+  #cam video { display: block; width: 100%; height: auto; }
+  #camCap {
+    padding: 6px 9px; font-size: 8px; letter-spacing: .22em; text-transform: uppercase;
+    color: var(--plasma); border-top: 1px solid var(--hairline);
+    background: var(--glass);
+  }
+
   /* ── Boot ─────────────────────────────────────────────── */
   #boot {
     position: absolute; inset: 0; display: grid; place-items: center;
@@ -405,6 +501,27 @@
       <div id="voiceCap">Listening</div>
       <div id="transcript"></div>
     </div>
+  </div>
+
+  <div id="panel" role="region" aria-label="Leitura do módulo" aria-live="polite">
+    <div class="pn-head">
+      <div class="pn-title" id="pnTitle">—</div>
+      <div class="pn-src" id="pnSrc"></div>
+    </div>
+    <div class="pn-body" id="pnBody"></div>
+  </div>
+
+  <div id="chat" role="region" aria-label="Conversa">
+    <div id="chatLog" aria-live="polite"></div>
+    <div class="ch-in">
+      <span>&#9656;</span>
+      <input id="chatInput" placeholder="FALE COM O JARVIS" aria-label="Mensagem" autocomplete="off" />
+    </div>
+  </div>
+
+  <div id="cam" role="region" aria-label="Câmera ativa">
+    <video id="camVideo" playsinline muted></video>
+    <div id="camCap">Câmera ligada</div>
   </div>
 
   <div id="toast"><span class="dot"></span><span id="toastText">—</span></div>

@@ -129,18 +129,74 @@ globalThis.Path2D = class {
 globalThis.CanvasRenderingContext2D = class {}
 globalThis.CanvasRenderingContext2D.prototype.createConicGradient = function () {}
 
-// The kernel is not running in a unit test — answer as if it were, so the
-// telemetry path (which reads latency and version) is exercised for real.
-globalThis.fetch = async () => ({
-  ok: true,
-  json: async () => ({
-    status: 'ok',
-    version: '1.0.0-kernel',
-    brain_online: true,
-    brain_model: 'llava:7b',
-    access_mode: 'lan',
-  }),
-})
+/**
+ * A stand-in kernel that answers with the SHAPES the real one returns.
+ *
+ * A stub that answers `{}` to everything would let a loader reading
+ * `list.slice(...)` pass here and throw the moment it met a real kernel — the
+ * panel would render "falhou" and look like a backend problem. So each route
+ * answers in the shape its router actually produces; anything not listed is a
+ * 404, which is itself the answer for a route the HUD should not be calling.
+ */
+const HEALTH = {
+  status: 'ok', app: 'Sexta-Feira OS', version: '1.0.0-kernel',
+  brain_online: true, brain_model: 'llava:7b', access_mode: 'loopback',
+}
+const GOAL = { id: 'g1', title: 'Meta', status: 'active', progress: 0.4, due_at: null }
+const MEMO = { id: 'm1', title: 'Nota', content: 'conteúdo', kind: 'fact' }
+const EVENT = { id: 'e1', type: 'kernel.ready', source: 'kernel', created_at: '2026-08-03T10:00:00Z' }
+
+const ROUTES = {
+  '/health': HEALTH,
+  '/system': {
+    cpu: { percent: 12.5, cores_logical: 8, cores_physical: 4 },
+    memory: { total_bytes: 17e9, used_bytes: 8e9, available_bytes: 9e9, percent: 47.5 },
+    disk: { total_bytes: 5e11, used_bytes: 2e11, free_bytes: 3e11, percent: 40 },
+    battery: { percent: 29, plugged: false, seconds_left: 3220 },
+    temperature: null,
+    uptime_seconds: 98000,
+    host: { system: 'Windows', release: '11', machine: 'AMD64', python: '3.14.6' },
+    unavailable: { temperature: 'psutil não expõe sensor de temperatura em Windows' },
+  },
+  '/memory': [MEMO],
+  '/memory/graph': { nodes: [{ id: 'n1', title: 'Nó', kind: 'fact' }], links: [] },
+  '/world/digest': { digest: 'linha um\nlinha dois' },
+  '/world': [], '/world/profile': [],
+  '/events': [EVENT],
+  '/directors': [{ name: 'engenharia', role: 'Engenharia', mandate: 'cuidar do código' }],
+  '/automations': [{ slug: 'captura-rapida', enabled: true }],
+  '/automations/status': { armed: 3, running: 0 },
+  '/automations/types': { nodes: ['inicio', 'notificar'], triggers: ['agenda', 'evento'] },
+  '/automations/executions': [{ id: 'x1', workflow_id: 'captura-rapida', status: 'sucesso', started_at: '2026-08-03T10:00:00Z' }],
+  '/obsidian/status': { vault_path: 'C:/vault', default_path_configured: true, watching: false, note_count: 12 },
+  '/planning/goals': [GOAL],
+  '/planning/board': { pending: [GOAL], active: [], done: [] },
+  '/briefing/latest': { id: 'b1', summary: 'Briefing\nFoco sugerido: Meta', created_at: '2026-08-03T07:00:00Z' },
+  '/briefing': [],
+  '/schedule': [{ id: 's1', name: 'briefing diário', action: 'briefing', next_run_at: '2026-08-04T07:00:00Z' }],
+  '/auth/devices': [{ id: 'd1', name: 'celular', platform: 'android', revoked: false }],
+  '/connectors/secrets': [{ name: 'OPENWEATHER' }],
+  '/connectors': [],
+  '/voice/status': { enabled: true, stt: 'whisper', tts: 'piper' },
+  '/voice/packs': [{ name: 'jarvis', description: 'voz padrão' }],
+  '/voice/personality': { greeting: 'Às ordens.' },
+  '/vision/status': { available: true, model: 'llava:7b' },
+  '/evals/cases': [], '/evals/runs': [],
+  '/learning': [], '/learning/stats': { total: 0 },
+  '/journal': [], '/habits': [], '/time/summary': {},
+  '/chat/conversations': [],
+}
+
+const seen = new Set()
+
+globalThis.fetch = async (url) => {
+  const path = String(url).replace(/^\/api\/v1/, '').replace(/\?.*$/, '')
+  seen.add(path)
+  if (!(path in ROUTES)) {
+    return { ok: false, status: 404, json: async () => ({ detail: `sem rota ${path}` }) }
+  }
+  return { ok: true, status: 200, json: async () => ROUTES[path] }
+}
 
 // Timers fire immediately would recurse forever (boot chains setTimeout); keep
 // them inert and drive the frames by hand instead.
@@ -206,6 +262,65 @@ pump(20, 'resize')
 await new Promise((r) => realSetTimeout(r, 50))
 pump(20, 'pós-kernel')
 
+// ── Every module sub-item must have a loader ─────────────────
+//
+// The twelve modules declare 51 sub-items between them. One without a loader is
+// a menu entry that opens onto nothing — the exact "feature is simply absent"
+// failure this project keeps finding. Read both lists from source and compare.
+
+const modulesSrc = readFileSync(resolve(root, 'src/arc/modules.js'), 'utf8')
+const moduleBlock = html.length && readFileSync(resolve(root, 'src/arc/main.js'), 'utf8')
+const decl = moduleBlock.slice(moduleBlock.indexOf('const MODULES = ['))
+const pairs = []
+for (const line of decl.slice(0, decl.indexOf('];')).split('\n')) {
+  if (!line.includes('kids:')) continue
+  const id = line.match(/id:\s*"([^"]+)"/)[1]
+  const kids = line.match(/kids:\s*\[([^\]]+)\]/)[1]
+  for (const m of kids.matchAll(/"([^"]+)"/g)) pairs.push(`${id}/${m[1]}`)
+}
+const loaders = new Set([...modulesSrc.matchAll(/'([a-z]+\/[A-Za-z]+)':/g)].map((m) => m[1]))
+
+for (const p of pairs) {
+  if (!loaders.has(p)) failures.push(`submenu "${p}" não tem leitura mapeada em modules.js`)
+}
+for (const l of loaders) {
+  if (!pairs.includes(l)) failures.push(`modules.js mapeia "${l}", que não existe em MODULES`)
+}
+
+// ── Every loader must survive a real answer ──────────────────
+//
+// Running them is the only way to know they parse the shapes the kernel sends.
+// A loader doing `list.slice()` on an object throws a TypeError here rather
+// than in front of the owner, where it would look like a backend fault.
+
+const { PANELS } = await import('../src/arc/modules.js')
+for (const [name, load] of Object.entries(PANELS)) {
+  try {
+    const out = await load()
+    if (out.absent) {
+      assert.equal(typeof out.absent, 'string', `${name}: 'absent' sem motivo`)
+      continue
+    }
+    assert.ok(Array.isArray(out.rows), `${name}: não devolveu 'rows' nem 'absent'`)
+    for (const r of out.rows) {
+      assert.ok('k' in r && 'v' in r, `${name}: linha malformada ${JSON.stringify(r)}`)
+      assert.equal(typeof r.v, 'string', `${name}: valor não é texto (${typeof r.v})`)
+    }
+  } catch (e) {
+    // 404 from the stand-in kernel means this loader asked for a route the
+    // kernel does not serve. Treating that as "a KernelError the panel will
+    // render" would let every typo'd path pass here and fail silently in front
+    // of the owner — the panel would say "este kernel não expõe esse recurso"
+    // about a route that exists, misdirected by one wrong string.
+    if (e && e.status === 404) {
+      failures.push(`loader "${name}" chamou rota inexistente: ${e.detail || e.message}`)
+      continue
+    }
+    if (e && e.constructor && e.constructor.name === 'KernelError') continue
+    failures.push(`loader "${name}" lançou ${e && e.stack ? e.stack.split('\n')[0] : e}`)
+  }
+}
+
 // ── Report ───────────────────────────────────────────────────
 
 if (failures.length) {
@@ -215,4 +330,7 @@ if (failures.length) {
 }
 
 assert.ok(registry.get('reactor'), 'canvas do reator não foi tocado')
-console.log('✓ ARC smoke: boot, depth 0→1→2→0, hover, teclado e resize sem exceção')
+console.log(
+  `✓ ARC smoke: boot, depth 0→1→2→0, hover, teclado, resize; ` +
+  `${pairs.length} submenus com leitura; ${Object.keys(PANELS).length} loaders exercitados`,
+)
