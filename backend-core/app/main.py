@@ -37,6 +37,7 @@ from app.api.routers import (  # noqa: E402
     planning,
     radio,
     schedule,
+    system,
     timetrack,
     vision,
     voice,
@@ -112,6 +113,7 @@ app.include_router(schedule.router)
 app.include_router(connectors.router)
 app.include_router(vision.router)
 app.include_router(obsidian.router)
+app.include_router(system.router)
 
 
 @app.get("/")

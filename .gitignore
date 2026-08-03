@@ -86,3 +86,7 @@ backend-core/data/teia/
 
 # TypeScript incremental build cache
 *.tsbuildinfo
+
+# Modelos de voz do Piper (.onnx, ~63 MB cada). Baixados sob demanda de
+# huggingface.co/rhasspy/piper-voices; são peso, não fonte.
+backend-core/data/voices/

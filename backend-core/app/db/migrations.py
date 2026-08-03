@@ -25,6 +25,26 @@ def _alembic_config() -> Config:
 
 
 def run_migrations() -> None:
-    """Upgrade the database to the latest revision (no-op if already current)."""
-    command.upgrade(_alembic_config(), "head")
+    """Upgrade the database to the latest revision (no-op if already current).
+
+    The root log level is saved and restored around the upgrade. `alembic.ini`
+    carries its own logging section — sensible for the `alembic` CLI, wrong in
+    here — and applying it drops the root logger to WARNING. Running migrations
+    on boot therefore used to silence the kernel's own INFO logging for the rest
+    of the process: the startup pipeline ran, steps succeeded or failed, and not
+    one line of it was ever printed.
+
+    `alembic/env.py` stops fileConfig from DISABLING the app's loggers; this
+    restores the LEVEL it lowers and the HANDLERS it swaps out. Migrating the
+    schema is not a reason to reconfigure the host process's logging, so this
+    function leaves it exactly as it found it.
+    """
+    root = logging.getLogger()
+    level_before = root.level
+    handlers_before = root.handlers[:]
+    try:
+        command.upgrade(_alembic_config(), "head")
+    finally:
+        root.setLevel(level_before)
+        root.handlers[:] = handlers_before
     logger.info("Database schema is up to date")

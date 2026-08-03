@@ -39,6 +39,10 @@ class LocalBrain:
         self.embedding_model = embedding_model or settings.embedding_model
         # One shared client => connection pooling / keep-alive (no per-request TLS churn).
         self._client = httpx.AsyncClient(base_url=self.endpoint, timeout=httpx.Timeout(300.0))  # 5min for llava:7b cold start
+        # None until a tool-calling request has been tried. See chat_with_tools:
+        # Ollama answers 400 for a model without tool support, so this is learned
+        # from one rejection rather than assumed.
+        self._supports_tools: bool | None = None
         logger.info("LocalBrain wired to %s (model=%s, embed=%s)",
                     self.endpoint, self.model, self.embedding_model)
 
@@ -100,9 +104,51 @@ class LocalBrain:
     ) -> dict:
         """
         Tool-calling completion. Returns the full Ollama `message` dict, which may
-        contain `tool_calls` when the model decides to act. Models that don't
-        support tools simply return normal content — the caller handles both.
+        contain `tool_calls` when the model decides to act.
+
+        A model without tool support does NOT "simply return normal content", as
+        this docstring used to claim. Ollama rejects the request outright:
+
+            400  {"error": "... llava:7b does not support tools"}
+
+        which `raise_for_status` turned into an unhandled HTTPStatusError and a
+        500 on /chat. With llava:7b as the sole brain — it is a vision model, and
+        reports capabilities ["completion", "vision"] — that made every chat
+        request fail. So the fallback is real: drop the tools and ask again. The
+        assistant answers without being able to act, which is the honest
+        degradation, and the finding is remembered so the failed request is paid
+        for once per process rather than on every message.
         """
+        use_tools = bool(tools) and self._supports_tools is not False
+        message = await self._post_chat(messages, tools if use_tools else None,
+                                        temperature, max_tokens)
+        if message is not None:
+            if use_tools:
+                self._supports_tools = True
+            return message
+
+        # Only reachable when the model rejected the tools themselves.
+        self._supports_tools = False
+        logger.warning(
+            "%s não suporta tool-calling; respondendo sem ferramentas. "
+            "Para que o Jarvis possa agir, use um modelo com 'tools' "
+            "(ex.: qwen2.5, llama3.1) em BRAIN_MODEL.",
+            self.model,
+        )
+        message = await self._post_chat(messages, None, temperature, max_tokens)
+        if message is None:
+            # Refused without tools too — that is not the tools' fault.
+            raise BrainUnavailable(f"{self.model} recusou a requisição de chat.")
+        return message
+
+    async def _post_chat(
+        self,
+        messages: list[dict],
+        tools: list[dict] | None,
+        temperature: float | None,
+        max_tokens: int | None,
+    ) -> dict | None:
+        """One /api/chat call. `None` means "this model refuses tools"."""
         payload = {
             "model": self.model,
             "messages": messages,
@@ -116,6 +162,8 @@ class LocalBrain:
             payload["tools"] = tools
         try:
             r = await self._client.post("/api/chat", json=payload)
+            if r.status_code == 400 and "does not support tools" in r.text:
+                return None
             r.raise_for_status()
             return r.json().get("message", {"role": "assistant", "content": ""})
         except httpx.ConnectError as e:

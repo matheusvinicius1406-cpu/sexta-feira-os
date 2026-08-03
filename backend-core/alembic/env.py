@@ -19,7 +19,16 @@ config = context.config
 config.set_main_option("sqlalchemy.url", settings.database_url)
 
 if config.config_file_name is not None:
-    fileConfig(config.config_file_name)
+    # `disable_existing_loggers=False` is load-bearing, not tidiness.
+    #
+    # This env runs in two places: the `alembic` CLI, and the kernel's own boot
+    # (app/db/migrations.py, called from the FastAPI lifespan BEFORE the startup
+    # pipeline). fileConfig defaults to disabling every logger that already
+    # exists — and by then the whole `sexta-feira.*` tree does. The kernel then
+    # went silent for the rest of its life: no pipeline steps, no step failures,
+    # not even `logger.error("Kernel startup failed")`. Nothing raised; the logs
+    # simply stopped after the migration line.
+    fileConfig(config.config_file_name, disable_existing_loggers=False)
 
 target_metadata = Base.metadata
 
