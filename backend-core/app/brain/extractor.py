@@ -81,11 +81,15 @@ def _parse_candidates(raw: str) -> list[dict]:
 
 
 class MemoryExtractor:
-    def __init__(self, brain, memory, world=None, events=None):
+    def __init__(self, brain, memory, world=None, events=None, on_stored=None):
         self.brain = brain    # LocalBrain
         self.memory = memory  # PersistentMemory
         self.world = world    # WorldModel | None (User Model routing)
         self.events = events  # EventBus | None
+        # Called once per fact actually stored, as (content, kind). The kernel
+        # uses it to mirror the fact into the Obsidian vault. A callback rather
+        # than an import keeps the extractor unaware of where else a fact goes.
+        self.on_stored = on_stored
 
     async def extract(self, db: Session, owner_id: str, user_text: str, reply: str) -> int:
         """Distil and store durable facts from one exchange. Returns how many stored."""
@@ -108,6 +112,11 @@ class MemoryExtractor:
                     db, owner_id, c["profile_key"], c["content"],
                     category="other", source="extractor", is_inference=True,
                 )
+            if self.on_stored:
+                try:
+                    self.on_stored(c["content"], c["kind"])
+                except Exception as e:  # noqa: BLE001 — mirroring never breaks learning
+                    logger.debug("could not mirror fact outside memory: %s", e)
             stored += 1
         if stored and self.events:
             await self.events.publish(

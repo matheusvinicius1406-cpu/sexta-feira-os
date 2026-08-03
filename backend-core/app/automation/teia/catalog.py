@@ -172,8 +172,12 @@ def captura_rapida() -> Workflow:
         },
         id="arquivar",
     )
+    # The capture is the point; the confirmation is a courtesy. On a kernel with
+    # no device paired yet, a failed notification must not throw away a thought
+    # that was already saved to memory and to disk.
     confirm = wf.add_node(
-        "notificar", {"texto": "Anotado: {{ trigger.texto }}"}, id="confirmar"
+        "notificar", {"texto": "Anotado: {{ trigger.texto }}"}, id="confirmar",
+        policy={"on_error": "continue"},
     )
     wf.connect(start, remember).connect(start, append).connect(remember, confirm)
     wf.add_trigger("webhook", start, {"caminho": "captura"})
@@ -197,6 +201,7 @@ def celebrar_meta() -> Workflow:
         "notificar",
         {"texto": "Meta concluída: {{ trigger.dados.title }}. Bom trabalho."},
         id="avisar",
+        policy={"on_error": "continue"},   # the memory is the point, not the applause
     )
     wf.connect(start, remember).connect(remember, notify)
     wf.add_trigger("evento", start, {"tipo": "objetivo.concluido"})
@@ -241,7 +246,8 @@ def revisao_noturna() -> Workflow:
         "diario_escrever", {"conteudo": "{{ nodes.revisar.resumo }}"}, id="diario"
     )
     notify = wf.add_node(
-        "notificar", {"texto": "Revisão do dia: {{ nodes.revisar.resumo }}"}, id="avisar"
+        "notificar", {"texto": "Revisão do dia: {{ nodes.revisar.resumo }}"}, id="avisar",
+        policy={"on_error": "continue"},   # the journal entry is the deliverable
     )
     wf.connect(start, world).connect(start, goals)
     wf.connect(start, compose).connect(world, compose).connect(goals, compose)
@@ -280,6 +286,7 @@ def revisao_semanal() -> Workflow:
     notify = wf.add_node(
         "notificar", {"texto": "Revisão semanal pronta: {{ nodes.destilar.resumo }}"},
         id="avisar",
+        policy={"on_error": "continue"},   # the durable memory is the deliverable
     )
     wf.connect(report, distil).connect(distil, remember).connect(distil, notify)
     wf.add_trigger("agenda", report, {"cron": "0 18 * * 0"})

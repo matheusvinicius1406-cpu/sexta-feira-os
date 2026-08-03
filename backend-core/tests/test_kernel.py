@@ -52,8 +52,12 @@ def test_bad_pairing_code_rejected(client):
 
 
 def test_chat_degrades_gracefully_without_brain(client, owner_headers):
-    # Ollama isn't running in CI => a clean 503, not a crash.
-    r = client.post("/api/v1/chat", json={"message": "oi"}, headers=owner_headers)
+    # With the brain unreachable: a clean 503, never a crash. Forced, not assumed
+    # — this must hold on a machine that IS running Ollama too.
+    from tests.conftest import brain_offline
+
+    with brain_offline():
+        r = client.post("/api/v1/chat", json={"message": "oi"}, headers=owner_headers)
     assert r.status_code == 503
 
 

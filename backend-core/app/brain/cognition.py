@@ -116,42 +116,19 @@ class Cognition:
     async def _auto_learn(self, db: Session, owner_id: str, user_text: str, reply: str) -> None:
         """Distil durable memories from the exchange (best-effort, never breaks the reply).
 
-        Uses the MemoryExtractor when present (typed multi-fact). The single-fact
-        fallback also writes the fact as an Obsidian .md note when
-        obsidian_vault_path is configured (auto-export).
+        There is exactly one path: the MemoryExtractor. A second, single-fact
+        fallback used to sit below `if self.extractor: ... return` — and the
+        kernel always injects an extractor, so it never ran. Worse, the Obsidian
+        auto-export lived only inside that fallback, which is why a learned fact
+        never reached the vault. The export now hangs off the extractor's
+        `on_stored` hook (wired in CognitionStep), on the path actually taken.
         """
-        if not settings.memory_auto_learn:
+        if not settings.memory_auto_learn or not self.extractor:
             return
         try:
-            if self.extractor:
-                # Typed multi-fact extraction, routed to graph memory + User Model.
-                await self.extractor.extract(db, owner_id, user_text, reply)
-                return
-            # Fallback: the original single-fact probe.
-            probe = [
-                {"role": "system", "content":
-                    "Extraia UM fato duradouro sobre o usuário desta troca (preferência, "
-                    "pessoa, rotina, meta, detalhe pessoal). Se não houver nada digno de "
-                    "memória de longo prazo, responda exatamente 'NADA'. Seja conciso."},
-                {"role": "user", "content": f"Usuário: {user_text}\nAssistente: {reply}"},
-            ]
-            fact = (await self.brain.chat(probe, temperature=0.1, max_tokens=80)).strip()
-            if fact and fact.upper() != "NADA" and len(fact) > 8:
-                await self.memory.remember(
-                    db, owner_id, fact, kind="fact", importance=0.6, source="auto_learned"
-                )
-                # Auto-export: write the learned fact as an Obsidian .md note
-                if settings.obsidian_vault_path:
-                    try:
-                        from app.obsidian.exporter import export_auto_learned_fact  # noqa: E402
-                        export_auto_learned_fact(
-                            vault_path=settings.obsidian_vault_path,
-                            title=fact[:80],
-                            content=fact,
-                            kind="fact",
-                        )
-                    except Exception as export_err:  # noqa: BLE001
-                        logger.debug("auto-export to vault skipped: %s", export_err)
+            # Typed multi-fact extraction, routed to graph memory + User Model,
+            # and mirrored to the vault by the extractor's on_stored callback.
+            await self.extractor.extract(db, owner_id, user_text, reply)
         except Exception as e:  # noqa: BLE001 — never let learning break the reply
             logger.debug("auto-learn skipped: %s", e)
 

@@ -66,6 +66,12 @@ class Settings(BaseSettings):
     owner_name: str = "Owner"
     owner_password: str = ""  # required in production
 
+    # Treat an unauthenticated request as the owner. Convenience for a local HUD
+    # talking to a loopback kernel — OFF by default, and ignored entirely unless
+    # environment is development AND access_mode is loopback (see auth/jwt.py).
+    # It used to be implicitly on for every dev kernel, including LAN-bound ones.
+    auth_dev_bypass: bool = False
+
     # ============ Local Brain (Ollama) ============
     # This is the ONLY inference backend. It runs on your machine.
     ollama_endpoint: str = "http://127.0.0.1:11434"

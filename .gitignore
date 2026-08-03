@@ -83,3 +83,6 @@ tools/voicebox/backend/data/
 # Workspace das automações: inbox, arquivos que elas escrevem e os backups do
 # banco. É estado da sua máquina, não do repositório.
 backend-core/data/teia/
+
+# TypeScript incremental build cache
+*.tsbuildinfo

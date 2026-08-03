@@ -134,7 +134,7 @@ def test_no_open_goals_returns_none():
 # ---------- API ----------
 
 def test_decision_requires_auth(client):
-    assert client.get("/api/v1/decision/history").status_code == 403
+    assert client.get("/api/v1/decision/history").status_code == 401
 
 
 def test_decide_next_api_roundtrip(client, owner_headers):

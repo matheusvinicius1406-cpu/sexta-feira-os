@@ -20,7 +20,7 @@ from app.world.service import WorldModel
 # ---------- API ----------
 
 def test_planning_requires_auth(client):
-    assert client.get("/api/v1/planning/goals").status_code == 403
+    assert client.get("/api/v1/planning/goals").status_code == 401
 
 
 def test_create_list_and_priority_order(client, owner_headers):

@@ -139,7 +139,7 @@ def test_import_reimport_is_idempotent(client, owner_headers, vault):
 def test_import_requires_auth(client):
     """Import endpoint should reject unauthenticated requests."""
     r = client.post("/api/v1/obsidian/import", json={"vault_path": "/tmp/foo"})
-    assert r.status_code == 403
+    assert r.status_code == 401
 
 
 def test_import_rejects_invalid_path(client, owner_headers):
@@ -218,7 +218,7 @@ def test_export_requires_auth(client):
         "/api/v1/obsidian/export",
         json={"vault_path": "/tmp/foo", "include_all": True},
     )
-    assert r.status_code == 403
+    assert r.status_code == 401
 
 
 def test_export_roundtrip_preserves_content(client, owner_headers, vault, tmp_path):
@@ -346,53 +346,60 @@ def test_export_auto_learned_fact(tmp_path):
 
 
 def test_auto_export_integration_via_cognition(client, owner_headers, tmp_path):
-    """When cognition learns a fact with obsidian_vault_path set, a .md is written.
+    """A fact learned during a chat lands in the vault as a .md file.
 
-    We stub the brain's chat to return a deterministic fact, then verify the
-    auto-export created a .md file in the vault.
+    Both halves of the brain are stubbed, because the chat path uses two
+    different methods: `chat_with_tools` produces the reply, `chat` is what the
+    memory extractor probes with. The previous version stubbed only `chat` and
+    fed it prose — but the extractor parses a JSON array, so nothing was ever
+    extracted, nothing written, and the assertion sat inside `if status == 200`
+    so the test passed by not running. Both are fixed here: deterministic
+    stubs, and an assertion that always executes.
     """
+    import json
+
+    from app.core.config import settings
+    from app.core.di import get_kernel
+
     vault = tmp_path / "cognition-auto-vault"
     vault.mkdir()
 
-    # Temporarily set obsidian_vault_path to the temp vault
-    from app.core.config import settings
-
+    brain = get_kernel().cognition.brain
     original_path = settings.obsidian_vault_path
     original_learn = settings.memory_auto_learn
+    original_chat, original_tools = brain.chat, brain.chat_with_tools
+
+    async def fake_chat(_messages, **_kwargs):
+        # Exactly the shape MemoryExtractor._parse_candidates expects.
+        return json.dumps([{
+            "fato": "O dono adora tecnologia e programação",
+            "tipo": "preference",
+            "importancia": 0.8,
+            "chave_perfil": "interesses",
+        }], ensure_ascii=False)
+
+    async def fake_tools(_messages, **_kwargs):
+        return {"content": "Anotado.", "tool_calls": []}
+
+    settings.obsidian_vault_path = str(vault)
+    settings.memory_auto_learn = True
+    brain.chat = fake_chat
+    brain.chat_with_tools = fake_tools
     try:
-        settings.obsidian_vault_path = str(vault)
-        settings.memory_auto_learn = True
+        r = client.post(
+            "/api/v1/chat",
+            json={"message": "eu amo tecnologia"},
+            headers=owner_headers,
+        )
+        assert r.status_code == 200, r.text
 
-        # Stub the brain to return a fake fact during auto-learn
-        from app.core.di import get_kernel
-
-        brain = get_kernel().cognition.brain
-        original_chat = brain.chat
-
-        async def fake_chat(_messages, **_kwargs):
-            return "O usuário adora tecnologia"
-
-        brain.chat = fake_chat
-        try:
-            r = client.post(
-                "/api/v1/chat",
-                json={"message": "eu amo tecnologia"},
-                headers=owner_headers,
-            )
-            # Chat may return 503 if brain is offline, but auto-learn
-            # should have fired regardless (it runs on the reply path)
-            # The auto-learn happens AFTER persist, so it needs the chat
-            # to succeed. If brain is offline (503), auto-learn doesn't run.
-            # We handle this: if chat succeeds, check for the file.
-            if r.status_code == 200:
-                # Give auto-learn a moment to write the file
-                import time
-                time.sleep(0.1)
-                md_files = list(vault.rglob("*.md"))
-                assert any("tecnologia" in f.read_text(encoding="utf-8") for f in md_files)
-        finally:
-            brain.chat = original_chat
+        notes = list(vault.rglob("*.md"))
+        assert notes, "auto-export não escreveu nenhum .md no vault"
+        assert any(
+            "tecnologia" in f.read_text(encoding="utf-8") for f in notes
+        ), f"nenhuma nota menciona o fato aprendido: {[f.name for f in notes]}"
     finally:
+        brain.chat, brain.chat_with_tools = original_chat, original_tools
         settings.obsidian_vault_path = original_path
         settings.memory_auto_learn = original_learn
 
@@ -492,7 +499,7 @@ def test_status_endpoint(client, owner_headers):
 
 def test_status_requires_auth(client):
     """Status endpoint should reject unauthenticated requests."""
-    assert client.get("/api/v1/obsidian/status").status_code == 403
+    assert client.get("/api/v1/obsidian/status").status_code == 401
 
 
 # ── Watch Endpoint Tests ─────────────────────────────────────────────

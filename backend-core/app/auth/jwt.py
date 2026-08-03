@@ -21,10 +21,36 @@ from app.db.database import get_db
 from app.models.models import Device, Owner
 
 pwd_context = CryptContext(schemes=["argon2"], deprecated="auto")
-# In development mode, the Bearer token is optional (bypass auth).
-# In production, the token is required.
-auto_error = settings.environment != "development"
-security = HTTPBearer(auto_error=auto_error)
+
+
+def dev_bypass_active() -> bool:
+    """May an unauthenticated request be treated as the owner?
+
+    Three conditions, all required — the bypass used to need only one
+    (`environment == "development"`), which meant every dev kernel silently
+    accepted anonymous requests, including one bound to the LAN.
+
+      * development environment — never in production;
+      * AUTH_DEV_BYPASS explicitly on — opt in, never a silent default;
+      * access_mode == loopback — only when nothing off this machine can reach it.
+
+    Convenience that survives being pointed at a network is not convenience,
+    it is an open door.
+    """
+    return (
+        settings.environment == "development"
+        and settings.auth_dev_bypass
+        and settings.access_mode == "loopback"
+    )
+
+
+# auto_error=False always, so a missing header is decided HERE rather than by
+# HTTPBearer. Left to itself it answers 403 for an absent Authorization header,
+# which is the wrong code: 401 means "you did not authenticate", 403 means "you
+# did, and still may not". Every dependency below raises 401 for missing or bad
+# credentials, and the bypass — when genuinely active — sees `credentials=None`
+# and takes over.
+security = HTTPBearer(auto_error=False)
 
 
 # ---------- passwords ----------
@@ -82,26 +108,24 @@ def get_current_owner(
     """
     Resolve the owner from either an owner token or a paired-device token.
 
-    DEVELOPMENT MODE: if no token is provided, returns the first active owner.
-    PRODUCTION: the token is required.
+    With AUTH_DEV_BYPASS on (loopback development only), a request with no token
+    is treated as the owner. Otherwise a token is required — see
+    `dev_bypass_active`.
     """
-    # ── Development bypass ─────────────────────────────────────
-    if settings.environment == "development" and (not credentials or not credentials.credentials):
+    # ── Local development bypass, opt-in ───────────────────────
+    if dev_bypass_active() and (not credentials or not credentials.credentials):
         owner = db.query(Owner).filter(Owner.is_active.is_(True)).first()
         if owner:
             return owner
-        # No owner in DB yet — bootstrap from .env settings
-        # hash_password is defined in this same module, available at function call time
-        owner = Owner(
-            email=settings.owner_email,
-            display_name=settings.owner_name,
-            hashed_password=hash_password(settings.owner_password or "devpassword"),
-            is_active=True,
+        # No owner yet. Do NOT invent one here: this path used to construct an
+        # Owner with a `display_name` field the model does not have and no id,
+        # which raised instead of helping. Owner creation belongs to the kernel's
+        # bootstrap, where OWNER_EMAIL/OWNER_PASSWORD are read.
+        raise HTTPException(
+            status.HTTP_503_SERVICE_UNAVAILABLE,
+            "Nenhum dono cadastrado. Defina OWNER_EMAIL e OWNER_PASSWORD no .env "
+            "e reinicie o kernel.",
         )
-        db.add(owner)
-        db.commit()
-        db.refresh(owner)
-        return owner
 
     # ── Normal auth flow ───────────────────────────────────────
     if not credentials or not credentials.credentials:
@@ -138,10 +162,17 @@ def device_from_token(token: str, db: Session) -> Device | None:
 
 
 def get_current_device(
-    credentials: HTTPAuthorizationCredentials = Depends(security),
+    credentials: HTTPAuthorizationCredentials | None = Depends(security),
     db: Session = Depends(get_db),
 ) -> Device:
-    """Require a paired-device token (for device-only endpoints)."""
+    """Require a paired-device token (for device-only endpoints).
+
+    `credentials` may be None now that HTTPBearer no longer errors on a missing
+    header — reading `.credentials` off it unguarded would turn a plain missing
+    token into a 500.
+    """
+    if not credentials or not credentials.credentials:
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Device token required")
     device = device_from_token(credentials.credentials, db)
     if not device:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Device token required")

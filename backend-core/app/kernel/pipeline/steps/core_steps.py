@@ -47,8 +47,17 @@ class OwnerStep(BaseStep):
     name = "owner"
     timeout = 10.0
     async def execute(self, kernel: Kernel) -> None:
-        kernel._bootstrap_owner()
         from app.adapters._events import publish_event
+        from app.auth.jwt import dev_bypass_active
+
+        kernel._bootstrap_owner()
+        if dev_bypass_active():
+            # Loud on purpose. An auth bypass that runs silently is how one ends
+            # up shipping with it on.
+            logger.warning(
+                "AUTH_DEV_BYPASS ligado — requisições sem token valem como o dono. "
+                "Só vale em loopback+development; desligue no .env quando não precisar."
+            )
         await publish_event("owner.loaded")
 
 
@@ -56,12 +65,14 @@ class EventBusStep(BaseStep):
     name = "eventbus"
     timeout = 5.0
     async def execute(self, kernel: Kernel) -> None:
-        from app.events.bus import EventBus
-        from app.events.projector import WorldModelProjector
         from app.adapters._events import publish_event
+        from app.events.bus import EventBus
+
+        # The World Model projector is NOT subscribed here: this step runs before
+        # WorldModelStep, so `kernel.world` is still None. Subscribing here was a
+        # silent no-op that left every event unprojected — the World Model simply
+        # never learned anything. WorldModelStep owns that wiring now.
         kernel.events = EventBus()
-        if kernel.world:
-            kernel.events.subscribe("*", WorldModelProjector(kernel.world).handle, "world-model-projector")
         await publish_event("eventbus.ready")
 
 
@@ -81,9 +92,18 @@ class WorldModelStep(BaseStep):
     name = "world"
     timeout = 5.0
     async def execute(self, kernel: Kernel) -> None:
-        from app.world.service import WorldModel
         from app.adapters._events import publish_event
+        from app.events.projector import WorldModelProjector
+        from app.world.service import WorldModel
+
         kernel.world = WorldModel()
+        # Wire the projector here, where BOTH the bus and the world exist. This
+        # is what makes an event change the present: 'localizacao.mudou' is only
+        # a fact in the world because this subscriber puts it there.
+        if kernel.events:
+            kernel.events.subscribe(
+                "*", WorldModelProjector(kernel.world).handle, "world-model-projector"
+            )
         await publish_event("world.ready")
 
 
@@ -102,14 +122,14 @@ class PlanningStep(BaseStep):
     timeout = 10.0
     async def execute(self, kernel: Kernel) -> None:
         from app.planning.service import PlanningEngine
-        from app.briefing.service import BriefingService
         from app.adapters._events import publish_event
         kernel.planning = PlanningEngine(world=kernel.world, events=kernel.events)
-        kernel.briefing = BriefingService(
-            world=kernel.world, planning=kernel.planning,
-            decision=kernel.decision, events=kernel.events,
-            learning=kernel.learning,
-        )
+        # The briefing is NOT built here. It needs the Decision Engine, and this
+        # step runs before DecisionStep — so `decision=kernel.decision` handed it
+        # None, and `_focus()` returns None for a falsy decision while `_render`
+        # simply omits the line. Result: "Foco sugerido", one of the briefing's
+        # five advertised pillars, never appeared in any kernel and nothing ever
+        # raised. DecisionStep owns it now, where both engines exist.
         await publish_event("planning.ready")
 
 
@@ -117,9 +137,15 @@ class DecisionStep(BaseStep):
     name = "decision"
     timeout = 10.0
     async def execute(self, kernel: Kernel) -> None:
+        from app.briefing.service import BriefingService
         from app.decision.service import DecisionEngine
         from app.adapters._events import publish_event
         kernel.decision = DecisionEngine(planning=kernel.planning, world=kernel.world, events=kernel.events)
+        kernel.briefing = BriefingService(
+            world=kernel.world, planning=kernel.planning,
+            decision=kernel.decision, events=kernel.events,
+            learning=kernel.learning,
+        )
         await publish_event("decision.ready")
 
 
@@ -224,12 +250,28 @@ class CognitionStep(BaseStep):
     async def execute(self, kernel: Kernel) -> None:
         from app.brain.cognition import Cognition
         from app.brain.extractor import MemoryExtractor
+        from app.core.config import settings
         from app.journal.service import JournalService
         from app.journal.service import HabitService
         from app.timetrack.service import TimeTracker
         from app.evals.service import EvalHarness
         from app.adapters._events import publish_event
-        extractor = MemoryExtractor(kernel.brain, kernel.memory, world=kernel.world, events=kernel.events)
+        # Mirror every learned fact into the Obsidian vault. This used to live on
+        # Cognition's single-fact fallback path — which the kernel never takes,
+        # because it always has an extractor. The auto-export simply never ran.
+        def mirror_to_vault(content: str, kind: str) -> None:
+            if not settings.obsidian_vault_path:
+                return
+            from app.obsidian.exporter import export_auto_learned_fact
+            export_auto_learned_fact(
+                vault_path=settings.obsidian_vault_path,
+                title=content[:80], content=content, kind=kind,
+            )
+
+        extractor = MemoryExtractor(
+            kernel.brain, kernel.memory, world=kernel.world, events=kernel.events,
+            on_stored=mirror_to_vault,
+        )
         kernel.journal = JournalService(events=kernel.events, extractor=extractor)
         kernel.habits = HabitService(world=kernel.world, events=kernel.events)
         kernel.timetracker = TimeTracker(world=kernel.world, events=kernel.events)

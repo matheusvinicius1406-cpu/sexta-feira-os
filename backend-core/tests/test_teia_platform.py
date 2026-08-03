@@ -323,6 +323,39 @@ def test_catalog_workflows_declare_a_trigger():
         assert workflow.triggers, f"'{slug}' não tem gatilho"
 
 
+def test_capture_survives_having_no_device_paired(teia, owner_id):
+    """A thought already saved must not be thrown away by a failed notification.
+
+    On a kernel with no device paired, `notificar` fails. For an automation whose
+    deliverable is the capture itself, that failure is a courtesy that did not
+    land — not a reason to report the run as lost.
+    """
+    async def refuse(db, owner, selector, action, params):
+        return {"ok": False, "error": f"Nenhum dispositivo '{selector}' pareado."}
+
+    async def remember(db, owner, content, **kw):
+        return SimpleNamespace(id="mem-1", content=content, title=kw.get("title"))
+
+    teia.services.actions = SimpleNamespace(dispatch=refuse)
+    teia.services.memory = SimpleNamespace(remember=remember)
+
+    db = SessionLocal()
+    try:
+        catalog.seed(teia, db, owner_id)
+    finally:
+        db.close()
+
+    result = asyncio.run(
+        teia.run_slug(owner_id, "captura-rapida", {"texto": "uma ideia"})
+    )
+    assert result.status is ExecutionStatus.COMPLETED, result.error
+
+    by_node = {r.node_id: r.status.value for r in result.node_results}
+    assert by_node["gravar"] == "completed"      # the memory was written
+    assert by_node["arquivar"] == "completed"    # and so was the inbox file
+    assert by_node["confirmar"] == "failed"      # the courtesy did not land
+
+
 def test_a_catalog_automation_actually_runs(teia, owner_id, notifications):
     """The disk watchdog runs for real: it reads the disk and decides."""
     db = SessionLocal()

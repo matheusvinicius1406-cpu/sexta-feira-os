@@ -18,7 +18,7 @@ from app.world.service import WorldModel
 # ---------- API: world facts (the present) ----------
 
 def test_world_requires_auth(client):
-    assert client.get("/api/v1/world").status_code == 403
+    assert client.get("/api/v1/world").status_code == 401
 
 
 def test_world_fact_upsert_and_snapshot(client, owner_headers):

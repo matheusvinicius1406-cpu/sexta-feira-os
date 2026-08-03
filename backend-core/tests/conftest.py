@@ -7,6 +7,7 @@ are torn down on shutdown, so every test module MUST share a single TestClient â
 otherwise the first module to tear down would close the shared clients out from
 under the others. Hence session scope.
 """
+import contextlib
 import os
 import uuid
 
@@ -22,6 +23,10 @@ os.environ["OWNER_NAME"] = "Test Owner"
 os.environ["OWNER_PASSWORD"] = "a-strong-test-password"
 os.environ["DEVICE_PAIRING_CODE"] = "pair-code-123"
 os.environ["SCHEDULER_ENABLED"] = "false"  # tests drive run_due() directly
+# Pin the auth bypass off, whatever the developer's .env says. The endpoint
+# tests assert that protected routes answer 401 without a token; if the local
+# .env opted into the bypass, they would silently start asserting nothing.
+os.environ["AUTH_DEV_BYPASS"] = "false"
 os.environ["DATABASE_URL"] = f"sqlite:////tmp/sexta_test_{uuid.uuid4().hex}.db"
 
 from app.db.migrations import run_migrations  # noqa: E402
@@ -47,3 +52,37 @@ def owner_headers(client):
     )
     assert r.status_code == 200
     return {"Authorization": f"Bearer {r.json()['access_token']}"}
+
+
+@contextlib.contextmanager
+def brain_offline():
+    """Make the local brain unreachable, deterministically.
+
+    Several tests assert that the kernel DEGRADES when Ollama is down. They used
+    to get that for free by assuming CI has no Ollama â€” which means on a machine
+    that does run one (the owner's), they failed for a reason that had nothing to
+    do with the code. A test whose result depends on whether a service happens to
+    be up is a coin flip, not a test.
+
+    The cut is made at the transport, not at `chat`: every brain method goes
+    through the same httpx client, so failing it reproduces a real outage across
+    chat, embeddings, health and tool-calling at once, instead of one method
+    pretending while the others still answer.
+    """
+    import httpx
+
+    from app.core.di import get_kernel
+
+    brain = get_kernel().brain
+    client = brain._client
+    original_post, original_get = client.post, client.get
+
+    async def refuse(*args, **kwargs):
+        raise httpx.ConnectError("Ollama offline (stub de teste)")
+
+    client.post = refuse
+    client.get = refuse
+    try:
+        yield
+    finally:
+        client.post, client.get = original_post, original_get
