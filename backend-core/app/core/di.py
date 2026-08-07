@@ -15,22 +15,17 @@ from app.auth.jwt import hash_password
 from app.automation.teia.service import TeiaService
 from app.brain.cognition import Cognition
 from app.brain.engine import LocalBrain
-from app.brain.extractor import MemoryExtractor
 from app.brain.memory import PersistentMemory
-from app.brain.subagents import SubAgentRunner
-from app.brain.tools import ToolKit
 from app.briefing.service import BriefingService
 from app.connectors.service import ConnectorService
-from app.connectors.vault import Vault
 from app.core.config import settings
 from app.db.database import SessionLocal
 from app.decision.service import DecisionEngine
 from app.directors.service import DirectorService
 from app.evals.service import EvalHarness
 from app.events.bus import EventBus
-from app.events.projector import WorldModelProjector
 from app.journal.service import HabitService, JournalService
-from app.kernel.pipeline.startup import StartupPipeline, get_startup_pipeline
+from app.kernel.pipeline.startup import get_startup_pipeline
 from app.learning.service import LearningEngine
 from app.models.models import Owner
 from app.obsidian.watcher import ObsidianWatcher
@@ -60,6 +55,7 @@ class Kernel:
         self.habits: HabitService | None = None
         self.timetracker: TimeTracker | None = None
         self.evals: EvalHarness | None = None
+        self.pulse = None               # CognitivePulse | None — the agent's own initiative
         self.cognition: Cognition | None = None
         self.voice: VoiceBox | None = None
         self.automations: TeiaService | None = None
@@ -68,8 +64,11 @@ class Kernel:
         self.scheduler: Scheduler | None = None
         self.connectors: ConnectorService | None = None
         self._scheduler_task: asyncio.Task | None = None
+        self._pulse_task: asyncio.Task | None = None
         self._obsidian_watcher: ObsidianWatcher | None = None
         self._obsidian_watcher_task: asyncio.Task | None = None
+        # Preloads the speech model during boot; cancelled by StopVoiceWarmupStep.
+        self._voice_warm_task: asyncio.Task | None = None
         self._ready = False
 
     async def start(self) -> None:
@@ -130,6 +129,31 @@ class Kernel:
             except Exception as e:  # noqa: BLE001 — the loop must survive one bad tick
                 logger.warning("obsidian watcher tick failed: %s", e)
 
+    async def _pulse_loop(self) -> None:
+        """The agent's heartbeat: wake on an interval and judge whether anything
+        is worth doing now. Sleeps first (never thinks at boot). The cycle
+        itself is a pure method (CognitivePulse.tick), so the loop is a shell.
+
+        Exactly one sleep, at the top of the loop — matching _scheduler_loop.
+        A second sleep used to sit here, before the loop, so the FIRST tick
+        landed at 2x the configured interval (1200s at the 600s default)
+        while every tick after it was correctly spaced.
+        """
+        while True:
+            try:
+                await asyncio.sleep(settings.agent_pulse_interval_seconds)
+                db = SessionLocal()
+                try:
+                    owner = db.query(Owner).first()
+                    if owner and self.pulse:
+                        await self.pulse.tick(db, owner.id, reason="heartbeat")
+                finally:
+                    db.close()
+            except asyncio.CancelledError:
+                break
+            except Exception as e:  # noqa: BLE001 — the loop must survive one bad tick
+                logger.warning("pulse tick failed: %s", e)
+
     async def _scheduler_loop(self) -> None:
         """Fire due reminders/actions on an interval. Sleeps first (never at boot)."""
         while True:
@@ -146,6 +170,10 @@ class Kernel:
                 logger.warning("scheduler tick failed: %s", e)
 
     async def stop(self) -> None:
+        if self._pulse_task:
+            self._pulse_task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await self._pulse_task
         if self._obsidian_watcher_task:
             self._obsidian_watcher_task.cancel()
             with contextlib.suppress(asyncio.CancelledError):
@@ -285,3 +313,12 @@ def get_connectors() -> ConnectorService:
     if not _kernel.connectors:
         raise RuntimeError("Kernel not started")
     return _kernel.connectors
+
+
+def get_pulse():
+    """The Cognitive Pulse (the agent's own initiative).
+
+    Returns None when the pulse is disabled — callers handle that by answering
+    a clean "pulse desligado" instead of crashing.
+    """
+    return _kernel.pulse

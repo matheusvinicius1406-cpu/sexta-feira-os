@@ -437,6 +437,34 @@ class Learning(Base):
     created_at = Column(DateTime, default=_now, index=True)
 
 
+class PulseProposal(Base):
+    """
+    A PROPOSAL — an action the Cognitive Pulse wants to take but does not: the
+    owner decides ("age com confirmação"). The kernel's autonomous agent notices
+    something worth doing that would change the world (run an automation, touch
+    a device, call an API, change a goal), and instead of doing it behind the
+    owner's back it files a proposal here. The owner approves or rejects it via
+    the API; on approval the kernel executes the SAME tool through the same
+    ToolKit, so one dispatch path and one audit trail.
+    """
+    __tablename__ = "pulse_proposals"
+
+    id = Column(String, primary_key=True, index=True)
+    owner_id = Column(String, ForeignKey("owner.id", ondelete="CASCADE"), index=True, nullable=False)
+    kind = Column(String, default="action", index=True)   # action|insight
+    status = Column(String, default="pending", index=True)  # pending|approved|rejected|expired|executed|failed
+    title = Column(String, nullable=False)                 # what it wants to do, in plain words
+    reason = Column(Text, nullable=True)                   # why now
+    tool = Column(String, nullable=True)                   # toolkit tool to dispatch on approval
+    tool_args = Column(Text, nullable=True)                # JSON args for the tool
+    result = Column(Text, nullable=True)                   # what happened when executed
+    error = Column(Text, nullable=True)
+    source = Column(String, default="pulse")               # pulse|owner
+    created_at = Column(DateTime, default=_now, index=True)
+    decided_at = Column(DateTime, nullable=True)
+    executed_at = Column(DateTime, nullable=True)
+
+
 class Event(Base):
     """
     An EVENT on the kernel's event bus — the Event-Driven backbone. Something that
