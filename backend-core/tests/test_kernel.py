@@ -203,14 +203,21 @@ def test_voice_endpoints_require_auth(client):
 
 def test_auto_links_get_named_relations(client, owner_headers):
     """
-    When the brain is available, a semantic auto-link is NAMED (e.g. 'trabalha em')
-    instead of the generic 'related'. Deterministic via stubbed embed + chat.
+    With GRAPH_RELATION_LABELS on, a semantic auto-link is NAMED (e.g. 'trabalha
+    em') instead of the generic 'related'. Deterministic via stubbed embed + chat.
+
+    Labeling is OFF by default (config.py::graph_relation_labels) — the label is
+    never read back by recall, and a non-deterministic one could file a second
+    edge instead of updating the first — so this test opts in explicitly rather
+    than relying on the default, the way an owner who wants labels would.
     """
+    from app.core.config import settings
     from app.core.di import get_kernel
 
     kernel = get_kernel()
     orig_embed = kernel.memory.brain.embed
     orig_chat = kernel.memory.brain.chat
+    orig_labels = settings.graph_relation_labels
 
     async def fake_embed(_text: str):
         return [1.0, 0.0]  # everything is mutually similar -> auto-links
@@ -220,6 +227,7 @@ def test_auto_links_get_named_relations(client, owner_headers):
 
     kernel.memory.brain.embed = fake_embed
     kernel.memory.brain.chat = fake_chat
+    settings.graph_relation_labels = True
     try:
         client.post("/api/v1/memory", json={"content": "Sou engenheiro"},
                     headers=owner_headers)
@@ -231,6 +239,7 @@ def test_auto_links_get_named_relations(client, owner_headers):
     finally:
         kernel.memory.brain.embed = orig_embed
         kernel.memory.brain.chat = orig_chat
+        settings.graph_relation_labels = orig_labels
 
 
 # ---------------- automations (Teia) ----------------

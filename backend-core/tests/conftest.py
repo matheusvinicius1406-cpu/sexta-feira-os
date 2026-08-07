@@ -40,6 +40,15 @@ os.environ["STT_WARM_ON_BOOT"] = "false"
 # everything else, so "the suite passed" means the same thing on every machine.
 os.environ["OLLAMA_ENDPOINT"] = "http://127.0.0.1:1"
 os.environ["DATABASE_URL"] = f"sqlite:////tmp/sexta_test_{uuid.uuid4().hex}.db"
+# Settings.Config.env_file (below) reads the .env file directly via
+# pydantic-settings' own DotEnvSettingsSource — a SEPARATE mechanism from the
+# main.py `load_dotenv` call this file also neutralizes further down, and one
+# the isolation above did nothing to stop. Every AGENT_PULSE_*, BRAIN_MODEL,
+# etc. the owner has in their real .env was silently reaching the test
+# process regardless of the os.environ overrides here. Point it at a path
+# that cannot exist so pydantic-settings finds nothing, same as a machine
+# with no .env at all.
+os.environ["SEXTA_ENV_FILE"] = "/nonexistent/sexta-feira-os-test-isolation.env"
 
 # main.py calls load_dotenv(..., override=True) during its own import, which
 # clobbers the isolated env vars set above with whatever the developer's real
