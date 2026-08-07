@@ -18,6 +18,15 @@
   operários, 44 tipos de nó, 5 gatilhos (cron/intervalo/evento/webhook/manual), trilha de
   execução por nó, API REST + CLI e 10 automações prontas. **O n8n foi removido** — não há
   mais runtime Node.js no projeto.
+- ✅ **Cérebro único**: um modelo (`qwen3-vl:4b`) conversa, usa ferramentas e enxerga —
+  fim dos dois modelos residentes se expulsando da RAM.
+- ✅ **Agente próprio (Pulse Cognitivo)**: o kernel pensa em segundo plano, executa
+  ações seguras sozinho e propõe as que mudam o mundo — nada roda sem confirmação do
+  dono (`/api/v1/agent/pulse`, `/proposals`).
+- ✅ **Segundo cérebro (Obsidian)**: recall segue os links entre memórias (grafo, não só
+  similaridade), e todo fato aprendido automaticamente é espelhado como nota no vault.
+- ✅ **Otimizador de recursos + compressão de prompt**: mede a máquina real (contadores do
+  Ollama) em vez de adivinhar, e o histórico é comprimido antes de cada rodada de ferramenta.
 
 ## Próximo (curto prazo)
 
