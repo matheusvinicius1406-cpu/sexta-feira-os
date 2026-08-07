@@ -56,6 +56,19 @@ class FasterWhisperTranscriber(Transcriber):
         )
         return self._model
 
+    async def warm(self) -> None:
+        """Load the model now, off the request path.
+
+        Whisper loads on first use, and on a CPU box that first load takes about
+        two minutes. Paid at the first press of the talk key, it is
+        indistinguishable from the assistant being deaf: nothing happens, for a
+        very long time, with no way to tell loading from broken. Paid at boot,
+        in the background, it costs nobody anything.
+        """
+        if self._model is not None or not self.available():
+            return
+        await asyncio.to_thread(self._ensure_model)
+
     def _transcribe_sync(self, audio: bytes, language: str | None) -> str:
         model = self._ensure_model()
         segments, _ = model.transcribe(

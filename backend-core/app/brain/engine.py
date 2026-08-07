@@ -1,9 +1,16 @@
 """
 LocalBrain — the ONLY inference backend.
 
-It talks to a local Ollama server (default http://127.0.0.1:11434) for BOTH:
-  * reasoning / chat  (settings.brain_model, e.g. llava:7b)
+It talks to a local Ollama server (default http://127.0.0.1:11434) for:
+  * reasoning / chat  (settings.brain_model, e.g. qwen3-vl:4b)
+  * tool-calling      — the same model, deciding to act
+  * seeing            — the same model, handed images inline
   * embeddings        (settings.embedding_model, e.g. nomic-embed-text)
+
+One model does the first three. That is deliberate: a brain that can look at a
+photo and then call a tool about what it saw is a different thing from a chat
+model with a vision model bolted beside it, and on a box with 12 GB of RAM two
+resident models mean each one evicts the other.
 
 There is deliberately NO OpenAI / Claude / Gemini / cloud path. Nothing you
 say ever leaves this machine. If you later fine-tune your own model, point
@@ -19,6 +26,41 @@ import httpx
 from app.core.config import settings
 
 logger = logging.getLogger("sexta-feira.brain")
+
+
+def tuned_options(**base) -> dict:
+    """Ollama `options`, with the measured knobs applied when they are set.
+
+    A zero means "not measured yet" and is left OUT of the payload entirely
+    rather than sent as 0 — Ollama reads `num_thread: 0` as an instruction, not
+    as an absence, and would run single-threaded on a machine nobody profiled.
+    See app/brain/optimizer.py for where the non-zero values come from.
+    """
+    options = dict(base)
+    if settings.brain_num_ctx:
+        options["num_ctx"] = settings.brain_num_ctx
+    if settings.brain_num_thread:
+        options["num_thread"] = settings.brain_num_thread
+    return options
+
+
+def attach_images(messages: list[dict], images: list[str] | None) -> list[dict]:
+    """Hang base64 images off the last user message, where Ollama looks for them.
+
+    Ollama takes images per-message, not per-request, and only reads them from
+    the turn being answered. Copies rather than mutates: the caller's list is
+    usually the conversation history, and an image silently pinned to a stored
+    turn would be re-sent on every later request in that conversation.
+    """
+    if not images:
+        return messages
+    out = [dict(m) for m in messages]
+    for m in reversed(out):
+        if m.get("role") == "user":
+            m["images"] = list(images)
+            return out
+    out.append({"role": "user", "content": "", "images": list(images)})
+    return out
 
 
 class BrainUnavailable(RuntimeError):
@@ -38,10 +80,19 @@ class LocalBrain:
         self.model = model or settings.brain_model
         self.embedding_model = embedding_model or settings.embedding_model
         # One shared client => connection pooling / keep-alive (no per-request TLS churn).
-        self._client = httpx.AsyncClient(base_url=self.endpoint, timeout=httpx.Timeout(300.0))  # 5min for llava:7b cold start
-        # None until a tool-calling request has been tried. See chat_with_tools:
-        # Ollama answers 400 for a model without tool support, so this is learned
-        # from one rejection rather than assumed.
+        # 300 s used to be the deadline, which was BELOW the HUD's own 600 s
+        # (jarvis-ui/src/arc/api.js): the kernel gave up on Ollama while the
+        # browser was still willing to wait, turning a slow honest answer into
+        # a 500. On this box a first photo turn measured ~277 s for a bare
+        # question and more with the full prompt, so the ceiling has to sit
+        # above the HUD's, not under it.
+        self._client = httpx.AsyncClient(base_url=self.endpoint, timeout=httpx.Timeout(900.0))
+        # What Ollama says this model can do, read once from /api/show. None
+        # until asked; the empty set means "asked and could not tell".
+        self._capabilities: set[str] | None = None
+        # None until a tool-calling request has been tried. The capability probe
+        # normally settles this first; this stays as the backstop for an Ollama
+        # too old to report capabilities, which answers 400 instead.
         self._supports_tools: bool | None = None
         logger.info("LocalBrain wired to %s (model=%s, embed=%s)",
                     self.endpoint, self.model, self.embedding_model)
@@ -67,24 +118,110 @@ class LocalBrain:
         except Exception:  # noqa: BLE001
             return []
 
+    # ---------- what this model can do ----------
+
+    async def capabilities(self) -> set[str]:
+        """Ollama's own answer for this model, e.g. {completion, tools, vision, thinking}.
+
+        `/api/show` is the only endpoint that carries this. `/api/tags` — the
+        obvious place to look, and where the optimizer looked — does not return
+        a `capabilities` field at all, so every check written against it was
+        comparing to an empty list and quietly passing.
+
+        An ANSWER is cached, a failure is not. Ollama returning an empty list is
+        a real answer (an old build that does not report capabilities) and is
+        worth keeping; a connection error is not, and caching it would leave a
+        kernel that booted seconds before Ollama believing forever that its
+        brain has no hands.
+
+        Either way the empty set means "unknown", never "cannot": declining to
+        send tools because a probe failed would disable a working assistant
+        over a missing field.
+        """
+        if self._capabilities is not None:
+            return self._capabilities
+
+        try:
+            r = await self._client.post("/api/show", json={"model": self.model}, timeout=30.0)
+            r.raise_for_status()
+            caps = {str(c).lower() for c in (r.json().get("capabilities") or [])}
+        except Exception as e:  # noqa: BLE001 — never fatal; ask again next time
+            logger.warning("Não deu para ler as capacidades de %s: %s", self.model, e)
+            return set()
+
+        self._capabilities = caps
+        if caps:
+            logger.info("%s sabe: %s", self.model, ", ".join(sorted(caps)))
+            if "tools" in caps:
+                self._supports_tools = True
+        return caps
+
+    async def can_see(self) -> bool:
+        """Can the brain be handed an image? Unknown counts as no.
+
+        The caller uses this to decide whether to send pixels at all, and a
+        wrong yes wastes a full CPU inference on a model that will describe
+        nothing. A wrong no only costs a clear error.
+        """
+        return "vision" in await self.capabilities()
+
     # ---------- chat ----------
+
+    async def _payload(
+        self,
+        messages: list[dict],
+        *,
+        stream: bool = False,
+        temperature: float | None = None,
+        max_tokens: int | None = None,
+        images: list[str] | None = None,
+        tools: list[dict] | None = None,
+    ) -> dict:
+        """The one place a /api/chat body is built, so every path agrees."""
+        payload: dict = {
+            "model": self.model,
+            "messages": attach_images(messages, images),
+            "stream": stream,
+            "keep_alive": settings.brain_keep_alive,
+            "options": tuned_options(
+                temperature=settings.brain_temperature if temperature is None else temperature,
+                num_predict=settings.brain_max_tokens if max_tokens is None else max_tokens,
+            ),
+        }
+        if tools:
+            payload["tools"] = tools
+        # Asked of the MESSAGES, not of the `images` argument. The tool loop
+        # attaches the picture to the message list once and then calls back
+        # without the argument (so the image sits in a stable prefix the KV
+        # cache can keep), which means keying off the argument would raise the
+        # ceiling on the first round and drop it on every round after — the
+        # rounds that carry MORE context, not less.
+        if settings.brain_num_ctx_vision and any(m.get("images") for m in payload["messages"]):
+            # Without this the picture overflows Ollama's 4096-token default and
+            # the whole turn comes back 400. `max` because a measured
+            # BRAIN_NUM_CTX above the floor is a real measurement, and a
+            # constant must not lower it.
+            payload["options"]["num_ctx"] = max(
+                payload["options"].get("num_ctx", 0), settings.brain_num_ctx_vision,
+            )
+        # `think` is only legal on a model that reports the capability: Ollama
+        # answers 400 "does not support thinking" for anything else. So an
+        # unknown capability sends nothing, and the model's own default stands.
+        if "thinking" in await self.capabilities():
+            payload["think"] = settings.brain_thinking
+        return payload
 
     async def chat(
         self,
         messages: list[dict[str, str]],
         temperature: float | None = None,
         max_tokens: int | None = None,
+        images: list[str] | None = None,
     ) -> str:
         """Non-streaming completion. `messages` = [{"role","content"}...]."""
-        payload = {
-            "model": self.model,
-            "messages": messages,
-            "stream": False,
-            "options": {
-                "temperature": settings.brain_temperature if temperature is None else temperature,
-                "num_predict": settings.brain_max_tokens if max_tokens is None else max_tokens,
-            },
-        }
+        payload = await self._payload(
+            messages, temperature=temperature, max_tokens=max_tokens, images=images,
+        )
         try:
             r = await self._client.post("/api/chat", json=payload)
             r.raise_for_status()
@@ -101,6 +238,7 @@ class LocalBrain:
         tools: list[dict] | None = None,
         temperature: float | None = None,
         max_tokens: int | None = None,
+        images: list[str] | None = None,
     ) -> dict:
         """
         Tool-calling completion. Returns the full Ollama `message` dict, which may
@@ -118,10 +256,14 @@ class LocalBrain:
         assistant answers without being able to act, which is the honest
         degradation, and the finding is remembered so the failed request is paid
         for once per process rather than on every message.
+
+        `images` go to the same model in the same turn: the brain sees the photo
+        and can call a tool about what it saw without anything handing the
+        picture to a second model first.
         """
         use_tools = bool(tools) and self._supports_tools is not False
         message = await self._post_chat(messages, tools if use_tools else None,
-                                        temperature, max_tokens)
+                                        temperature, max_tokens, images)
         if message is not None:
             if use_tools:
                 self._supports_tools = True
@@ -135,7 +277,7 @@ class LocalBrain:
             "(ex.: qwen2.5, llama3.1) em BRAIN_MODEL.",
             self.model,
         )
-        message = await self._post_chat(messages, None, temperature, max_tokens)
+        message = await self._post_chat(messages, None, temperature, max_tokens, images)
         if message is None:
             # Refused without tools too — that is not the tools' fault.
             raise BrainUnavailable(f"{self.model} recusou a requisição de chat.")
@@ -147,25 +289,41 @@ class LocalBrain:
         tools: list[dict] | None,
         temperature: float | None,
         max_tokens: int | None,
+        images: list[str] | None = None,
     ) -> dict | None:
         """One /api/chat call. `None` means "this model refuses tools"."""
-        payload = {
-            "model": self.model,
-            "messages": messages,
-            "stream": False,
-            "options": {
-                "temperature": settings.brain_temperature if temperature is None else temperature,
-                "num_predict": settings.brain_max_tokens if max_tokens is None else max_tokens,
-            },
-        }
-        if tools:
-            payload["tools"] = tools
+        payload = await self._payload(
+            messages, tools=tools, temperature=temperature,
+            max_tokens=max_tokens, images=images,
+        )
         try:
             r = await self._client.post("/api/chat", json=payload)
             if r.status_code == 400 and "does not support tools" in r.text:
                 return None
+            if r.status_code == 400:
+                # Every OTHER 400 used to escape as a bare HTTPStatusError and
+                # reach the owner as "500 Internal Server Error", with Ollama's
+                # actual complaint — the one sentence that says which field is
+                # wrong — discarded unread. Ollama is specific; there is no
+                # reason to throw that away and make the owner guess.
+                detail = r.text.strip()[:400]
+                logger.error("Ollama recusou a requisição (400): %s", detail)
+                raise BrainUnavailable(f"Ollama recusou a requisição: {detail}")
             r.raise_for_status()
-            return r.json().get("message", {"role": "assistant", "content": ""})
+            message = r.json().get("message", {"role": "assistant", "content": ""})
+            if not (message.get("content") or "").strip() and message.get("thinking"):
+                # qwen3-vl thinks even when told not to: `think: false` is sent
+                # whenever the model reports the capability, and this one still
+                # emits a <think> block that Ollama splits into its own field.
+                # If num_predict runs out mid-thought, `content` is empty and the
+                # owner gets a blank reply from a model that worked for minutes.
+                # Say so, because a blank answer explains nothing by itself.
+                logger.warning(
+                    "%s gastou a resposta pensando e não chegou a responder "
+                    "(BRAIN_MAX_TOKENS=%s). O raciocínio começa com: %.120s",
+                    self.model, settings.brain_max_tokens, message["thinking"],
+                )
+            return message
         except httpx.ConnectError as e:
             raise BrainUnavailable(
                 f"Ollama não respondeu em {self.endpoint}. Rode `ollama serve`."
@@ -176,17 +334,13 @@ class LocalBrain:
         messages: list[dict[str, str]],
         temperature: float | None = None,
         max_tokens: int | None = None,
+        images: list[str] | None = None,
     ) -> AsyncIterator[str]:
         """Token-by-token streaming completion."""
-        payload = {
-            "model": self.model,
-            "messages": messages,
-            "stream": True,
-            "options": {
-                "temperature": settings.brain_temperature if temperature is None else temperature,
-                "num_predict": settings.brain_max_tokens if max_tokens is None else max_tokens,
-            },
-        }
+        payload = await self._payload(
+            messages, stream=True, temperature=temperature,
+            max_tokens=max_tokens, images=images,
+        )
         import json as _json
         try:
             async with self._client.stream("POST", "/api/chat", json=payload) as resp:
@@ -210,11 +364,10 @@ class LocalBrain:
     async def embed(self, text: str) -> list[float]:
         """Locally compute an embedding vector for `text`."""
         try:
-            r = await self._client.post(
-                "/api/embeddings",
-                json={"model": self.embedding_model, "prompt": text},
-                timeout=30.0,
-            )
+            body: dict = {"model": self.embedding_model, "prompt": text}
+            if settings.embedding_num_batch:
+                body["options"] = {"num_batch": settings.embedding_num_batch}
+            r = await self._client.post("/api/embeddings", json=body, timeout=30.0)
             r.raise_for_status()
             return r.json().get("embedding", [])
         except httpx.ConnectError as e:

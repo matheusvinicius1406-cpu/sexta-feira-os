@@ -792,7 +792,11 @@ class ToolKit:
                 return f"Diretor ({args.get('director', '?')}): {result[:1500]}"
             if name == "analyze_image":
                 if not self.vision:
-                    return "Visão indisponível (modelo llava não instalado). Rode: ollama pull llava:7b"
+                    from app.core.config import settings
+                    return (
+                        f"Visão indisponível. Rode: ollama pull "
+                        f"{settings.vision_model_resolved}"
+                    )
                 result = await self.vision.analyze_image(
                     args.get("image_base64", ""),
                     args.get("prompt", "Descreva esta imagem.")

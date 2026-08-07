@@ -13,9 +13,7 @@ Requires: pip install edge-tts
 from __future__ import annotations
 
 import asyncio
-import io
 import logging
-import wave
 
 import edge_tts
 
@@ -46,7 +44,7 @@ class EdgeTTSSynthesizer:
 
     async def speak(self, text: str) -> bytes:
         """Synthesize text to WAV audio bytes.
-        
+
         JARVIS MCU voice characteristics:
         - Slightly deeper pitch (-5Hz)
         - Slightly slower rate (-10%)
@@ -93,7 +91,7 @@ class EdgeTTSSynthesizer:
                 return stdout
             raise VoiceUnavailable(f"ffmpeg conversion failed (code {proc.returncode})")
         except FileNotFoundError:
-            raise VoiceUnavailable("ffmpeg not found — install ffmpeg for WAV output")
+            raise VoiceUnavailable("ffmpeg not found — install ffmpeg for WAV output") from None
         except VoiceUnavailable:
             raise
         except Exception as e:

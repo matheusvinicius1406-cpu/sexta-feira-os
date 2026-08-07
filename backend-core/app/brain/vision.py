@@ -1,11 +1,17 @@
 """
-Vision — Jarvis的眼睛, enxergar e analisar o mundo ao redor.
+Vision — os olhos do Jarvis, para enxergar e analisar o mundo ao redor.
 
-Uses Ollama vision models (llava, llama3.2-vision) for:
   * Camera frame analysis (what's in front of the user?)
   * Image understanding (photos, screenshots, diagrams)
   * Document analysis (OCR, layout understanding)
   * Scene description (environment awareness)
+
+These are the framed, one-shot questions about a picture — "read this receipt",
+"what is in front of me". The model answering them is normally THE BRAIN
+itself (see settings.vision_model_resolved), not a second model living here:
+one resident model instead of two, and no eviction every time a camera frame
+arrives. For seeing INSIDE a conversation — look at this, then act on it —
+pass `images` to LocalBrain.chat_with_tools instead; that path keeps the tools.
 
 All processing is LOCAL — no image ever leaves the machine.
 """
@@ -14,7 +20,6 @@ from __future__ import annotations
 import base64
 import io
 import logging
-from pathlib import Path
 
 import httpx
 from PIL import Image
@@ -23,8 +28,13 @@ from app.core.config import settings
 
 logger = logging.getLogger("sexta-feira.vision")
 
-# Supported vision models in priority order
+# Last-resort fallback, in priority order: only consulted when the configured
+# model is missing from Ollama. qwen3-vl leads because it is the only family
+# here that also has "tools" — if the kernel has to fall back, it should fall
+# back onto something that could serve as the whole brain.
 VISION_MODELS = [
+    "qwen3-vl:4b",
+    "qwen3-vl:8b",
     "llava:7b",
     "llava:13b",
     "bakllava",
@@ -41,10 +51,25 @@ class VisionUnavailable(RuntimeError):
     """Raised when no vision model is available in Ollama."""
 
 
+def prepare_image(image_data: bytes | str) -> str:
+    """Any image in, the base64 JPEG the model expects out, at the configured size.
+
+    Public because the conversation needs it too, now that the brain sees for
+    itself: a photo sent to /chat goes through exactly the same downscaling as
+    one sent to /vision. Skipping it would hand a 12-megapixel phone photo
+    straight to a CPU model, where the prefill alone outlasts the answer.
+    """
+    return VisionEngine._prepare_image(
+        image_data,
+        max_dim=settings.vision_max_image_dim,
+        quality=settings.vision_jpeg_quality,
+    )
+
+
 class VisionEngine:
     """
     Local vision analysis engine powered by Ollama vision models.
-    
+
     Supports:
     - Single image analysis (describe, OCR, Q&A)
     - Batch image analysis
@@ -54,7 +79,10 @@ class VisionEngine:
 
     def __init__(self, endpoint: str | None = None, model: str | None = None):
         self.endpoint = (endpoint or settings.ollama_endpoint).rstrip("/")
-        self._model_preference = model or settings.vision_model or None
+        # Resolved, never raw: an empty VISION_MODEL means "the brain sees",
+        # and reading the raw setting here would send the kernel down the
+        # auto-detect path to guess at a model the owner already named.
+        self._model_preference = model or settings.vision_model_resolved or None
         self._client = httpx.AsyncClient(
             base_url=self.endpoint, timeout=httpx.Timeout(180.0)
         )
@@ -101,8 +129,9 @@ class VisionEngine:
             logger.warning("Failed to list Ollama models: %s", e)
 
         raise VisionUnavailable(
-            "Nenhum modelo de visão encontrado no Ollama. "
-            "Rode: ollama pull llava:7b"
+            f"Nenhum modelo de visão encontrado no Ollama (procurei por "
+            f"'{self._model_preference}' e pelos alternativos). "
+            f"Rode: ollama pull {settings.vision_model_resolved}"
         )
 
     async def check_health(self) -> dict:
@@ -123,7 +152,7 @@ class VisionEngine:
     ) -> str:
         """
         Normalize image to JPEG bytes and return as base64 string.
-        
+
         Accepts raw bytes (JPEG/PNG) or base64-encoded string.
         Resizes oversized images to save VRAM and speed up inference.
         """
@@ -174,13 +203,13 @@ class VisionEngine:
     ) -> str:
         """
         Analyze a single image with a vision model.
-        
+
         Args:
             image_data: Raw bytes (JPEG/PNG) or base64-encoded string
             prompt: Question/instruction about the image
             model: Override model (auto-detect if None)
             temperature: Lower = more deterministic
-            
+
         Returns:
             Text description/analysis from the vision model
         """
@@ -197,6 +226,12 @@ class VisionEngine:
                 }
             ],
             "stream": False,
+            # Resolved, and the distinction matters: when the eyes ARE the brain
+            # this must be the brain's keep_alive, or looking at one photo would
+            # queue the assistant's own eviction 30 seconds later. Only a
+            # genuinely separate vision model gets evicted aggressively, because
+            # only then is it RAM the brain is not using.
+            "keep_alive": settings.vision_keep_alive_resolved,
             "options": {
                 "temperature": temperature,
                 "num_predict": 1024,
@@ -220,7 +255,7 @@ class VisionEngine:
     ) -> str:
         """
         Analyze multiple images in a single request.
-        
+
         Useful for comparing images or analyzing a sequence of camera frames.
         """
         vision_model = model or await self._detect_vision_model()
@@ -236,6 +271,10 @@ class VisionEngine:
                 }
             ],
             "stream": False,
+            # Same reasoning as analyze_image. Omitting it here let a batch fall
+            # back to Ollama's own 5-minute default, so two paths through the
+            # same engine disagreed about how long the model should stay.
+            "keep_alive": settings.vision_keep_alive_resolved,
             "options": {
                 "temperature": 0.3,
                 "num_predict": 2048,

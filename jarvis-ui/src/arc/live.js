@@ -77,8 +77,17 @@ export function chatIsOpen() {
   return el.chat.classList.contains('on')
 }
 
-/** Send a typed message. Returns the reply text, or null when it failed. */
-export async function say(text) {
+/**
+ * Send a typed message.
+ *
+ * The reply is SPOKEN as well as shown. Typing used to be mute: `say` posted to
+ * /chat, printed the answer and stopped there, so an assistant with a working
+ * voice stayed silent unless you held the microphone. Speaking is what it is
+ * for; the text stays on screen either way.
+ *
+ * Returns the reply text, or null when it failed.
+ */
+export async function say(text, { speakReply = true } = {}) {
   const message = String(text ?? '').trim()
   if (!message || state.busy) return null
   init()
@@ -87,40 +96,57 @@ export async function say(text) {
   const waiting = bubble('wait', 'pensando…')
   state.busy = true
   onState('thinking')
+  let reply = null
   try {
     const res = await api.chat(message, state.conversationId)
     state.conversationId = res.conversation_id ?? state.conversationId
     waiting.remove()
     bubble('jv', res.reply)
-    return res.reply
+    reply = res.reply
   } catch (e) {
     waiting.remove()
     bubble('err', e.human ?? String(e.message ?? e))
-    return null
   } finally {
     state.busy = false
     onState('idle')
   }
+  // Outside the try: a voice that fails must not erase a reply that arrived.
+  if (reply && speakReply) await speak(reply)
+  return reply
 }
 
 // ── Speech out ───────────────────────────────────────────────
 
-/** Play a WAV blob and hold `speaking` for exactly as long as it sounds. */
+/**
+ * Play a WAV blob and hold `speaking` for exactly as long as it sounds.
+ *
+ * Playback failure is REPORTED, not swallowed. Silently resolving is how "ele
+ * não fala" becomes unexplainable: the kernel returns valid audio, the HUD says
+ * nothing, and there is no way to tell a mute assistant from a blocked
+ * `<audio>` element. Browsers refuse `play()` without prior user activation,
+ * and that refusal is exactly what has to reach the screen.
+ */
 function play(blob) {
   return new Promise((resolve) => {
     const url = URL.createObjectURL(blob)
     const audio = new Audio(url)
     state.audio = audio
-    const done = () => {
+    let settled = false
+    const done = (problem) => {
+      if (settled) return
+      settled = true
       URL.revokeObjectURL(url)
       state.audio = null
+      if (problem) bubble('err', problem)
       resolve()
     }
-    audio.onended = done
-    // An audio element that fails to decode would otherwise leave the reactor
-    // stuck on `speaking` with nothing coming out of the speakers.
-    audio.onerror = done
-    audio.play().catch(done)
+    audio.onended = () => done()
+    audio.onerror = () => done(`não consegui tocar o áudio (${audio.error?.message || 'erro de decodificação'})`)
+    audio.play().catch((e) => done(
+      e.name === 'NotAllowedError'
+        ? 'o navegador bloqueou o áudio — clique uma vez na página e tente de novo'
+        : `não consegui tocar o áudio: ${e.message}`,
+    ))
   })
 }
 

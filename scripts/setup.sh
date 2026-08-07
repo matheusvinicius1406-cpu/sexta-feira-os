@@ -17,7 +17,9 @@ if ! command -v ollama >/dev/null 2>&1; then
 fi
 
 echo "⬇️  Baixando modelos locais (só desta vez)..."
-ollama pull "${BRAIN_MODEL:-llama3.2}"
+# Dois pulls, não três: o cérebro conversa, usa ferramentas E enxerga. Só o
+# modelo de embeddings vive à parte, porque virar texto em vetor é outro ofício.
+ollama pull "${BRAIN_MODEL:-qwen3-vl:4b}"
 ollama pull "${EMBEDDING_MODEL:-nomic-embed-text}"
 
 # 2. Backend

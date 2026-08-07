@@ -8,7 +8,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import grpc
 from google.protobuf import timestamp_pb2
@@ -28,7 +28,7 @@ class AutomationServiceServicer(pb2_grpc.AutomationServiceServicer):
 
     def _now_timestamp(self) -> timestamp_pb2.Timestamp:
         ts = timestamp_pb2.Timestamp()
-        ts.FromDatetime(datetime.now(timezone.utc))
+        ts.FromDatetime(datetime.now(UTC))
         return ts
 
     async def TriggerWorkflow(self, request, context) -> pb2.TriggerWorkflowResponse:
@@ -76,7 +76,7 @@ class AutomationServiceServicer(pb2_grpc.AutomationServiceServicer):
                         timestamp=self._now_timestamp(),
                         payload_json=json.dumps(payload, default=str),
                     )
-                except asyncio.TimeoutError:
+                except TimeoutError:
                     yield pb2.SystemEvent(
                         event=pb2.EVENT_UNSPECIFIED,
                         timestamp=self._now_timestamp(),
@@ -104,7 +104,7 @@ class AutomationServiceServicer(pb2_grpc.AutomationServiceServicer):
                         command_id=cmd_id, action=action,
                         params=params, issued_at=self._now_timestamp(),
                     )
-                except asyncio.TimeoutError:
+                except TimeoutError:
                     continue
         except grpc.RpcError:
             pass

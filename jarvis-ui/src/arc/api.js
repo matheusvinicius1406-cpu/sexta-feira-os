@@ -18,15 +18,25 @@
 
 const API = '/api/v1'
 const TIMEOUT_MS = 8000
-/** Voice and vision hit the local model; a 8s deadline would cut off real work. */
-const SLOW_TIMEOUT_MS = 120000
+/**
+ * Deadline for anything that reaches the local model.
+ *
+ * 120 s was too short and produced the worst possible outcome: the browser gave
+ * up, showed "sem resposta do kernel", and the kernel went on to finish and
+ * answer 200 into a closed socket. The owner was told the kernel was dead while
+ * it was working. On a 4-core box a cold 4B turn takes ~150 s, so the
+ * deadline now sits well past the slowest honest answer — it exists to catch a
+ * kernel that is truly hung, not to race one that is merely thinking.
+ */
+const SLOW_TIMEOUT_MS = 600000
 
 /** Raised for any non-2xx, carrying enough to explain itself on screen. */
 export class KernelError extends Error {
-  constructor(status, detail) {
+  constructor(status, detail, { timedOut = false } = {}) {
     super(detail || `HTTP ${status}`)
     this.status = status
     this.detail = detail
+    this.timedOut = timedOut
   }
 
   /** What the panel shows. Distinguishes the cases an owner must tell apart. */
@@ -35,7 +45,11 @@ export class KernelError extends Error {
     if (this.status === 403) return 'autenticado, mas sem permissão para isto'
     if (this.status === 404) return 'este kernel não expõe esse recurso'
     if (this.status === 503) return this.detail || 'recurso indisponível neste kernel'
-    if (this.status === 0) return 'sem resposta do kernel'
+    // "Desisti de esperar" and "não há ninguém lá" send you to opposite places:
+    // one is a slow model, the other is a kernel that is not running. Saying
+    // "sem resposta do kernel" for both is how a working kernel gets blamed.
+    if (this.timedOut) return this.detail || 'o kernel demorou demais e eu desisti de esperar'
+    if (this.status === 0) return 'não consegui falar com o kernel — ele está rodando em 127.0.0.1:8000?'
     return this.detail || `kernel respondeu ${this.status}`
   }
 }
@@ -66,9 +80,12 @@ async function request(path, { method = 'GET', body, timeout = TIMEOUT_MS, raw =
     return raw ? res : await res.json()
   } catch (e) {
     if (e instanceof KernelError) throw e
-    // AbortError and network failure both mean "no answer", which is a
-    // different fact from any status the kernel could have returned.
-    throw new KernelError(0, e.name === 'AbortError' ? `sem resposta em ${timeout} ms` : String(e.message || e))
+    if (e.name === 'AbortError') {
+      throw new KernelError(0, `o kernel passou de ${Math.round(timeout / 1000)}s sem responder`, {
+        timedOut: true,
+      })
+    }
+    throw new KernelError(0, String(e.message || e))
   } finally {
     clearTimeout(timer)
   }

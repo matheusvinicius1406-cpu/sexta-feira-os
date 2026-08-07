@@ -7,7 +7,7 @@ Publishes: brain.started, brain.thinking, brain.tool_call,
 from __future__ import annotations
 
 import logging
-from typing import AsyncIterator
+from collections.abc import AsyncIterator
 
 from app.brain.cognition import Cognition
 from app.core.di import get_kernel

@@ -27,7 +27,29 @@ os.environ["SCHEDULER_ENABLED"] = "false"  # tests drive run_due() directly
 # tests assert that protected routes answer 401 without a token; if the local
 # .env opted into the bypass, they would silently start asserting nothing.
 os.environ["AUTH_DEV_BYPASS"] = "false"
+# Do not preload the speech model. It is half a gigabyte and takes minutes to
+# load on CPU; the kernel does it at boot so the first spoken word is fast, but
+# in a test run it just competes with the tests for the same cores.
+os.environ["STT_WARM_ON_BOOT"] = "false"
+# Point Ollama at a port nothing listens on. Tests that assert real generation
+# quality belong against a live model in a manual run, not in the suite — a
+# machine that happens to have Ollama up (the owner's) was silently paying for
+# real inference on every run (minutes, not seconds) and a request that hung
+# could stall the whole suite indefinitely. `brain_offline()` below is for
+# tests that want to assert degradation specifically; this is the default for
+# everything else, so "the suite passed" means the same thing on every machine.
+os.environ["OLLAMA_ENDPOINT"] = "http://127.0.0.1:1"
 os.environ["DATABASE_URL"] = f"sqlite:////tmp/sexta_test_{uuid.uuid4().hex}.db"
+
+# main.py calls load_dotenv(..., override=True) during its own import, which
+# clobbers the isolated env vars set above with whatever the developer's real
+# .env says — turning every API test into a test against the LIVE dev database
+# and the real owner credentials (login 401s, tests write into dev data, CI
+# stays green only because it has no .env). Disable .env loading for tests so
+# the isolation above is real. The kernel loads .env itself in production.
+import dotenv  # noqa: E402
+
+dotenv.load_dotenv = lambda *args, **kwargs: False  # noqa: E731
 
 from app.db.migrations import run_migrations  # noqa: E402
 

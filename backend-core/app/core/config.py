@@ -72,11 +72,79 @@ class Settings(BaseSettings):
     # It used to be implicitly on for every dev kernel, including LAN-bound ones.
     auth_dev_bypass: bool = False
 
+    # ============ Tuning measured by app/brain/optimizer.py ============
+    # All four are Ollama knobs. 0 / "" means "let Ollama decide", which is the
+    # right default for a machine nobody has measured yet — a guessed number is
+    # worse than the library's, and the optimizer exists to replace guesses.
+    #
+    # num_ctx caps how much context is READ per turn. Past the knee the model
+    # pays to read context it will not use and the first token arrives late.
+    brain_num_ctx: int = 0
+    # A turn carrying an IMAGE does not fit in Ollama's 4096-token default, and
+    # "let Ollama decide" is the wrong answer only in this one case. Measured on
+    # the first real photo through /chat: 5791 tokens against a 4096 ceiling —
+    # the picture is worth thousands before persona, recalled memories and the
+    # tool specs are even counted. Ollama answers that with a flat 400, so the
+    # brain did not see badly, it did not see at all.
+    #
+    # This is a FLOOR, applied only when images are attached. A text turn keeps
+    # whatever brain_num_ctx says, because context is KV cache the CPU pays for
+    # whether the tokens get used or not.
+    brain_num_ctx_vision: int = 8192
+    # num_thread: more is not monotonically better; cores contend for the memory
+    # bus, and the last core is also the one the OS and this kernel need.
+    brain_num_thread: int = 0
+    # num_batch for embeddings, which run in the background while you talk.
+    embedding_num_batch: int = 0
+    # How long a model stays resident after its last use.
+    brain_keep_alive: str = "10m"
+    # Only consulted when VISION_MODEL names a model OTHER than the brain. When
+    # one model does both — the default — this must not apply: Ollama's
+    # keep_alive is per model and last-write-wins, so a 30s vision call would
+    # schedule the brain's own eviction seconds after it looked at a photo.
+    # See vision_keep_alive_resolved.
+    vision_keep_alive: str = "30s"
+    # Prune the history before sending it: drop spent tool payloads, then slide
+    # a window over what is left.
+    prompt_compression: bool = True
+    # The budget compression targets when BRAIN_NUM_CTX has not been measured
+    # yet (0 = "let Ollama decide", which defaults to 4096 for most models).
+    # Without this, an unmeasured machine got NO compression at all — the
+    # setting above was a no-op until the owner ran the optimizer once. 3072 is
+    # ~75% of that 4096 default, leaving headroom for the reply so the model
+    # is not generating right up against its own read ceiling. A measured
+    # BRAIN_NUM_CTX always wins over this guess.
+    prompt_compression_max_tokens: int = 3072
+
     # ============ Local Brain (Ollama) ============
     # This is the ONLY inference backend. It runs on your machine.
     ollama_endpoint: str = "http://127.0.0.1:11434"
-    brain_model: str = "llava:7b"  # your local reasoning model
-    embedding_model: str = "nomic-embed-text"  # local embeddings
+    # ONE model, every job: it thinks, it acts, and it sees.
+    #
+    # It used to be two, and the split cost more than it bought:
+    #   * qwen2.5:3b could call tools but was blind.
+    #   * llava:7b could see but reports ["completion", "vision"] with NO
+    #     "tools", so it refused every tool-calling request outright.
+    # Two models meant two residents on a 12 GB box, and Ollama evicts one to
+    # load the other — a single camera frame pushed the chat model out of RAM
+    # and the next message paid a cold load. Worse, no turn could ever look at
+    # an image AND act on what it saw: those were different models, and only
+    # one of them had hands.
+    #
+    # qwen3-vl:4b reports ["completion", "tools", "vision", "thinking"] — the
+    # whole assistant in 3.3 GB. Whatever you put here needs BOTH "tools" and
+    # "vision"; the kernel checks at boot and says so if it doesn't (see
+    # app/kernel/pipeline/steps/core_steps.py).
+    brain_model: str = "qwen3-vl:4b"
+    # NOT a chat model and not merged into the brain: an embedder turns text
+    # into a vector for semantic recall, costs 274 MB, and running that job on
+    # a 4B generative model would be slower and worse at it.
+    embedding_model: str = "nomic-embed-text"
+    # qwen3-vl can "think" before answering. On a CPU box that spends the reply
+    # budget on reasoning nobody reads and pushes first-token latency into
+    # minutes. Ollama rejects this flag on models without the capability, so it
+    # is only ever sent when the brain reports "thinking".
+    brain_thinking: bool = False
     brain_temperature: float = 0.7
     brain_max_tokens: int = 2048
     brain_context_messages: int = 12
@@ -96,6 +164,29 @@ class Settings(BaseSettings):
     # firing logic itself is a pure method (run_due) so it's easy to test.
     scheduler_enabled: bool = True
     scheduler_interval_seconds: int = 30
+
+    # ============ Agent — Cognitive Pulse (the kernel's own initiative) ============
+    # The kernel is an agent, not only a chat endpoint: on an interval it wakes,
+    # looks at the present (World Model), the goals (Planning), the lessons
+    # (Learning) and the pending proposals, judges whether anything is worth
+    # doing RIGHT NOW, and either DOES it (read/reversible tools) or PROPOSES it
+    # to the owner (anything that changes the world waits for confirmation — the
+    # "age com confirmação" mode). Disable to go back to a purely reactive
+    # kernel. The tick logic is a pure method (`CognitivePulse.tick`), so the
+    # loop is as testable as the scheduler's run_due.
+    agent_pulse_enabled: bool = True
+    agent_pulse_interval_seconds: int = 600
+    # How long an executed safe action is remembered before the same (tool,args)
+    # may run again — stops the pulse from repeating itself every cycle.
+    agent_pulse_cooldown_seconds: int = 3600
+    # The judgment call is skipped when the digest is byte-identical to the
+    # last one judged AND that judgment was {"nothing": true} — at the default
+    # interval, an idle owner was paying for the same "nothing" answer 144
+    # times a day. A digest that changes (a goal crosses an hour-until-due
+    # boundary, a new lesson lands, a proposal resolves) always gets judged
+    # again, so this trades nothing the deterministic scan couldn't already
+    # tell you were the same. True restores the old always-judge behaviour.
+    agent_pulse_judge_when_idle: bool = False
 
     # The kernel's personality / identity. This is who Sexta-Feira is to you.
     brain_persona: str = (
@@ -120,17 +211,53 @@ class Settings(BaseSettings):
     graph_expand_hops: int = 1
     graph_expand_decay: float = 0.55
     # Let the brain NAME each auto-link ("trabalha em", "gosta de"...) instead of
-    # a generic "related". Costs one small local LLM call per new edge; falls
-    # back to "related" if the brain is offline.
-    graph_relation_labels: bool = True
+    # a generic "related". Costs one small local LLM call per new edge — up to
+    # graph_autolink_k of them per fact remembered, ON TOP of whatever inference
+    # produced the reply. Off by default because nothing reads the label back:
+    # recall_graph ranks purely on similarity*decay*weight, and the prompt only
+    # ever shows a memory's CONTENT, never its relation. Worse, `relation` is
+    # part of link()'s idempotency key, so a non-deterministic label on the same
+    # pair (re-remembered, or the LLM answering differently) files a SECOND
+    # edge instead of updating the first. A visualization nice-to-have was
+    # quietly both the biggest inference cost per turn and a graph-correctness
+    # bug; turn it on only if you want the labels for the graph view.
+    graph_relation_labels: bool = False
 
     # ============ Vision (local, offline) ============
-    # Vision analysis uses Ollama vision models (llava, bakllava, etc.)
-    # for image understanding, camera analysis, and document OCR.
+    # The brain sees for itself — camera frames, screenshots, documents, OCR.
+    #
+    # Empty is the answer, not a missing value: it means "whichever model is
+    # BRAIN_MODEL", which is the entire point of having one. Set this only to
+    # deliberately send images somewhere else than the model holding the
+    # conversation, and know that you are paying for a second resident model
+    # again. Read it through `vision_model_resolved`, never raw.
     vision_enabled: bool = True
-    vision_model: str = ""  # auto-detect if empty (llava preferred)
+    vision_model: str = ""
     vision_max_image_dim: int = 1024  # resize larger images
     vision_jpeg_quality: int = 85
+
+    @property
+    def vision_model_resolved(self) -> str:
+        """The model that actually receives images. Empty VISION_MODEL = the brain."""
+        return self.vision_model or self.brain_model
+
+    @property
+    def vision_shares_the_brain(self) -> bool:
+        """Is the model that sees the same one that talks? Normally yes."""
+        return self.vision_model_resolved == self.brain_model
+
+    @property
+    def vision_keep_alive_resolved(self) -> str:
+        """How long to hold the model that just looked at an image.
+
+        When it IS the brain, the answer has to be the brain's own keep_alive.
+        Ollama tracks keep_alive per model with last-write-wins, so passing the
+        short vision value here would let a single photo schedule the brain's
+        eviction 30 seconds later — the very RAM thrash that having one model
+        was meant to end, reintroduced by a setting nobody would think to look at.
+        """
+        return self.brain_keep_alive if self.vision_shares_the_brain else self.vision_keep_alive
+
     # Web search engine (DuckDuckGo by default, no API key needed)
     web_search_enabled: bool = True
 
@@ -144,6 +271,12 @@ class Settings(BaseSettings):
     stt_language: str = "pt"
     stt_compute_type: str = "int8"  # int8|float16|float32
     stt_device: str = "cpu"  # cpu|cuda
+    # Load the speech model during boot instead of at the first spoken word.
+    # Loading costs ~2 min on CPU, and paid on first use it is indistinguishable
+    # from the assistant being deaf. Off for tests and for anything that boots
+    # the kernel just to poke at it — half a gigabyte of model to run a unit
+    # test is pure cost.
+    stt_warm_on_boot: bool = True
     tts_engine: str = "edge"  # edge | piper | voicebox
     tts_voice: str = ""  # path to a Piper voice .onnx
     tts_speak_replies: bool = True

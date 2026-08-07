@@ -11,7 +11,25 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 # Load .env before importing settings-dependent modules.
-load_dotenv(Path(__file__).resolve().parents[1] / ".env")
+#
+# TWO files used to be in play, and the wrong one won. This loaded
+# `backend-core/.env` while app/core/config.py declares the repo-root `.env` as
+# its `env_file` — and because load_dotenv writes real environment variables,
+# which outrank pydantic's env_file, the backend-core copy silently overrode the
+# canonical one for every key it happened to define. Editing the file the config
+# points at changed nothing, with no error and no log line: the kernel booted on
+# BRAIN_MODEL=llava:7b long after the root .env said otherwise.
+#
+# So the root file is loaded LAST, with override, and is now genuinely the one
+# that decides. The backend-core copy is still read first, so a key that exists
+# only there (a VAULT_KEY, a pinned JWT secret) is not lost — but it can no
+# longer contradict the file the owner is told to edit.
+_LEGACY_ENV = Path(__file__).resolve().parents[1] / ".env"
+_ENV = Path(__file__).resolve().parents[2] / ".env"
+
+if _LEGACY_ENV.exists():
+    load_dotenv(_LEGACY_ENV)
+load_dotenv(_ENV, override=True)
 
 import logging  # noqa: E402
 
@@ -34,7 +52,9 @@ from app.api.routers import (  # noqa: E402
     learning,
     memory,
     obsidian,
+    optimize,
     planning,
+    pulse,
     radio,
     schedule,
     system,
@@ -114,6 +134,8 @@ app.include_router(connectors.router)
 app.include_router(vision.router)
 app.include_router(obsidian.router)
 app.include_router(system.router)
+app.include_router(optimize.router)
+app.include_router(pulse.router)
 
 
 @app.get("/")

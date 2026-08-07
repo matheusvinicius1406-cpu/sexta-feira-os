@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import logging
 import re
-from urllib.parse import quote_plus, urlparse
 
 import httpx
 
@@ -42,7 +41,7 @@ class WebSearchResult:
 class WebSearch:
     """
     Web search and content extraction engine.
-    
+
     Uses DuckDuckGo HTML search (privacy-first, no tracking).
     Falls back to scraping pages for full content.
     """
@@ -67,12 +66,12 @@ class WebSearch:
     ) -> list[WebSearchResult]:
         """
         Search the web using DuckDuckGo.
-        
+
         Args:
             query: Search query
             max_results: Max results to return
             region: Region code (br-pt for Brazil)
-            
+
         Returns:
             List of WebSearchResult with title, url, snippet
         """
@@ -147,7 +146,7 @@ class WebSearch:
             html, re.DOTALL
         )
 
-        for url_path, url, title, snippet in blocks[:max_results]:
+        for _url_path, url, title, snippet in blocks[:max_results]:
             clean_title = re.sub(r'<[^>]+>', '', title).strip()
             clean_snippet = re.sub(r'<[^>]+>', '', snippet).strip()
             results.append(WebSearchResult(
@@ -168,7 +167,7 @@ class WebSearch:
     ) -> dict:
         """
         Fetch and extract readable content from a URL.
-        
+
         Returns:
             {
                 "url": str,
@@ -253,7 +252,7 @@ class WebSearch:
     ) -> dict:
         """
         Search and optionally fetch the top result's full content.
-        
+
         Returns:
             {
                 "query": str,

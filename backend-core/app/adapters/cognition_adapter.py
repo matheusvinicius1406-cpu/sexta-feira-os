@@ -9,7 +9,7 @@ Publishes events: brain.thinking, brain.tool_call, brain.reply.
 from __future__ import annotations
 
 import logging
-from typing import AsyncIterator
+from collections.abc import AsyncIterator
 
 from app.adapters._events import publish_event
 from app.core.di import get_kernel

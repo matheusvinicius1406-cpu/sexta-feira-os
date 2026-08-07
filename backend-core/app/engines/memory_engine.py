@@ -12,8 +12,8 @@ from typing import Any
 from app.brain.memory import PersistentMemory
 from app.core.di import get_kernel
 from app.db.database import SessionLocal
-from app.models.models import Owner, Memory
 from app.engines import IEngine
+from app.models.models import Memory, Owner
 
 logger = logging.getLogger("sexta-feira.engine.memory")
 

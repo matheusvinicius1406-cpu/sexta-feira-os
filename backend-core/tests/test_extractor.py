@@ -148,9 +148,85 @@ def test_failing_extractor_never_breaks_the_reply():
             raise RuntimeError("kaboom")
 
     cog = Cognition(brain=None, memory=None, extractor=_Boom())
+    # Must not raise. _auto_learn opens its own session now (it runs detached
+    # from the request, see Step 5 / cognition._spawn), so there is no `db` to
+    # pass or close here.
+    asyncio.run(cog._auto_learn("owner-x", "oi", "resposta"))
+
+
+# ---------- auto-learn runs off the reply's critical path (Step 5) ----------
+
+
+class _ReplyOnlyBrain:
+    """LocalBrain stand-in for the tool loop: one plain completion, no tools."""
+
+    async def chat_with_tools(self, messages, tools=None, temperature=None, max_tokens=None):
+        return {"role": "assistant", "content": "resposta"}
+
+
+class _NoOpGraphMemory:
+    async def recall_graph(self, db, owner_id, query, top_k=None):
+        return []
+
+
+class _SlowExtractor:
+    """Marks `started`/`finished` around an artificial await, so a test can
+    tell whether the caller waited for it or moved on."""
+
+    def __init__(self):
+        self.started = False
+        self.finished = False
+
+    async def extract(self, db, owner_id, user_text, reply):
+        self.started = True
+        await asyncio.sleep(0.05)
+        self.finished = True
+        return 1
+
+
+def test_respond_returns_before_extraction_finishes():
+    """respond() and drain() must run on the SAME loop: asyncio.run() tears
+    down its loop (and cancels anything still pending) the moment the
+    coroutine it was given returns, so a second asyncio.run(cog.drain())
+    would be draining a task that belonged to an already-closed loop."""
+    from app.brain.cognition import Cognition
+
+    extractor = _SlowExtractor()
+    cog = Cognition(brain=_ReplyOnlyBrain(), memory=_NoOpGraphMemory(), extractor=extractor)
     db = SessionLocal()
+
+    async def _run():
+        reply, _conv_id = await cog.respond(db, f"o-{uuid.uuid4().hex}", "oi")
+        assert reply == "resposta"
+        # The reply came back; the background extraction has not necessarily
+        # even started yet, and must certainly not have finished.
+        assert extractor.finished is False
+        await cog.drain()  # let it finish cleanly instead of getting cancelled at loop close
+
     try:
-        # Must not raise.
-        asyncio.run(cog._auto_learn(db, "owner-x", "oi", "resposta"))
+        asyncio.run(_run())
     finally:
         db.close()
+
+
+def test_extraction_still_completes_after_the_reply():
+    from app.brain.cognition import Cognition
+
+    extractor = _SlowExtractor()
+    cog = Cognition(brain=_ReplyOnlyBrain(), memory=_NoOpGraphMemory(), extractor=extractor)
+    db = SessionLocal()
+
+    async def _run():
+        await cog.respond(db, f"o-{uuid.uuid4().hex}", "oi")
+        # drain() is the deterministic wait a test uses in place of a sleep
+        # loop — the same pattern TeiaTriggerManager tests use for its own
+        # fire-and-forget runs.
+        await cog.drain()
+
+    try:
+        asyncio.run(_run())
+    finally:
+        db.close()
+
+    assert extractor.started is True
+    assert extractor.finished is True

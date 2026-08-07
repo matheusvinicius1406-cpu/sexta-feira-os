@@ -28,7 +28,7 @@ from app.db.database import get_db
 from app.models.models import Owner
 from app.voice.box import VoiceBox
 from app.voice.stt import VoiceUnavailable
-from app.voice.voice_packs import list_packs, get_pack
+from app.voice.voice_packs import get_pack, list_packs
 
 router = APIRouter(prefix="/api/v1/voice", tags=["voice"])
 

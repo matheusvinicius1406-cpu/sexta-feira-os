@@ -14,6 +14,12 @@ asserting graceful degradation is what kept anyone from checking.
 
 These tests use a stand-in Ollama that refuses tools exactly as the real one
 does, so the fallback is proven against the actual failure, not a guess at it.
+
+The brain now also asks /api/show what the model can do before its first
+request. That probe is a different endpoint, and the stand-in below answers it
+as an Ollama too old to report capabilities would — the empty answer that means
+"unknown". This keeps these tests about the 400 fallback, which is the backstop
+that must still work when the probe tells us nothing.
 """
 from __future__ import annotations
 
@@ -33,8 +39,15 @@ def _brain(handler) -> LocalBrain:
     return brain
 
 
+def _chat_calls(requests: list[httpx.Request]) -> list[bool]:
+    """Did each /api/chat request carry tools? Capability probes are not chats."""
+    return [b'"tools"' in r.content for r in requests if r.url.path == "/api/chat"]
+
+
 def _refuses_tools(request: httpx.Request) -> httpx.Response:
     """What Ollama really does with a tool-less model."""
+    if request.url.path == "/api/show":
+        return httpx.Response(200, json={})          # no capabilities reported
     if b'"tools"' in request.content:
         return httpx.Response(
             400, json={"error": "registry.ollama.ai/library/llava:7b does not support tools"}
@@ -44,47 +57,48 @@ def _refuses_tools(request: httpx.Request) -> httpx.Response:
 
 @pytest.mark.asyncio
 async def test_answers_even_when_the_model_refuses_tools():
-    calls = []
+    seen: list[httpx.Request] = []
 
     def handler(request):
-        calls.append(b'"tools"' in request.content)
+        seen.append(request)
         return _refuses_tools(request)
 
     brain = _brain(handler)
     msg = await brain.chat_with_tools([{"role": "user", "content": "oi"}], tools=TOOLS)
 
     assert msg["content"] == "Ok.", "a resposta sem ferramentas não chegou ao chamador"
-    assert calls == [True, False], (
-        f"esperava uma tentativa com ferramentas e o reenvio sem elas; houve {calls}"
+    assert _chat_calls(seen) == [True, False], (
+        f"esperava uma tentativa com ferramentas e o reenvio sem elas; houve {_chat_calls(seen)}"
     )
 
 
 @pytest.mark.asyncio
 async def test_the_rejection_is_paid_for_only_once():
     """Retrying tools on every message would double every chat's latency."""
-    calls = []
+    seen: list[httpx.Request] = []
 
     def handler(request):
-        calls.append(b'"tools"' in request.content)
+        seen.append(request)
         return _refuses_tools(request)
 
     brain = _brain(handler)
     for _ in range(3):
         await brain.chat_with_tools([{"role": "user", "content": "oi"}], tools=TOOLS)
 
-    assert calls.count(True) == 1, (
-        f"tentou usar ferramentas {calls.count(True)}x; a recusa deveria ser lembrada"
-    )
+    tried = _chat_calls(seen).count(True)
+    assert tried == 1, f"tentou usar ferramentas {tried}x; a recusa deveria ser lembrada"
     assert brain._supports_tools is False
 
 
 @pytest.mark.asyncio
 async def test_a_model_with_tools_keeps_them():
     """The fallback must not cost tool support where it exists."""
-    seen = []
+    seen: list[httpx.Request] = []
 
     def handler(request):
-        seen.append(b'"tools"' in request.content)
+        seen.append(request)
+        if request.url.path == "/api/show":
+            return httpx.Response(200, json={})
         return httpx.Response(200, json={
             "message": {"role": "assistant", "content": "",
                         "tool_calls": [{"function": {"name": "lembrar", "arguments": {}}}]},
@@ -94,7 +108,7 @@ async def test_a_model_with_tools_keeps_them():
     msg = await brain.chat_with_tools([{"role": "user", "content": "oi"}], tools=TOOLS)
 
     assert msg["tool_calls"], "as tool_calls do modelo foram perdidas"
-    assert seen == [True]
+    assert _chat_calls(seen) == [True]
     assert brain._supports_tools is True
 
 

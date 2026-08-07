@@ -7,7 +7,6 @@ Uses Google's free speech recognition API (requires internet).
 from __future__ import annotations
 
 import asyncio
-import io
 import logging
 
 import speech_recognition as sr
@@ -33,23 +32,23 @@ class SpeechRecognitionTranscriber:
             # Convert audio bytes to AudioData
             # speech_recognition expects WAV, so we use ffmpeg to convert if needed
             wav_bytes = await self._ensure_wav(audio)
-            
+
             audio_data = sr.AudioData(wav_bytes, sample_rate=16000, sample_width=2)
-            
+
             # Run recognition in thread pool (blocking API call)
             text = await asyncio.to_thread(
                 self._recognizer.recognize_google,
                 audio_data,
                 language=lang,
             )
-            
+
             logger.info("SpeechRecognition: %d bytes -> '%s'", len(audio), text[:100])
             return text
 
         except sr.UnknownValueError:
-            raise VoiceUnavailable("Não consegui entender o áudio. Tente falar mais alto.")
+            raise VoiceUnavailable("Não consegui entender o áudio. Tente falar mais alto.") from None
         except sr.RequestError as e:
-            raise VoiceUnavailable(f"Erro no serviço de reconhecimento: {e}")
+            raise VoiceUnavailable(f"Erro no serviço de reconhecimento: {e}") from e
         except VoiceUnavailable:
             raise
         except Exception as e:
@@ -59,7 +58,7 @@ class SpeechRecognitionTranscriber:
         """Convert audio to WAV format if needed."""
         if audio[:4] == b'RIFF':
             return audio  # Already WAV
-        
+
         # Use ffmpeg to convert
         try:
             proc = await asyncio.create_subprocess_exec(
@@ -75,6 +74,6 @@ class SpeechRecognitionTranscriber:
                 return stdout
         except FileNotFoundError:
             pass
-        
+
         # If ffmpeg fails, try using audio as-is (might be WAV)
         return audio
