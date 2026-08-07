@@ -83,8 +83,15 @@ class VisionEngine:
         # and reading the raw setting here would send the kernel down the
         # auto-detect path to guess at a model the owner already named.
         self._model_preference = model or settings.vision_model_resolved or None
+        # Matches LocalBrain's own client (engine.py) — vision goes through the
+        # SAME model now (see docs/ARCHITECTURE.md "Um cérebro só"), so it pays
+        # the same worst-case latency. This was 180.0 independently, and on a
+        # CPU box slow enough to need this project's own optimizer, a photo
+        # analysis routinely took longer than that: every camera/document
+        # request came back a bare httpx.ReadTimeout, converted below into a
+        # clean VisionUnavailable instead of leaking as a raw 500.
         self._client = httpx.AsyncClient(
-            base_url=self.endpoint, timeout=httpx.Timeout(180.0)
+            base_url=self.endpoint, timeout=httpx.Timeout(900.0)
         )
         self._available_model: str | None = None
         self._max_dim = settings.vision_max_image_dim
@@ -234,7 +241,12 @@ class VisionEngine:
             "keep_alive": settings.vision_keep_alive_resolved,
             "options": {
                 "temperature": temperature,
-                "num_predict": 1024,
+                # Was a hardcoded 1024 here, independent of BRAIN_MAX_TOKENS —
+                # a second ceiling nobody tuning the first one knew existed.
+                # See config.py::brain_max_tokens for why this number matters
+                # on CPU: it is a worst case paid in full whenever the model
+                # doesn't stop early.
+                "num_predict": settings.brain_max_tokens,
             },
         }
 
@@ -245,6 +257,14 @@ class VisionEngine:
         except httpx.ConnectError as e:
             raise VisionUnavailable(
                 f"Ollama não respondeu em {self.endpoint}. Rode `ollama serve`."
+            ) from e
+        except httpx.TimeoutException as e:
+            # Used to escape as a bare httpx.ReadTimeout -> unhandled 500. The
+            # client timeout is generous (900s, matching LocalBrain) precisely
+            # because this project's own hardware needs it; hitting this now
+            # means the model is genuinely still working, not that it hung.
+            raise VisionUnavailable(
+                f"{self.endpoint} não respondeu a tempo analisando a imagem."
             ) from e
 
     async def analyze_images_batch(
@@ -277,7 +297,8 @@ class VisionEngine:
             "keep_alive": settings.vision_keep_alive_resolved,
             "options": {
                 "temperature": 0.3,
-                "num_predict": 2048,
+                # Same ceiling as analyze_image — see the comment there.
+                "num_predict": settings.brain_max_tokens,
             },
         }
 
@@ -288,6 +309,14 @@ class VisionEngine:
         except httpx.ConnectError as e:
             raise VisionUnavailable(
                 f"Ollama não respondeu em {self.endpoint}. Rode `ollama serve`."
+            ) from e
+        except httpx.TimeoutException as e:
+            # Used to escape as a bare httpx.ReadTimeout -> unhandled 500. The
+            # client timeout is generous (900s, matching LocalBrain) precisely
+            # because this project's own hardware needs it; hitting this now
+            # means the model is genuinely still working, not that it hung.
+            raise VisionUnavailable(
+                f"{self.endpoint} não respondeu a tempo analisando a imagem."
             ) from e
 
     # ── Specialized analysis ─────────────────────────────────

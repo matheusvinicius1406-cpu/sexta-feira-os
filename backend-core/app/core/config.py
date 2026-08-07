@@ -6,6 +6,7 @@ Design principles (do not violate):
   * SINGLE-OWNER: exactly one owner. No open registration.
   * PRIVATE-BY-DEFAULT: no telemetry, no external egress, data stays on disk.
 """
+import os
 import secrets
 from pathlib import Path
 
@@ -146,7 +147,18 @@ class Settings(BaseSettings):
     # is only ever sent when the brain reports "thinking".
     brain_thinking: bool = False
     brain_temperature: float = 0.7
-    brain_max_tokens: int = 2048
+    # This is a CEILING on generation (`num_predict`), paid in full whenever the
+    # model doesn't stop on its own — and on CPU it routinely doesn't: measured
+    # on this project's own reference laptop, qwen3-vl generates at ~4.6 tok/s,
+    # so the old default of 2048 meant a WORST-CASE CHAT REPLY of ~7.5 minutes,
+    # every time the model rambled instead of stopping. The client (the HUD's
+    # 600s fetch deadline, or a plain curl) gives up long before that, so the
+    # owner sees "no response" while the kernel is still faithfully generating
+    # token 1,600 of an answer nobody will read. 320 caps the worst case at
+    # roughly a minute on that same hardware while leaving room for a real
+    # paragraph; raise it if your machine is faster or your answers are
+    # getting cut short.
+    brain_max_tokens: int = 320
     brain_context_messages: int = 12
     # Agentic tool-calling: let the brain act on its own (remember/recall/automations)
     # during a normal conversation — driven by voice/chat from the phone, no terminal.
@@ -355,9 +367,29 @@ class Settings(BaseSettings):
     telemetry_enabled: bool = False  # hard off. Non-negotiable.
 
     class Config:
-        env_file = str(Path(__file__).resolve().parents[3] / ".env")
+        # Overridable so tests can point this at a file that does not exist —
+        # see conftest.py. pydantic-settings reads env_file with its OWN
+        # DotEnvSettingsSource, independent of the top-level `dotenv.load_dotenv`
+        # main.py calls; conftest.py stubs THAT function to keep tests off the
+        # developer's real .env, which silently did nothing to stop THIS path.
+        # It never surfaced because no .env existed on the reference dev
+        # machine — the day one did, every test started reading the owner's
+        # real local settings (AGENT_PULSE_ENABLED, model choice, ...).
+        env_file = os.environ.get(
+            "SEXTA_ENV_FILE", str(Path(__file__).resolve().parents[3] / ".env")
+        )
         case_sensitive = False
         extra = "ignore"
+        # list[str] fields (teia_allowed_paths, teia_shell_allowlist, ...) are
+        # JSON-decoded by pydantic-settings when the env var is SET, and both
+        # ship in .env.template as a blank line ("separe por vírgula" — empty
+        # means none). A blank string is not valid JSON, so every fresh boot
+        # that follows the template as written crashed here before the app
+        # ever started. env_ignore_empty makes a blank env var behave like an
+        # unset one (falls back to the field default) instead of being handed
+        # to json.loads. No string field relies on "" from the env overriding
+        # a non-empty class default, so this changes nothing for those.
+        env_ignore_empty = True
 
     def resolve_jwt_secret(self) -> str:
         """

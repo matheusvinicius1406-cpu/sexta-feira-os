@@ -218,19 +218,20 @@ class LocalBrain:
         max_tokens: int | None = None,
         images: list[str] | None = None,
     ) -> str:
-        """Non-streaming completion. `messages` = [{"role","content"}...]."""
-        payload = await self._payload(
-            messages, temperature=temperature, max_tokens=max_tokens, images=images,
-        )
-        try:
-            r = await self._client.post("/api/chat", json=payload)
-            r.raise_for_status()
-            return r.json()["message"]["content"]
-        except httpx.ConnectError as e:
-            raise BrainUnavailable(
-                f"Ollama não respondeu em {self.endpoint}. "
-                f"Rode `ollama serve` e `ollama pull {self.model}`."
-            ) from e
+        """Non-streaming completion. `messages` = [{"role","content"}...].
+
+        Routed through `_post_chat` (tools=None) rather than posting directly:
+        that is the one place that (a) surfaces Ollama's actual 400 detail
+        instead of a bare 500, and (b) retries once with more room when the
+        model spent its whole budget thinking and never answered. Both used to
+        exist only for chat_with_tools's callers — pulse judgments, memory
+        extraction, directors and evals all call this method instead, and got
+        neither: a thinking model handed them silent empty strings.
+        """
+        message = await self._post_chat(messages, None, temperature, max_tokens, images)
+        if message is None:
+            raise BrainUnavailable(f"{self.model} recusou a requisição de chat.")
+        return message.get("content") or ""
 
     async def chat_with_tools(
         self,
@@ -290,6 +291,7 @@ class LocalBrain:
         temperature: float | None,
         max_tokens: int | None,
         images: list[str] | None = None,
+        _thinking_retry: bool = False,
     ) -> dict | None:
         """One /api/chat call. `None` means "this model refuses tools"."""
         payload = await self._payload(
@@ -309,6 +311,26 @@ class LocalBrain:
                 detail = r.text.strip()[:400]
                 logger.error("Ollama recusou a requisição (400): %s", detail)
                 raise BrainUnavailable(f"Ollama recusou a requisição: {detail}")
+            if r.status_code == 500 and not _thinking_retry:
+                # Ollama's own qwen3vl adapter throws a bare 500 ("tool call
+                # parsing failed: unexpected end of JSON input") when num_predict
+                # cuts the model off mid tool-call — it started emitting
+                # `{"name": "remember", "arguments": {...` and never got to the
+                # closing brace. This is the SAME root cause as the thinking
+                # retry below (not enough budget to finish what it started), so
+                # it gets the same one bounded retry with more room, instead of
+                # surfacing Ollama's internal parser crash as our own 500.
+                used = payload["options"]["num_predict"]
+                retry_budget = min(max(used * 3, 900), 2000)
+                logger.warning(
+                    "%s: Ollama 500 (provável tool call truncado em num_predict=%d) "
+                    "— retentando com num_predict=%d",
+                    self.model, used, retry_budget,
+                )
+                return await self._post_chat(
+                    messages, tools, temperature, retry_budget, images,
+                    _thinking_retry=True,
+                )
             r.raise_for_status()
             message = r.json().get("message", {"role": "assistant", "content": ""})
             if not (message.get("content") or "").strip() and message.get("thinking"):
@@ -317,16 +339,40 @@ class LocalBrain:
                 # emits a <think> block that Ollama splits into its own field.
                 # If num_predict runs out mid-thought, `content` is empty and the
                 # owner gets a blank reply from a model that worked for minutes.
-                # Say so, because a blank answer explains nothing by itself.
                 logger.warning(
                     "%s gastou a resposta pensando e não chegou a responder "
-                    "(BRAIN_MAX_TOKENS=%s). O raciocínio começa com: %.120s",
-                    self.model, settings.brain_max_tokens, message["thinking"],
+                    "(num_predict=%s). O raciocínio começa com: %.120s",
+                    self.model, payload["options"]["num_predict"], message["thinking"],
                 )
+                if not _thinking_retry:
+                    # One bounded retry with real headroom, rather than handing
+                    # the owner silence. A model that never stops thinking would
+                    # otherwise cost this every single message forever — capping
+                    # the retry itself (not just counting attempts) keeps a
+                    # single bad turn from becoming an unbounded one.
+                    used = payload["options"]["num_predict"]
+                    retry_budget = min(max(used * 3, 900), 2000)
+                    logger.info(
+                        "retentando %s com num_predict=%d para o raciocínio terminar",
+                        self.model, retry_budget,
+                    )
+                    return await self._post_chat(
+                        messages, tools, temperature, retry_budget, images,
+                        _thinking_retry=True,
+                    )
             return message
         except httpx.ConnectError as e:
             raise BrainUnavailable(
                 f"Ollama não respondeu em {self.endpoint}. Rode `ollama serve`."
+            ) from e
+        except httpx.HTTPStatusError as e:
+            # Reached only when the retry above ALSO failed (or status was
+            # something other than 400/500): a bare HTTPStatusError used to
+            # leak past here as an opaque 500 from OUR api, indistinguishable
+            # from a bug in this kernel rather than Ollama's own response.
+            raise BrainUnavailable(
+                f"Ollama respondeu {e.response.status_code} em /api/chat "
+                f"(mesmo após nova tentativa)."
             ) from e
 
     async def stream_chat(
