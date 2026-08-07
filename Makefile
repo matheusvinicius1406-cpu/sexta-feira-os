@@ -3,7 +3,7 @@
 # ─────────────────────────────────────────────────────────────────
 
 .PHONY: help proto proto-python proto-csharp test test-py test-rust \
-        lint lint-py check build build-ui build-maui clean
+        lint lint-py check build build-ui build-maui clean dev
 
 help:  ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | \
@@ -58,3 +58,8 @@ clean:  ## Remove build artifacts
 
 setup:  ## Install Python dependencies
 	@cd backend-core && python -m pip install -r requirements.txt
+
+# ── Dev ─────────────────────────────────────────────────────────
+
+dev:  ## Sobe kernel + HUD juntos (espera health real antes de seguir)
+	@bash scripts/dev_up.sh
