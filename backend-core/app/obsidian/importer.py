@@ -23,7 +23,7 @@ from pathlib import Path
 from sqlalchemy.orm import Session
 
 from app.brain.memory import PersistentMemory
-from app.models.models import Memory
+from app.models.models import Memory, MemoryLink
 
 logger = logging.getLogger("sexta-feira.obsidian")
 
@@ -91,6 +91,15 @@ def parse_frontmatter(content: str) -> dict:
                     tags.append(item)
             elif value:
                 tags = [t.strip() for t in value.split(",") if t.strip()]
+            else:
+                # "tags:" with nothing after it — the standard multi-line
+                # YAML form, whose items are "  - item" on the FOLLOWING
+                # lines. Without this, that form (arguably the most common
+                # one in real Obsidian vaults) parsed to an empty list: the
+                # only two branches that set current_list_key required the
+                # value on THIS line to already start with "-", which is
+                # never true when the items are on separate lines.
+                current_list_key = "tags"
             if tags:
                 meta["tags"] = tags
         elif key in ("alias", "aliases"):
@@ -105,6 +114,8 @@ def parse_frontmatter(content: str) -> dict:
                     values.append(item)
             elif value:
                 values = [a.strip() for a in value.split(",") if a.strip()]
+            else:
+                current_list_key = "aliases"  # same multi-line form as tags, above
             if values:
                 meta["aliases"] = values
 
@@ -324,7 +335,35 @@ class ObsidianImporter:
         source: Memory,
         target: Memory,
     ) -> None:
-        """Create a wikilink edge between two memory nodes."""
+        """Create (or upgrade) a wikilink edge between two memory nodes.
+
+        Looks up the edge itself instead of going through PersistentMemory
+        .link()'s generic upsert, because that upsert only ever touches
+        weight. If SOURCE mentions a note that was already imported earlier
+        in this SAME vault walk, the edge already exists by the time this
+        runs — Pass 1 created it via this source note's own
+        `remember(auto_link=True)` call, whose `_auto_link` does its own
+        `[[wikilink]]` scan with `origin="wikilink"`, having no idea it is
+        running inside an import. Without the explicit upgrade here, that
+        edge's origin stays "wikilink" forever, and this vault's own
+        wikilinks silently undercount at `GET /obsidian/status` and
+        anywhere else that reads origin="obsidian" as "came from my vault".
+        """
+        existing = (
+            db.query(MemoryLink)
+            .filter(
+                MemoryLink.owner_id == owner_id,
+                MemoryLink.source_id == source.id,
+                MemoryLink.target_id == target.id,
+                MemoryLink.relation == "wikilink",
+            )
+            .first()
+        )
+        if existing:
+            existing.origin = "obsidian"
+            existing.weight = max(existing.weight or 0.0, 1.0)
+            db.commit()
+            return
         self.memory.link(
             db, owner_id,
             source_id=source.id,
@@ -336,14 +375,22 @@ class ObsidianImporter:
 
     @staticmethod
     def _should_skip(path: Path) -> bool:
-        """Skip hidden files/dirs and common non-note files."""
-        for part in path.parts:
-            if part.startswith("."):
-                return True
-        # Skip template files (Obsidian convention)
-        if path.name.startswith("_"):
-            return True
-        return False
+        """Skip hidden and underscore-prefixed files/DIRS (Obsidian's own
+        template convention — a leading "_" marks a template or system item,
+        e.g. a "_templates/" folder, not real note content).
+
+        This also covers BRAIN_FOLDER (`__sexta__`, app/obsidian/__init__.py)
+        without a special case: it starts with "_" too. That matters because
+        BRAIN_FOLDER is where export_auto_learned_fact writes — without
+        skipping it, the watcher re-imports the kernel's own notes as a
+        SECOND source="obsidian" node on its very next poll, the kernel
+        re-learning what it just wrote to tell itself.
+
+        Checking only `path.name` used to miss the directory case entirely:
+        a normally-named note living inside "_templates/" was still imported
+        as real content, because the FILE's own name carried no underscore.
+        """
+        return any(part.startswith((".", "_")) for part in path.parts)
 
     @staticmethod
     def _read_file(path: str) -> str | None:
