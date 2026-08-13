@@ -26,11 +26,13 @@ data class ActionResult(
  * The phone's HANDS: turns {action, params} from the kernel into native Android
  * behavior.
  *
+ * Decision (which handler, parameter normalization, validation) lives in
+ * [ActionPlanner] — pure and unit-tested. This class only EXECUTES a plan
+ * against the real device.
+ *
  * The vocabulary is deliberately small and SAFE: it dials (never calls), opens
  * the SMS composer (never sends), opens maps (never drives) — so the owner
- * always keeps the final tap. The kernel's protocol is transport, not
- * vocabulary: this class decides what each action means on THIS body, and the
- * vocabulary grows here without kernel changes.
+ * always keeps the final tap.
  */
 @Singleton
 class ActionExecutor @Inject constructor(
@@ -39,26 +41,23 @@ class ActionExecutor @Inject constructor(
 
     /** Execute one command. Never throws: every failure becomes a "failed" result. */
     suspend fun execute(action: String, params: Map<String, Any?>): ActionResult {
-        return when (action.lowercase()) {
-            "open_app", "abrir_app", "abrir" -> openApp(params)
-            "navigate", "navegar" -> navigate(params)
-            "make_call", "call", "ligar", "discar" -> dial(params)
-            "send_sms", "sms", "message", "mensagem" -> composeSms(params)
-            "notify", "show_notification", "notificar" -> notify(params)
-            "toast" -> toast(params)
-            else -> ActionResult("failed", error = "Ação desconhecida: '$action'")
+        val plan = ActionPlanner.plan(action, params)
+        if (plan.status == "failed") {
+            return ActionResult("failed", error = plan.error)
+        }
+        return when (plan.kind) {
+            ActionKind.OPEN_APP -> openApp(plan.target)
+            ActionKind.NAVIGATE -> navigate(plan.target)
+            ActionKind.DIAL -> dial(plan.target)
+            ActionKind.SMS -> composeSms(plan.target, plan.text)
+            ActionKind.NOTIFY -> notify(plan.title, plan.text, plan.id)
+            ActionKind.TOAST -> toast(plan.text)
         }
     }
 
     // ── open_app ───────────────────────────────────────────
 
-    private fun openApp(params: Map<String, Any?>): ActionResult {
-        val target = (params["app"] ?: params["package"] ?: params["nome"])
-            ?.toString()?.trim().orEmpty()
-        if (target.isBlank()) {
-            return ActionResult("failed", error = "open_app sem 'app'/'package'")
-        }
-
+    private fun openApp(target: String): ActionResult {
         val pm = context.packageManager
 
         // 1 — exact package name, cheapest and unambiguous.
@@ -89,30 +88,14 @@ class ActionExecutor @Inject constructor(
 
     // ── navigate ───────────────────────────────────────────
 
-    private fun navigate(params: Map<String, Any?>): ActionResult {
-        val dest = (params["destination"] ?: params["destino"] ?: params["address"] ?: params["endereco"])
-            ?.toString()?.trim().orEmpty()
-        val lat = params["lat"]?.toString()
-        val lon = params["lon"]?.toString()
-
-        val query = when {
-            dest.isNotBlank() -> dest
-            lat != null && lon != null -> "$lat,$lon"
-            else -> return ActionResult("failed", error = "navigate sem 'destination' ou lat/lon")
-        }
-
+    private fun navigate(query: String): ActionResult {
         val uri = Uri.parse("geo:0,0?q=${Uri.encode(query)}")
         return startExternal(Intent(Intent.ACTION_VIEW, uri)) { "navegando para: $query" }
     }
 
     // ── make_call ──────────────────────────────────────────
 
-    private fun dial(params: Map<String, Any?>): ActionResult {
-        val number = (params["number"] ?: params["phone"] ?: params["numero"])
-            ?.toString()?.replace(Regex("[^0-9+*#]"), "").orEmpty()
-        if (number.isBlank()) {
-            return ActionResult("failed", error = "ligar sem 'number'")
-        }
+    private fun dial(number: String): ActionResult {
         // ACTION_DIAL (not ACTION_CALL): opens the dialer, no CALL_PHONE
         // permission, and the owner makes the final tap.
         val uri = Uri.parse("tel:$number")
@@ -121,12 +104,7 @@ class ActionExecutor @Inject constructor(
 
     // ── send_sms ───────────────────────────────────────────
 
-    private fun composeSms(params: Map<String, Any?>): ActionResult {
-        val number = (params["number"] ?: params["phone"] ?: params["numero"])?.toString().orEmpty()
-        val text = (params["text"] ?: params["message"] ?: params["mensagem"])?.toString().orEmpty()
-        if (number.isBlank() && text.isBlank()) {
-            return ActionResult("failed", error = "sms sem 'number'/'text'")
-        }
+    private fun composeSms(number: String, text: String): ActionResult {
         val intent = Intent(Intent.ACTION_SENDTO, Uri.parse("smsto:$number"))
         if (text.isNotBlank()) intent.putExtra("sms_body", text)
         return startExternal(intent) { "compondo SMS para $number" }
@@ -134,10 +112,7 @@ class ActionExecutor @Inject constructor(
 
     // ── notify ─────────────────────────────────────────────
 
-    private fun notify(params: Map<String, Any?>): ActionResult {
-        val title = (params["title"] ?: params["titulo"]).toString().ifBlank { "Sexta-Feira" }
-        val body = (params["body"] ?: params["mensagem"] ?: params["text"]).toString().ifBlank { "" }
-
+    private fun notify(title: String, body: String, id: String = ""): ActionResult {
         if (Build.VERSION.SDK_INT >= 33 &&
             context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) !=
             PackageManager.PERMISSION_GRANTED
@@ -155,7 +130,7 @@ class ActionExecutor @Inject constructor(
             .build()
 
         return try {
-            val tag = (params["id"]?.toString() ?: System.currentTimeMillis().toString())
+            val tag = id.ifBlank { System.currentTimeMillis().toString() }
             NotificationManagerCompat.from(context).notify(tag, tag.hashCode(), notification)
             ActionResult("done", result = "notificação enviada")
         } catch (e: SecurityException) {
@@ -167,8 +142,7 @@ class ActionExecutor @Inject constructor(
 
     // ── toast ──────────────────────────────────────────────
 
-    private fun toast(params: Map<String, Any?>): ActionResult {
-        val text = (params["text"] ?: params["mensagem"]).toString().ifBlank { "ok" }
+    private fun toast(text: String): ActionResult {
         Toast.makeText(context, text, Toast.LENGTH_LONG).show()
         return ActionResult("done", result = "toast: $text")
     }
