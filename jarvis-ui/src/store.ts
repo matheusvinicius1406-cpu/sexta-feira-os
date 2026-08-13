@@ -46,8 +46,8 @@ export interface AppState {
   setMemories: (m: MemoryNode[]) => void
 
   // UI
-  activePanel: 'chat' | 'memory' | 'settings' | null
-  setActivePanel: (p: 'chat' | 'memory' | 'settings' | null) => void
+  activePanel: 'chat' | 'memory' | 'security' | 'automations' | null
+  setActivePanel: (p: 'chat' | 'memory' | 'security' | 'automations' | null) => void
   brainActivity: number // 0-1 normalized activity
   setBrainActivity: (v: number) => void
 

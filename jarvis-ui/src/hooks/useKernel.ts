@@ -250,6 +250,108 @@ export async function speakText(text: string): Promise<Blob> {
 }
 
 /**
+ * The full voice loop: hear -> think -> answer (optionally spoken).
+ * POST /api/v1/voice/chat — multipart with the recorded audio.
+ * Returns { transcript, reply, conversation_id, audio_wav_base64 }.
+ */
+export async function voiceChat(
+  audioBlob: Blob,
+  speakReply: boolean = true,
+): Promise<{ transcript: string; reply: string; audioWavBase64: string | null }> {
+  const { token } = useStore.getState()
+  const headers: Record<string, string> = {}
+  if (token) headers['Authorization'] = `Bearer ${token}`
+
+  const formData = new FormData()
+  const ext = audioBlob.type.includes('webm') ? 'webm' : 'ogg'
+  formData.append('file', audioBlob, `recording_${Date.now()}.${ext}`)
+  formData.append('speak_reply', String(speakReply))
+
+  const res = await fetch(`${API_BASE}/voice/chat`, {
+    method: 'POST',
+    headers,
+    body: formData,
+  })
+  if (!res.ok) {
+    const text = await res.text().catch(() => '')
+    throw new Error(`Voz falhou (${res.status}): ${text.slice(0, 120)}`)
+  }
+  const data = await res.json()
+  useStore.getState().pushDataStream('VOICE', 'Loop de voz concluído')
+  return {
+    transcript: data.transcript ?? '',
+    reply: data.reply ?? '',
+    audioWavBase64: data.audio_wav_base64 ?? null,
+  }
+}
+
+/**
+ * The kernel's security posture report (defenses armed + recommendations).
+ * GET /api/v1/security/audit
+ */
+export async function securityAudit(): Promise<any> {
+  const { token } = useStore.getState()
+  const headers: Record<string, string> = {}
+  if (token) headers['Authorization'] = `Bearer ${token}`
+
+  const res = await fetch(`${API_BASE}/security/audit`, { headers })
+  if (!res.ok) throw new Error(`Auditoria falhou: ${res.status}`)
+  return res.json()
+}
+
+/**
+ * The threat audit trail — every tripwire that fired.
+ * GET /api/v1/security/threats
+ */
+export async function securityThreats(): Promise<any[]> {
+  const { token } = useStore.getState()
+  const headers: Record<string, string> = {}
+  if (token) headers['Authorization'] = `Bearer ${token}`
+
+  const res = await fetch(`${API_BASE}/security/threats?limite=30`, { headers })
+  if (!res.ok) throw new Error(`Ameaças falhou: ${res.status}`)
+  return res.json()
+}
+
+/**
+ * Lists the owner's automations (Teia workflows).
+ * GET /api/v1/automations
+ */
+export async function listAutomations(): Promise<any[]> {
+  const { token } = useStore.getState()
+  const headers: Record<string, string> = {}
+  if (token) headers['Authorization'] = `Bearer ${token}`
+
+  const res = await fetch(`${API_BASE}/automations`, { headers })
+  if (!res.ok) throw new Error(`Automações falhou: ${res.status}`)
+  const data = await res.json()
+  return Array.isArray(data) ? data : data.items ?? []
+}
+
+/**
+ * Runs an automation by slug.
+ * POST /api/v1/automations/{slug}/run
+ */
+export async function runAutomation(slug: string): Promise<any> {
+  const { token } = useStore.getState()
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  }
+  if (token) headers['Authorization'] = `Bearer ${token}`
+
+  const res = await fetch(`${API_BASE}/automations/${encodeURIComponent(slug)}/run`, {
+    method: 'POST',
+    headers,
+    body: '{}',
+  })
+  if (!res.ok) {
+    const text = await res.text().catch(() => '')
+    throw new Error(`Execução falhou (${res.status}): ${text.slice(0, 120)}`)
+  }
+  return res.json()
+}
+
+/**
  * Teaches the kernel a new fact.
  */
 export async function teachMemory(content: string): Promise<void> {

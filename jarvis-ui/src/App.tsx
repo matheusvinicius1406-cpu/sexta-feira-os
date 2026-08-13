@@ -9,6 +9,8 @@ const Scene = lazy(() => import('./engine/Scene').then((m) => ({ default: m.Scen
 const HUD = lazy(() => import('./hud/HUD').then((m) => ({ default: m.HUD })))
 const ChatPanel = lazy(() => import('./widgets/ChatPanel').then((m) => ({ default: m.ChatPanel })))
 const MemoryPanel = lazy(() => import('./widgets/MemoryPanel').then((m) => ({ default: m.MemoryPanel })))
+const SecurityPanel = lazy(() => import('./widgets/SecurityPanel').then((m) => ({ default: m.SecurityPanel })))
+const AutomationsPanel = lazy(() => import('./widgets/AutomationsPanel').then((m) => ({ default: m.AutomationsPanel })))
 const MediaControls = lazy(() => import('./widgets/MediaControls').then((m) => ({ default: m.MediaControls })))
 
 // ── Loading Screen ───────────────────────────────────────
@@ -29,6 +31,8 @@ function BottomControls() {
   const buttons = [
     { id: 'chat' as const, label: '💬', title: 'Chat' },
     { id: 'memory' as const, label: '🧠', title: 'Memória' },
+    { id: 'automations' as const, label: '⚙️', title: 'Automações' },
+    { id: 'security' as const, label: '🛡️', title: 'Segurança' },
   ]
 
   return (
@@ -113,6 +117,8 @@ export default function App() {
         {/* Active Panels */}
         <ChatPanel />
         <MemoryPanel />
+        <SecurityPanel />
+        <AutomationsPanel />
 
         {/* Controls */}
         <BottomControls />
