@@ -99,6 +99,25 @@ confirma em linguagem natural.
 5. Persiste os dois turnos; opcionalmente destila um fato para a memória.
 6. Retorna `{reply, conversation_id}`.
 
+## Modelos: um cérebro, um embedder
+
+O kernel roda **um** modelo generativo. Ele conversa, decide usar ferramentas e
+enxerga — `BRAIN_MODEL` precisa reportar `tools` e `vision` em `/api/show`, e o
+boot avisa se não reportar. Ao lado dele vive só o `EMBEDDING_MODEL`, que não é
+um modelo de chat: transformar texto em vetor é outro ofício, e cabe em 274 MB.
+
+Eram dois generativos, e o custo aparecia em dois lugares. O Ollama mantém os
+modelos residentes por `keep_alive` e despeja um para carregar o outro, então em
+12 GB de RAM cada frame de câmera derrubava o modelo de conversa e a mensagem
+seguinte pagava o carregamento a frio. E como só um dos dois tinha ferramentas,
+nenhum turno conseguia ver uma imagem e agir sobre ela: a visão era um serviço
+consultado à parte, cuja resposta voltava como texto.
+
+Com um modelo só, `LocalBrain.chat_with_tools(..., images=[...])` entrega os
+pixels e as ferramentas na mesma chamada. `VisionEngine` continua existindo para
+as perguntas fechadas sobre uma imagem (OCR, descrever cena, ler documento) e,
+por padrão, aponta para o mesmo modelo — ver `settings.vision_model_resolved`.
+
 ## Como ele aprende (fine-tuning)
 
 `export_training_data.py` → `dataset.jsonl` → `finetune_lora.py` (LoRA, offline, GPU) →

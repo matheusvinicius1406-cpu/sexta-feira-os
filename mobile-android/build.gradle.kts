@@ -1,8 +1,8 @@
 plugins {
     id("com.android.application") version "8.1.0" apply false
     id("com.android.library") version "8.1.0" apply false
-    kotlin("android") version "1.9.0" apply false
-    kotlin("jvm") version "1.9.0" apply false
+    kotlin("android") version "1.9.24" apply false
+    kotlin("jvm") version "1.9.24" apply false
 }
 
 tasks.register("clean", Delete::class) {
@@ -17,18 +17,19 @@ extra.apply {
     set("versionCode", 1)
     set("versionName", "0.1.0")
 
-    // Kotlin
-    set("kotlinVersion", "1.9.0")
+    // Kotlin (1.9.24: corrige stubs do kapt que quebravam anotações Java
+    // com argumentos, ex. @SerializedName — ver Models.kt)
+    set("kotlinVersion", "1.9.24")
     set("coroutinesVersion", "1.7.2")
 
     // Android
     set("androidGradlePlugin", "8.1.0")
-    set("androidxCoreVersion", "1.10.1")
+    set("androidxCoreVersion", "1.12.0")
     set("androidxLifecycleVersion", "2.6.1")
     set("androidxActivityVersion", "1.7.2")
     set("composeVersion", "1.5.1")
     set("composeMaterialVersion", "1.1.1")
-    set("composeCompilerExtensionVersion", "1.5.3")
+    set("composeCompilerExtensionVersion", "1.5.14")
 
     // Networking
     set("okHttpVersion", "4.11.0")

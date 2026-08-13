@@ -23,11 +23,35 @@ class ChatRequest(BaseModel):
     message: str = Field(..., min_length=1, max_length=8000)
     conversation_id: str | None = None
     device_id: str | None = None
+    # Base64 (with or without a data: prefix). The brain sees these itself —
+    # there is no separate vision model to hand them to any more.
+    #
+    # Capped at four: each image is prefill the CPU pays before the first token,
+    # and an uncapped list is a way to make your own assistant hang for the rest
+    # of the afternoon with one request.
+    images: list[str] | None = Field(default=None, max_length=4)
 
 
 class ChatResponse(BaseModel):
     reply: str
     conversation_id: str
+
+
+def _seen(body: ChatRequest) -> list[str] | None:
+    """Normalize incoming images to what the model expects, or explain why not.
+
+    Same resize and re-encode as the /vision endpoints, so a photo costs the
+    same whichever door it comes through. A picture that cannot be decoded is a
+    400 here rather than an obscure failure inside Ollama later.
+    """
+    if not body.images:
+        return None
+    from app.brain.vision import prepare_image
+
+    try:
+        return [prepare_image(img) for img in body.images]
+    except ValueError as e:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, f"Imagem inválida: {e}") from e
 
 
 @router.post("", response_model=ChatResponse)
@@ -39,7 +63,8 @@ async def chat(
 ):
     try:
         reply, conv_id = await cognition.respond(
-            db, owner.id, body.message, body.conversation_id, body.device_id
+            db, owner.id, body.message, body.conversation_id, body.device_id,
+            images=_seen(body),
         )
         return ChatResponse(reply=reply, conversation_id=conv_id)
     except BrainUnavailable as e:
@@ -53,10 +78,16 @@ async def chat_stream(
     cognition: Cognition = Depends(get_cognition),
     db: Session = Depends(get_db),
 ):
+    # Decoded BEFORE the stream opens: raising inside the generator would have
+    # already sent 200 and an open event-stream, so the error could only arrive
+    # as a chunk the HUD renders as if the assistant had said it.
+    images = _seen(body)
+
     async def sse():
         try:
             async for event in cognition.respond_stream(
-                db, owner.id, body.message, body.conversation_id, body.device_id
+                db, owner.id, body.message, body.conversation_id, body.device_id,
+                images=images,
             ):
                 yield f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
         except BrainUnavailable as e:

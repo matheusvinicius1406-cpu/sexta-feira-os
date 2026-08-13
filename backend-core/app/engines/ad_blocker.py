@@ -75,7 +75,7 @@ class AdBlockResult:
 class AdBlocker:
     """
     Intelligent ad blocker for audio streams.
-    
+
     - YouTube: Uses SponsorBlock crowdsourced database
     - Internet Radio: Detects ads via ICY metadata
     - General: Keyword and pattern matching
@@ -99,7 +99,7 @@ class AdBlocker:
     ) -> list[SponsorBlockSegment]:
         """
         Fetch SponsorBlock segments for a YouTube video.
-        
+
         Returns segments that should be skipped (sponsor, intro, outro, etc.)
         """
         if video_id in self._sponsorblock_cache:
@@ -108,7 +108,7 @@ class AdBlocker:
         try:
             # Query SponsorBlock API
             categories = ",".join(SPONSORBLOCK_CATEGORIES)
-            url = f"https://sponsor.ajay.app/api/skipSegments"
+            url = "https://sponsor.ajay.app/api/skipSegments"
             response = await self._client.get(
                 url,
                 params={"videoID": video_id, "categories": f'["{categories}"]'},
@@ -127,7 +127,7 @@ class AdBlocker:
                             uuid=item.get("UUID", ""),
                             description=item.get("description", ""),
                         ))
-                
+
                 # Sort by start time
                 segments.sort(key=lambda s: s.start)
                 self._sponsorblock_cache[video_id] = segments
@@ -136,7 +136,7 @@ class AdBlocker:
                     oldest_keys = list(self._sponsorblock_cache.keys())[:self._cache_max_size // 2]
                     for k in oldest_keys:
                         del self._sponsorblock_cache[k]
-                
+
                 if segments:
                     total = sum(s.end - s.start for s in segments)
                     logger.info(
@@ -156,7 +156,7 @@ class AdBlocker:
         """Check a YouTube video for sponsor segments."""
         segments = await self.get_sponsorblock_segments(video_id)
         total_skip = sum(s.end - s.start for s in segments)
-        
+
         return AdBlockResult(
             has_ads=len(segments) > 0,
             segments_to_skip=segments,
@@ -169,7 +169,7 @@ class AdBlocker:
     def check_radio_metadata(self, metadata: str) -> AdBlockResult:
         """
         Check ICY metadata for ad indicators.
-        
+
         Internet radio stations often embed song/program info in ICY metadata.
         Ad breaks are sometimes indicated by empty or ad-like metadata.
         """
@@ -205,7 +205,7 @@ class AdBlocker:
     ) -> tuple[bool, float]:
         """
         Check if current playback time is inside a sponsor segment.
-        
+
         Returns:
             (should_skip, skip_to_time)
         """

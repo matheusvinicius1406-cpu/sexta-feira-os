@@ -183,6 +183,10 @@ fun MemoryGraphScreen(
             return
         }
 
+        // Cores capturadas fora do DrawScope — MaterialTheme não pode ser lido dentro do onDraw.
+        val primaryEdgeColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
+        val normalEdgeColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.15f)
+
         // ── Graph Canvas ─────────────────────────────────
         Box(modifier = Modifier.weight(1f)) {
             Canvas(
@@ -214,7 +218,7 @@ fun MemoryGraphScreen(
                     offsetX + cx * (1 - scale),
                     offsetY + cy * (1 - scale),
                 )
-                drawContext.transform.scale(scale, scale, cx, cy)
+                drawContext.transform.scale(scale, scale, androidx.compose.ui.geometry.Offset(cx, cy))
 
                 val selectedId = uiState.selectedNodeId
 
@@ -226,9 +230,9 @@ fun MemoryGraphScreen(
                         val isConnectedToSelected = selectedId != null &&
                             (edge.source == selectedId || edge.target == selectedId)
                         val color = if (isConnectedToSelected)
-                            MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
+                            primaryEdgeColor
                         else
-                            MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.15f)
+                            normalEdgeColor
 
                         drawLine(
                             color = color,

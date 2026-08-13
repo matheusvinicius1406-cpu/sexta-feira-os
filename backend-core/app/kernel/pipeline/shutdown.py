@@ -48,6 +48,21 @@ class StopSchedulerStep(ShutdownStep):
                 await kernel._scheduler_task
 
 
+class StopVoiceWarmupStep(ShutdownStep):
+    name = "stop_voice_warmup"
+    async def execute(self, kernel: Kernel) -> None:
+        """Cancel the speech-model preload if the kernel dies before it finishes.
+
+        Left running, it keeps a thread loading a couple of hundred megabytes
+        into a process on its way out, and shutdown hangs waiting on it.
+        """
+        task = getattr(kernel, "_voice_warm_task", None)
+        if task:
+            task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await task
+
+
 class StopObsidianStep(ShutdownStep):
     name = "stop_obsidian"
     async def execute(self, kernel: Kernel) -> None:
@@ -92,6 +107,7 @@ class ShutdownPipeline:
 
     DEFAULT_STEPS: list[type[ShutdownStep]] = [
         StopSchedulerStep,
+        StopVoiceWarmupStep,
         StopObsidianStep,
         SaveStateStep,
         StopAutomationsStep,

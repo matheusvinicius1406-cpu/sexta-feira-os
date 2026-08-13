@@ -19,6 +19,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import okhttp3.MediaType
+import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody
@@ -247,10 +248,12 @@ class ChatViewModel @Inject constructor(
                     cont.resume(resp) {}
                 }
                 override fun onFailure(call: okhttp3.Call, e: java.io.IOException) {
-                    cont.resumeWithException(e)
+                    // resumeWithException é API oculta no coroutines 1.7.2; o caminho
+                    // público é Continuation.resumeWith(Result.failure(e)).
+                    cont.resumeWith(Result.failure(e))
                 }
             })
-            cont.invokeOnCancellation { request.newCall(request).cancel() }
+            cont.invokeOnCancellation { okHttpClient.newCall(request).cancel() }
         }
 
         if (!response.isSuccessful) return false
@@ -358,6 +361,6 @@ class ChatViewModel @Inject constructor(
     }
 
     companion object {
-        private val JSON_MEDIA_TYPE = MediaType.parse("application/json")!!
+        private val JSON_MEDIA_TYPE = "application/json".toMediaType()
     }
 }

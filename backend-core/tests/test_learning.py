@@ -116,7 +116,7 @@ def test_record_rejects_empty_context():
 # ---------- API ----------
 
 def test_learning_requires_auth(client):
-    assert client.get("/api/v1/learning").status_code == 403
+    assert client.get("/api/v1/learning").status_code == 401
 
 
 def test_learning_api_roundtrip(client, owner_headers):

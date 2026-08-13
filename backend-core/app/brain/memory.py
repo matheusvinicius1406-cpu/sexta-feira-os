@@ -297,16 +297,24 @@ class PersistentMemory:
                 MemoryLink.owner_id == owner_id,
                 or_(MemoryLink.source_id.in_(frontier), MemoryLink.target_id.in_(frontier)),
             ).all()
-            next_frontier: list[str] = []
+            # Newly-discovered ids for this hop, scored first so the fetch
+            # below can be ONE batched query instead of one round-trip per
+            # node. On a loaded machine a hop that touches a few dozen nodes
+            # used to cost a few dozen separate SELECTs on the request's
+            # critical path — every one of them serialized, before the LLM
+            # call even started.
+            new_scores: dict[str, float] = {}
             for e in edges:
                 for near_id, far_id in ((e.source_id, e.target_id), (e.target_id, e.source_id)):
-                    if near_id in scores and far_id not in scores:
-                        m = db.query(Memory).filter(Memory.id == far_id).first()
-                        if not m:
-                            continue
-                        nodes[far_id] = m
-                        scores[far_id] = scores[near_id] * decay * (e.weight or 1.0)
-                        next_frontier.append(far_id)
+                    if near_id in scores and far_id not in scores and far_id not in new_scores:
+                        new_scores[far_id] = scores[near_id] * decay * (e.weight or 1.0)
+            next_frontier: list[str] = []
+            if new_scores:
+                fetched = db.query(Memory).filter(Memory.id.in_(new_scores.keys())).all()
+                for m in fetched:
+                    nodes[m.id] = m
+                    scores[m.id] = new_scores[m.id]
+                    next_frontier.append(m.id)
             frontier = next_frontier
 
         ranked = sorted(nodes.values(), key=lambda m: scores.get(m.id, 0.0), reverse=True)

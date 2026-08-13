@@ -175,7 +175,7 @@ def test_delegate_unknown_director_lists_cabinet():
 # ---------- API ----------
 
 def test_directors_require_auth(client):
-    assert client.get("/api/v1/directors").status_code == 403
+    assert client.get("/api/v1/directors").status_code == 401
 
 
 def test_directors_api_cabinet_teach_and_memory(client, owner_headers):
@@ -199,6 +199,20 @@ def test_directors_api_cabinet_teach_and_memory(client, owner_headers):
 
 
 def test_delegate_degrades_gracefully_without_brain(client, owner_headers):
-    r = client.post("/api/v1/directors/engenharia/delegate",
-                    json={"task": "qualquer coisa"}, headers=owner_headers)
+    """Delegating to a REAL director with the brain down must give a clean 503.
+
+    The director has to exist first. Without it, `delegate` answers "esse diretor
+    não existe" with a 200 and never reaches the brain at all — so the test would
+    pass or fail for reasons that have nothing to do with degradation.
+    """
+    from tests.conftest import brain_offline
+
+    client.post("/api/v1/directors", headers=owner_headers, json={
+        "name": "engenharia", "title": "Diretor de Engenharia",
+        "domain": "arquitetura e código",
+    })
+
+    with brain_offline():                                # forced, not assumed
+        r = client.post("/api/v1/directors/engenharia/delegate",
+                        json={"task": "qualquer coisa"}, headers=owner_headers)
     assert r.status_code == 503                          # brain offline -> clean 503

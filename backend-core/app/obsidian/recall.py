@@ -122,24 +122,34 @@ def format_vault_context(notes: list[dict], max_chars: int = 4000) -> str:
     lines.append("### Notas recentes do seu vault Obsidian")
 
     remaining = max_chars
+    included = 0
     for note in notes:
         title = note["title"]
         tags_str = f" [{', '.join(note['tags'])}]" if note.get("tags") else ""
+        header = f'\n📄 **{title}**{tags_str}\n'
 
-        # Content preview — truncate if too long
+        content_budget = remaining - len(header)
+        if content_budget <= 0:
+            break  # not even the header fits — stop instead of emitting a bare title
+
+        # A "fair share" ceiling too, so one huge note can't eat the whole
+        # budget and starve every note after it — but never more than what
+        # is actually left (content_budget). Capping at content_budget is
+        # the fix: the ceiling alone used to be able to EXCEED `remaining`,
+        # sizing content to fit a floor that didn't exist, and the resulting
+        # over-budget note_text then got silently dropped by a separate
+        # "too big, skip" check below instead of truncated to fit.
+        max_note_chars = min(content_budget, max(200, remaining // max(1, len(notes))))
         content = note["content"]
-        max_note_chars = max(200, remaining // max(1, len(notes)))
         if len(content) > max_note_chars:
             content = content[:max_note_chars] + "..."
 
-        note_text = f'\n📄 **{title}**{tags_str}\n{content}'
-        if len(note_text) > remaining:
-            break
-
+        note_text = header + content
         lines.append(note_text)
         remaining -= len(note_text)
+        included += 1
 
-    if remaining < max_chars * 0.3:
+    if included < len(notes):
         lines.append("\n*(notas truncadas por espaço no contexto)*")
 
     return "\n".join(lines)

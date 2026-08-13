@@ -7,6 +7,7 @@ import com.sextafeira.os.data.api.SextaFeiraApi
 import com.sextafeira.os.data.api.VoiceChatResponse
 import com.sextafeira.os.data.api.VoiceStatusResponse
 import okhttp3.MediaType
+import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.MultipartBody
 import okhttp3.RequestBody
 import retrofit2.http.Body
@@ -72,7 +73,7 @@ class VoiceManager(
             val tempFile = File(context.cacheDir, "upload_${System.nanoTime()}.aac")
             tempFile.writeBytes(audioBytes)
 
-            val requestBody = RequestBody.create(MediaType.parse("audio/aac"), tempFile)
+            val requestBody = RequestBody.create("audio/aac".toMediaType(), tempFile)
             val part = MultipartBody.Part.createFormData("file", tempFile.name, requestBody)
 
             val response = api.transcribeAudio(part)
@@ -120,9 +121,9 @@ class VoiceManager(
             val tempFile = File(context.cacheDir, "vchat_${System.nanoTime()}.aac")
             tempFile.writeBytes(audioBytes)
 
-            val requestBody = RequestBody.create(MediaType.parse("audio/aac"), tempFile)
+            val requestBody = RequestBody.create("audio/aac".toMediaType(), tempFile)
             val part = MultipartBody.Part.createFormData("file", tempFile.name, requestBody)
-            val speakBody = RequestBody.create(MediaType.parse("text/plain"), speakReply.toString())
+            val speakBody = RequestBody.create("text/plain".toMediaType(), speakReply.toString())
 
             val response = api.voiceChat(part, speakBody)
             tempFile.delete()

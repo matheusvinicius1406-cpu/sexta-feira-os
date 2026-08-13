@@ -7,7 +7,7 @@ requires-python = ">=3.11"
 [tool.ruff]
 line-length = 100
 target-version = "py311"
-extend-exclude = [".venv", "data", "alembic/versions"]
+extend-exclude = [".venv", "data", "alembic/versions", "*_pb2.py", "*_pb2_grpc.py"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP", "W"]
@@ -21,6 +21,18 @@ ignore = [
 "app/main.py" = ["E402"]  # dotenv must load before settings-dependent imports
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+# app/obsidian/{importer,exporter,watcher,recall}.py each keep a `# ── Tests
+# ── ` section of plain test_* functions inline instead of a tests/test_*.py
+# file (their own convention, predating this one). testpaths=["tests"] alone
+# silently never collected them — pytest's default python_files pattern
+# (test_*.py / *_test.py) doesn't match "importer.py" either, so BOTH need
+# widening, narrowly, to just these four files rather than all of app/.
+# `python -m pytest app/obsidian/importer.py -v` (an explicit path bypasses
+# discovery filtering) is what surfaced this: 2 of the ~40 inline tests were
+# failing — real, undiscovered bugs in frontmatter tag parsing and the
+# template-folder skip — hidden behind a suite that looked green because
+# these never actually ran.
+testpaths = ["tests", "app/obsidian"]
+python_files = ["test_*.py", "importer.py", "exporter.py", "watcher.py", "recall.py"]
 addopts = "-q"
 filterwarnings = ["ignore::DeprecationWarning"]

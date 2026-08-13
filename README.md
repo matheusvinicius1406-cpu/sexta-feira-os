@@ -40,13 +40,28 @@ sai deste host — não há OpenAI, Claude, Gemini nem qualquer LLM externo.**
 O único backend de inferência é o **Ollama local**. Se um dia você treinar o seu
 próprio modelo, basta apontar `BRAIN_MODEL` para ele — nada mais muda.
 
+### Um cérebro só
+
+O kernel roda **um** modelo generativo, que conversa, usa ferramentas e enxerga.
+Eram dois — um que raciocinava e era cego, outro que via e não tinha `tools`, e
+por isso recusava toda chamada de ferramenta. Dois modelos numa máquina de 12 GB
+se expulsam da RAM: uma foto da câmera derrubava o modelo de conversa, e a
+mensagem seguinte pagava o carregamento do disco. Pior, nenhum turno conseguia
+olhar uma imagem *e* agir sobre o que viu — eram modelos diferentes, e só um
+tinha mãos.
+
+Quem você puser em `BRAIN_MODEL` precisa ter **`tools` e `vision`**. O kernel
+confere no boot (via `/api/show`) e avisa se faltar. `VISION_MODEL` vazio quer
+dizer "o próprio cérebro enxerga"; preencha só para mandar imagens a outro
+modelo, ciente de que volta a haver dois residentes.
+
 ## Início rápido
 
 ```bash
 # 1. Ollama (o cérebro local) — instala e roda 100% na sua máquina
 curl -fsSL https://ollama.com/install.sh | sh
-ollama pull llava:7b
-ollama pull nomic-embed-text
+ollama pull qwen3-vl:2b        # conversa + ferramentas + visão (1.9 GB)
+ollama pull nomic-embed-text   # embeddings da memória (274 MB)
 
 # 2. Kernel
 cp .env.template .env          # edite OWNER_EMAIL / OWNER_PASSWORD / DEVICE_PAIRING_CODE
@@ -93,6 +108,11 @@ Ou use `scripts/setup.sh` para fazer tudo isso de uma vez.
 | `POST` | `/api/v1/schedule` | agenda um lembrete ou ação futura |
 | `GET`/`DELETE` | `/api/v1/schedule[/{id}]` | lista / cancela agendamentos |
 | `POST`/`GET` | `/api/v1/connectors` | cadastra / lista **capacidades de API** (o cérebro executa qualquer coisa) |
+| `GET` | `/api/v1/agent/pulse` | status do **agente próprio** (último ciclo, propostas pendentes) |
+| `POST` | `/api/v1/agent/pulse/run` | faz o agente **pensar agora** (ciclo sob demanda) |
+| `GET` | `/api/v1/agent/proposals` | o que o agente quer fazer — **aguardando seu OK** |
+| `POST` | `/api/v1/agent/proposals/{id}/approve` | você aprova → o agente executa |
+| `POST` | `/api/v1/agent/proposals/{id}/reject` | você recusa |
 | `POST` | `/api/v1/connectors/{name}/call` | executa uma capacidade |
 | `POST`/`GET` | `/api/v1/connectors/secrets` | guarda chaves de API **criptografadas** (só nomes são lidos) |
 
@@ -131,6 +151,17 @@ Guia completo (expressões, nós, cercas de segurança): `docs/jarvis/architectu
 > Privacidade: o motor é local. Uma automação que fala com um serviço externo (enviar
 > e-mail, etc.) o faz por sua escolha naquele fluxo — não é vazamento do cérebro. Os nós
 > de IA usam **só** o Ollama desta máquina.
+
+### Agente próprio (Pulse Cognitivo)
+
+O kernel não é só um chat: é um **agente**. A cada 10 min (configurável) ele acorda,
+olha o estado — mundo, objetivos, aprendizados — e julga se há algo útil a fazer
+agora. **Ações de leitura/reversíveis ele executa sozinho** (recuperar, resumir,
+briefing, decidir o próximo foco). **Ações que mudam o mundo viram propostas** que
+você aprova ou recusa pela API (ou pelo HUD): nada irreversível acontece sem o seu
+OK — é o modo "age com confirmação". Cada ciclo é auditável (evento `pulse.ciclo`)
+e vai para o diário do kernel. Desligue com `AGENT_PULSE_ENABLED=false` e o kernel
+volta a ser puramente reativo.
 
 ## Ensinar o Sexta-Feira (fine-tuning)
 

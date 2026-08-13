@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import sys
 import time
 from dataclasses import dataclass, field
 from typing import Any
@@ -35,7 +36,7 @@ class KernelConfiguration:
     obsidian_vault: str | None
 
     @classmethod
-    def from_settings(cls) -> "KernelConfiguration":
+    def from_settings(cls) -> KernelConfiguration:
         return cls(
             environment=settings.environment,
             log_level=settings.log_level,
@@ -143,7 +144,9 @@ class KernelHealth(IEngine):
             except Exception:
                 results[name] = False
         overall = "ok" if all(results.values()) else "degraded" if any(results.values()) else "unhealthy"
-        import os, psutil  # noqa: lazy import
+        import os
+
+        import psutil  # lazy: only paid for when health is actually checked
         proc = psutil.Process(os.getpid())
         return HealthReport(
             status=overall,

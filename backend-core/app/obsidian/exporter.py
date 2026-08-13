@@ -26,14 +26,13 @@ from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from app.models.models import Memory, MemoryLink
+from app.obsidian import BRAIN_FOLDER
 
 logger = logging.getLogger("sexta-feira.obsidian")
 
 # ── Module-level constants ───────────────────────────────────────────
 
-# Subfolder for brain-created memories (not from vault)
-_BRAIN_FOLDER = "__sexta__"
-# Subfolder within __sexta__ for auto-learned facts
+# Subfolder within BRAIN_FOLDER for auto-learned facts
 _AUTO_FOLDER = "auto-learned"
 
 # ── Helpers ──────────────────────────────────────────────────────────
@@ -262,7 +261,7 @@ class ObsidianExporter:
         # Fallback: use title as filename in __sexta__ subfolder
         title = mem.title or mem.content[:60]
         filename = _slugify(title) + ".md"
-        return vault / _BRAIN_FOLDER / filename
+        return vault / BRAIN_FOLDER / filename
 
     @staticmethod
     def _get_wikilinks_for_node(
@@ -319,7 +318,7 @@ def export_auto_learned_fact(
 
     # Build the file path
     filename = _slugify(title) + ".md"
-    filepath = vault / _BRAIN_FOLDER / _AUTO_FOLDER / filename
+    filepath = vault / BRAIN_FOLDER / _AUTO_FOLDER / filename
 
     # Build frontmatter
     now = datetime.now(UTC)

@@ -19,7 +19,7 @@ from app.world.service import WorldModel
 # ---------- API: publish / audit trail / world projection ----------
 
 def test_events_require_auth(client):
-    assert client.get("/api/v1/events").status_code == 403
+    assert client.get("/api/v1/events").status_code == 401
 
 
 def test_publish_persists_and_orders(client, owner_headers):

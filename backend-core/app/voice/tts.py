@@ -58,11 +58,24 @@ class PiperSynthesizer(Synthesizer):
         return self._voice
 
     def _speak_sync(self, text: str) -> bytes:
+        """Render `text` to a complete WAV in memory.
+
+        `synthesize_wav` is the method that writes into a wave file. Piper's
+        `synthesize` changed meaning in 1.3: it now takes a SynthesisConfig as
+        its second argument and RETURNS an iterator of audio chunks. Calling the
+        old `synthesize(text, wav)` against a modern piper therefore passes the
+        wave file where a config belongs and never consumes the iterator, so
+        nothing is ever written — the failure surfaces far away as
+        `wave.Error: # channels not specified`, with no mention of piper.
+        """
         voice = self._ensure_voice()
         buf = io.BytesIO()
         with wave.open(buf, "wb") as wav:
-            voice.synthesize(text, wav)
-        return buf.getvalue()
+            voice.synthesize_wav(text, wav)
+        audio = buf.getvalue()
+        if not audio.startswith(b"RIFF"):
+            raise VoiceUnavailable("Piper devolveu áudio sem cabeçalho WAV.")
+        return audio
 
     async def speak(self, text: str) -> bytes:
         return await asyncio.to_thread(self._speak_sync, text)

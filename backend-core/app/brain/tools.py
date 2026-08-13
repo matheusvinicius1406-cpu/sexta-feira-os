@@ -103,7 +103,7 @@ class ToolKit:
                 "type": "function",
                 "function": {
                     "name": "remember",
-                    "description": "Guarda um fato duradouro sobre o dono na memória de longo prazo.",
+                    "description": "Guarda um fato duradouro sobre o dono.",
                     "parameters": {
                         "type": "object",
                         "properties": {
@@ -132,9 +132,8 @@ class ToolKit:
                 "function": {
                     "name": "run_automation",
                     "description": (
-                        "Executa uma automação da Teia pelo nome (slug) para AGIR no mundo: "
-                        "briefing, backup, avisos, captura, etc. Use 'list_automations' antes "
-                        "se não souber o nome exato." + automations_hint
+                        "Executa uma automação pelo nome (slug) para agir no mundo. Use "
+                        "'list_automations' se não souber o nome." + automations_hint
                     ),
                     "parameters": {
                         "type": "object",
@@ -150,9 +149,7 @@ class ToolKit:
                 "type": "function",
                 "function": {
                     "name": "list_automations",
-                    "description": (
-                        "Lista as automações do dono, com o que cada uma faz e se está ativa."
-                    ),
+                    "description": "Lista as automações do dono e se estão ativas.",
                     "parameters": {
                         "type": "object",
                         "properties": {
@@ -165,10 +162,7 @@ class ToolKit:
                 "type": "function",
                 "function": {
                     "name": "automation_history",
-                    "description": (
-                        "Mostra como foram as últimas execuções de uma automação "
-                        "(status, duração, erro). Use para responder 'o backup rodou?'."
-                    ),
+                    "description": "Mostra as últimas execuções de uma automação (status, duração, erro).",
                     "parameters": {
                         "type": "object",
                         "properties": {
@@ -182,10 +176,8 @@ class ToolKit:
                 "function": {
                     "name": "device_action",
                     "description": (
-                        "Manda um dispositivo do dono EXECUTAR uma ação nativa. Use para "
-                        "'abrir app', 'ligar', 'navegar', etc. O 'device' é o corpo alvo "
-                        "('celular', 'computador', 'carro') e 'action'/'params' descrevem o que fazer. "
-                        "Ex.: action='open_app', params={'app':'whatsapp'}."
+                        "Manda um dispositivo (celular, computador, carro) executar uma ação "
+                        "nativa: abrir app, ligar, navegar."
                     ),
                     "parameters": {
                         "type": "object",
@@ -203,8 +195,8 @@ class ToolKit:
                 "function": {
                     "name": "schedule_reminder",
                     "description": (
-                        "Agenda um lembrete para o futuro ('me lembra disso amanhã / daqui a 2 meses'). "
-                        "Informe o tempo por 'in_minutes'/'in_hours'/'in_days' OU 'at' (ISO 8601)."
+                        "Agenda um lembrete futuro. Informe o tempo por in_minutes/in_hours/"
+                        "in_days ou 'at' (ISO 8601)."
                     ),
                     "parameters": {
                         "type": "object",
@@ -223,10 +215,7 @@ class ToolKit:
                 "type": "function",
                 "function": {
                     "name": "schedule_action",
-                    "description": (
-                        "Agenda uma AÇÃO em um dispositivo para um horário futuro "
-                        "(ex.: navegar para a faculdade às 8h). Tempo como no schedule_reminder."
-                    ),
+                    "description": "Agenda uma ação num dispositivo para um horário futuro. Tempo como em schedule_reminder.",
                     "parameters": {
                         "type": "object",
                         "properties": {
@@ -246,11 +235,7 @@ class ToolKit:
                 "type": "function",
                 "function": {
                     "name": "list_capabilities",
-                    "description": (
-                        "Lista as capacidades de API disponíveis (buscáveis) que você pode "
-                        "chamar para consultar/agir no mundo. Use ANTES de call_api para "
-                        "descobrir o nome e os parâmetros certos."
-                    ),
+                    "description": "Lista as capacidades de API disponíveis. Use antes de call_api para descobrir nome e parâmetros.",
                     "parameters": {
                         "type": "object",
                         "properties": {"query": {"type": "string", "description": "filtro opcional"}},
@@ -261,10 +246,7 @@ class ToolKit:
                 "type": "function",
                 "function": {
                     "name": "call_api",
-                    "description": (
-                        "Executa uma capacidade de API definida pelo dono, pelo nome "
-                        "(descubra com list_capabilities). Passe 'params' conforme o schema dela."
-                    ),
+                    "description": "Executa uma capacidade de API pelo nome (descubra com list_capabilities).",
                     "parameters": {
                         "type": "object",
                         "properties": {
@@ -279,10 +261,7 @@ class ToolKit:
                 "type": "function",
                 "function": {
                     "name": "create_goal",
-                    "description": (
-                        "Cria um OBJETIVO no motor de planejamento (o sistema trabalha por "
-                        "objetivos). Use para metas do dono. 'priority' maior = mais importante."
-                    ),
+                    "description": "Cria um objetivo de planejamento. 'priority' maior = mais importante.",
                     "parameters": {
                         "type": "object",
                         "properties": {
@@ -298,10 +277,7 @@ class ToolKit:
                 "type": "function",
                 "function": {
                     "name": "decompose_goal",
-                    "description": (
-                        "Divide um objetivo grande em subtarefas (sub-objetivos filhos). "
-                        "Passe 'goal_id' e a lista 'subtasks'. O progresso do pai é a média dos filhos."
-                    ),
+                    "description": "Divide um objetivo em subtarefas. O progresso do pai é a média dos filhos.",
                     "parameters": {
                         "type": "object",
                         "properties": {
@@ -329,10 +305,7 @@ class ToolKit:
                 "type": "function",
                 "function": {
                     "name": "sprint_board",
-                    "description": (
-                        "Mostra o quadro (board) dos objetivos por coluna: backlog, fazendo, "
-                        "bloqueado e concluído — a visão de sprint. Sem argumentos."
-                    ),
+                    "description": "Mostra os objetivos em colunas: backlog, fazendo, bloqueado, concluído.",
                     "parameters": {"type": "object", "properties": {}},
                 },
             },
@@ -340,10 +313,7 @@ class ToolKit:
                 "type": "function",
                 "function": {
                     "name": "complete_goal",
-                    "description": (
-                        "Marca um objetivo como concluído (progresso 100%). Desbloqueia objetivos "
-                        "que dependiam dele. Passe 'goal_id'."
-                    ),
+                    "description": "Marca um objetivo como concluído. Desbloqueia objetivos que dependiam dele.",
                     "parameters": {
                         "type": "object",
                         "properties": {"goal_id": {"type": "string"}},
@@ -355,11 +325,7 @@ class ToolKit:
                 "type": "function",
                 "function": {
                     "name": "daily_briefing",
-                    "description": (
-                        "Gera um briefing agora: resume o estado atual, os objetivos, o foco "
-                        "sugerido, eventos recentes e aprendizados — o 'reporte' do segundo "
-                        "cérebro. Sem argumentos."
-                    ),
+                    "description": "Gera um briefing: estado atual, objetivos, foco sugerido, eventos recentes.",
                     "parameters": {"type": "object", "properties": {}},
                 },
             },
@@ -368,9 +334,8 @@ class ToolKit:
                 "function": {
                     "name": "record_learning",
                     "description": (
-                        "Registra um aprendizado depois de uma ação/resultado (ciclo de "
-                        "aprendizado contínuo). 'quality' de 0.0 (ruim) a 1.0 (ótimo); 'lesson' "
-                        "é a lição durável (vai para a memória); 'tag' agrupa o tema."
+                        "Registra um aprendizado após uma ação. 'quality' 0.0-1.0; 'lesson' vai "
+                        "para a memória; 'tag' agrupa o tema."
                     ),
                     "parameters": {
                         "type": "object",
@@ -400,11 +365,7 @@ class ToolKit:
                 "type": "function",
                 "function": {
                     "name": "decide_next",
-                    "description": (
-                        "Pergunta ao motor de decisão QUAL objetivo focar agora. Ele pondera "
-                        "prioridade, prazo e andamento (e adapta à energia inferida do dono), "
-                        "escolhe de forma determinística e explica o porquê. Sem argumentos."
-                    ),
+                    "description": "Decide qual objetivo focar agora, ponderando prioridade, prazo e andamento.",
                     "parameters": {"type": "object", "properties": {}},
                 },
             },
@@ -413,10 +374,8 @@ class ToolKit:
                 "function": {
                     "name": "remember_context",
                     "description": (
-                        "Atualiza o estado do AGORA (World Model): um fato do presente por "
-                        "chave (ex.: key='foco_atual', value='estudando cálculo'). Use para "
-                        "localização, foco, trabalho ativo, objetivos correntes. Marque "
-                        "is_inference=true quando for inferência (humor/energia)."
+                        "Atualiza um fato do presente por chave (localização, foco, trabalho "
+                        "ativo). Marque is_inference=true se for inferido, não observado."
                     ),
                     "parameters": {
                         "type": "object",
@@ -438,10 +397,8 @@ class ToolKit:
                 "function": {
                     "name": "remember_about_me",
                     "description": (
-                        "Atualiza o modelo do DONO ao longo do tempo (User Model): um traço "
-                        "durável por chave (ex.: key='estilo_programacao', value='prefere "
-                        "Python, tipado'). Use para objetivos, hábitos, preferências, estilo, "
-                        "projetos. Diferente de 'remember', que guarda um fato solto."
+                        "Atualiza um traço durável do dono por chave (hábitos, preferências, "
+                        "estilo, projetos). Diferente de 'remember', que guarda um fato solto."
                     ),
                     "parameters": {
                         "type": "object",
@@ -462,9 +419,8 @@ class ToolKit:
                 "function": {
                     "name": "delegate",
                     "description": (
-                        "Delega uma sub-tarefa focada a um sub-agente especialista (que roda "
-                        "localmente e devolve um resultado). Use para pesquisa/planejamento "
-                        "que valha isolar. Ex.: role='pesquisador', task='resuma X da memória'."
+                        "Delega uma sub-tarefa a um sub-agente especialista local. Use para "
+                        "pesquisa/planejamento que valha isolar."
                     ),
                     "parameters": {
                         "type": "object",
@@ -481,10 +437,9 @@ class ToolKit:
                 "function": {
                     "name": "consult_director",
                     "description": (
-                        "Delega uma tarefa a um DIRETOR permanente — especialista que acumula "
-                        "expertise entre conversas (engenharia, pesquisa, seguranca, memoria, "
-                        "automacao, aprendizagem, dispositivos). Prefira ao 'delegate' quando "
-                        "o domínio casa com um diretor."
+                        "Delega a um diretor permanente (engenharia, pesquisa, segurança, "
+                        "memória, automação, aprendizagem, dispositivos). Prefira a 'delegate' "
+                        "quando o domínio casar."
                     ),
                     "parameters": {
                         "type": "object",
@@ -501,9 +456,8 @@ class ToolKit:
                 "function": {
                     "name": "analyze_image",
                     "description": (
-                        "Analisa uma imagem usando o modelo de visão local (llava). "
-                        "Descreve o que vê, lê texto (OCR), identifica objetos. "
-                        "Útil para: câmera, fotos, screenshots, documentos."
+                        "Analisa uma imagem: descreve, lê texto (OCR), identifica objetos. "
+                        "Câmera, fotos, screenshots, documentos."
                     ),
                     "parameters": {
                         "type": "object",
@@ -519,10 +473,7 @@ class ToolKit:
                 "type": "function",
                 "function": {
                     "name": "web_search",
-                    "description": (
-                        "Busca informações na internet via DuckDuckGo. "
-                        "Use para: notícias, previsão do tempo, cotações, dúvidas, pesquisas."
-                    ),
+                    "description": "Busca na internet via DuckDuckGo: notícias, tempo, cotações, dúvidas.",
                     "parameters": {
                         "type": "object",
                         "properties": {
@@ -537,10 +488,7 @@ class ToolKit:
                 "type": "function",
                 "function": {
                     "name": "fetch_page",
-                    "description": (
-                        "Baixa e extrai o conteúdo de uma página web. "
-                        "Use quando precisar do conteúdo completo de um link."
-                    ),
+                    "description": "Baixa e extrai o conteúdo de uma página web.",
                     "parameters": {
                         "type": "object",
                         "properties": {
@@ -554,11 +502,7 @@ class ToolKit:
                 "type": "function",
                 "function": {
                     "name": "play_music",
-                    "description": (
-                        "Toca música ou rádio. Busca no YouTube ou em estações de rádio. "
-                        "Filtro de anúncios automático. Ex.: 'toque jazz', 'rádio sertanejo', "
-                        "'toca Bohemian Rhapsody'."
-                    ),
+                    "description": "Toca música ou rádio (YouTube ou estações). Filtro de anúncios automático.",
                     "parameters": {
                         "type": "object",
                         "properties": {
@@ -792,7 +736,11 @@ class ToolKit:
                 return f"Diretor ({args.get('director', '?')}): {result[:1500]}"
             if name == "analyze_image":
                 if not self.vision:
-                    return "Visão indisponível (modelo llava não instalado). Rode: ollama pull llava:7b"
+                    from app.core.config import settings
+                    return (
+                        f"Visão indisponível. Rode: ollama pull "
+                        f"{settings.vision_model_resolved}"
+                    )
                 result = await self.vision.analyze_image(
                     args.get("image_base64", ""),
                     args.get("prompt", "Descreva esta imagem.")

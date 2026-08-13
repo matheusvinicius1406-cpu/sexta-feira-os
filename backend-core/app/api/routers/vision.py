@@ -10,20 +10,15 @@ Vision — Jarvis enxerga, lê e analisa o mundo.
 """
 from __future__ import annotations
 
-import base64
-import io
 import logging
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from pydantic import BaseModel, Field
-from sqlalchemy.orm import Session
 
 from app.auth.jwt import get_current_owner
 from app.brain.attachments import AttachmentAnalyzer
 from app.brain.vision import VisionEngine, VisionUnavailable
 from app.brain.web_search import WebSearch
-from app.core.config import settings
-from app.db.database import get_db
 from app.models.models import Owner
 
 logger = logging.getLogger("sexta-feira.vision.router")
@@ -123,7 +118,7 @@ async def analyze_camera_frame(
 ):
     """
     Analyze a live camera frame.
-    
+
     Used by the Android app / web client to send periodic snapshots
     for environment awareness. Jarvis describes what it sees.
     """
@@ -148,14 +143,18 @@ async def analyze_attachment(
 ):
     """
     Analyze any file attachment (PDF, image, text document).
-    
+
     Jarvis will:
     - For images: describe and extract text (OCR)
     - For PDFs: render each page and analyze
     - For text: read, summarize, and extract insights
     """
+    from app.core.di import get_kernel
+
     vision = get_vision()
-    analyzer = AttachmentAnalyzer(vision)
+    # The kernel's brain, not a new one: text attachments are read as text, and
+    # reusing the live client keeps one connection pool and one warm model.
+    analyzer = AttachmentAnalyzer(vision, brain=get_kernel().brain)
 
     file_data = await file.read()
 

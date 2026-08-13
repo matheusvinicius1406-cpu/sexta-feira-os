@@ -14,6 +14,8 @@ They exercise the full pipeline:
 Shared env + `client`/`owner_headers` fixtures live in conftest.py.
 """
 import asyncio
+import os
+import time
 from pathlib import Path
 
 import pytest
@@ -139,7 +141,7 @@ def test_import_reimport_is_idempotent(client, owner_headers, vault):
 def test_import_requires_auth(client):
     """Import endpoint should reject unauthenticated requests."""
     r = client.post("/api/v1/obsidian/import", json={"vault_path": "/tmp/foo"})
-    assert r.status_code == 403
+    assert r.status_code == 401
 
 
 def test_import_rejects_invalid_path(client, owner_headers):
@@ -218,7 +220,7 @@ def test_export_requires_auth(client):
         "/api/v1/obsidian/export",
         json={"vault_path": "/tmp/foo", "include_all": True},
     )
-    assert r.status_code == 403
+    assert r.status_code == 401
 
 
 def test_export_roundtrip_preserves_content(client, owner_headers, vault, tmp_path):
@@ -316,6 +318,174 @@ def test_watcher_poll_detects_new_file(tmp_path):
             asyncio.run(brain.aclose())
 
 
+def test_watcher_does_not_reimport_the_kernels_own_exported_notes(tmp_path):
+    """A note the kernel wrote to __sexta__/ (export_auto_learned_fact) must
+    not come back through the front door as a second source="obsidian" node
+    on the watcher's very next poll — the kernel re-learning what it just
+    wrote to tell itself, with a fresh embed paid for each time."""
+    brain = None
+    try:
+        from app.brain.engine import LocalBrain
+        from app.brain.memory import PersistentMemory
+        from app.db.database import SessionLocal
+        from app.models.models import Memory, Owner
+        from app.obsidian import BRAIN_FOLDER
+        from app.obsidian.watcher import ObsidianWatcher
+
+        brain = LocalBrain()
+        memory = PersistentMemory(brain)
+        watcher = ObsidianWatcher(memory)
+
+        vault = tmp_path / "sexta-owned-vault"
+        vault.mkdir()
+        mirrored = vault / BRAIN_FOLDER / "auto-learned" / "fato-aprendido.md"
+        mirrored.parent.mkdir(parents=True)
+        mirrored.write_text(
+            "---\ntitle: Fato Aprendido\ntags: [preference]\nsource: auto_learned\n---\n\n"
+            "O dono gosta de café forte.",
+            encoding="utf-8",
+        )
+
+        db = SessionLocal()
+        try:
+            owner = db.query(Owner).first()
+            assert owner is not None
+
+            asyncio.run(watcher.poll(db, owner.id, str(vault)))
+
+            assert watcher.stats.files_imported == 0, (
+                "the watcher imported a file from inside its own BRAIN_FOLDER"
+            )
+            nodes = (
+                db.query(Memory)
+                .filter(Memory.owner_id == owner.id, Memory.title == "Fato Aprendido")
+                .all()
+            )
+            assert nodes == [], "the mirrored note came back as a graph node"
+        finally:
+            db.close()
+    finally:
+        if brain:
+            asyncio.run(brain.aclose())
+
+
+def test_a_second_watcher_after_restart_re_embeds_nothing_unchanged(client, tmp_path):
+    """ObsidianWatcher's mtime cache lives only in process memory, and a
+    fresh instance is exactly what a kernel restart builds — the scenario
+    this seeds for. Without seeding, a restart's first poll saw an empty
+    cache, treated every already-imported note as brand new, and paid a
+    fresh brain.embed() for the whole vault regardless of whether anything
+    had actually changed since the last run.
+    """
+
+    class _SpyBrain:
+        """Fake LocalBrain: counts embeds, gives every note the same vector
+        so semantic auto-link has something to compare without needing Ollama."""
+
+        def __init__(self) -> None:
+            self.embed_calls = 0
+
+        async def embed(self, text: str) -> list[float]:
+            self.embed_calls += 1
+            return [1.0, 0.0, 0.0]
+
+        async def chat(self, messages, temperature=None, max_tokens=None) -> str:
+            return "related"
+
+    from app.brain.memory import PersistentMemory
+    from app.db.database import SessionLocal
+    from app.models.models import Owner
+    from app.obsidian.watcher import ObsidianWatcher
+
+    vault = tmp_path / "restart-vault"
+    vault.mkdir()
+    (vault / "nota-um.md").write_text(
+        "---\ntitle: Nota Um\ntags: [dev]\n---\n\nConteúdo da primeira nota.",
+        encoding="utf-8",
+    )
+    (vault / "nota-dois.md").write_text(
+        "---\ntitle: Nota Dois\ntags: [dev]\n---\n\nConteúdo da segunda nota.",
+        encoding="utf-8",
+    )
+
+    db = SessionLocal()
+    try:
+        owner = db.query(Owner).first()
+        assert owner is not None
+
+        # First "boot": imports both notes for the first time — embeds expected.
+        first_brain = _SpyBrain()
+        first_watcher = ObsidianWatcher(PersistentMemory(first_brain))
+        asyncio.run(first_watcher.poll(db, owner.id, str(vault)))
+        assert first_watcher.stats.files_imported == 2
+        assert first_brain.embed_calls >= 2
+
+        # "Restart": a BRAND NEW watcher (empty _mtime_cache), same vault,
+        # NOTHING changed on disk since the first poll.
+        second_brain = _SpyBrain()
+        second_watcher = ObsidianWatcher(PersistentMemory(second_brain))
+        asyncio.run(second_watcher.poll(db, owner.id, str(vault)))
+
+        assert second_watcher.stats.files_imported == 0
+        assert second_watcher.stats.files_updated == 0
+        assert second_brain.embed_calls == 0, (
+            "a restart with nothing changed still re-embedded the vault"
+        )
+    finally:
+        db.close()
+
+
+def test_a_file_modified_while_offline_is_still_caught_after_seeding(client, tmp_path):
+    """The seed must not swallow a REAL change that happened while the
+    kernel was down — only skip files that are genuinely unchanged."""
+    from app.brain.memory import PersistentMemory
+    from app.db.database import SessionLocal
+    from app.models.models import Owner
+    from app.obsidian.watcher import ObsidianWatcher
+
+    class _SpyBrain:
+        def __init__(self) -> None:
+            self.embed_calls = 0
+
+        async def embed(self, text: str) -> list[float]:
+            self.embed_calls += 1
+            return [1.0, 0.0, 0.0]
+
+        async def chat(self, messages, temperature=None, max_tokens=None) -> str:
+            return "related"
+
+    vault = tmp_path / "offline-edit-vault"
+    vault.mkdir()
+    note = vault / "nota.md"
+    note.write_text("---\ntitle: Nota\ntags: [dev]\n---\n\nVersão original.", encoding="utf-8")
+
+    db = SessionLocal()
+    try:
+        owner = db.query(Owner).first()
+        assert owner is not None
+
+        first_watcher = ObsidianWatcher(PersistentMemory(_SpyBrain()))
+        asyncio.run(first_watcher.poll(db, owner.id, str(vault)))
+        assert first_watcher.stats.files_imported == 1
+
+        # Simulate an edit made while the kernel was offline: touch the file
+        # to a mtime clearly AFTER what got recorded, then seed+poll fresh.
+        future = time.time() + 120
+        os.utime(note, (future, future))
+        note.write_text("---\ntitle: Nota\ntags: [dev]\n---\n\nVersão editada offline.", encoding="utf-8")
+        os.utime(note, (future, future))
+
+        second_brain = _SpyBrain()
+        second_watcher = ObsidianWatcher(PersistentMemory(second_brain))
+        asyncio.run(second_watcher.poll(db, owner.id, str(vault)))
+
+        assert second_brain.embed_calls >= 1, (
+            "a note edited while offline was skipped instead of re-synced"
+        )
+    finally:
+        db.close()
+
+
 # ── Auto-Export Test ────────────────────────────────────────────────
 
 
@@ -346,53 +516,85 @@ def test_export_auto_learned_fact(tmp_path):
 
 
 def test_auto_export_integration_via_cognition(client, owner_headers, tmp_path):
-    """When cognition learns a fact with obsidian_vault_path set, a .md is written.
+    """A fact learned during a chat lands in the vault as a .md file.
 
-    We stub the brain's chat to return a deterministic fact, then verify the
-    auto-export created a .md file in the vault.
+    Both halves of the brain are stubbed, because the chat path uses two
+    different methods: `chat_with_tools` produces the reply, `chat` is what the
+    memory extractor probes with. The previous version stubbed only `chat` and
+    fed it prose — but the extractor parses a JSON array, so nothing was ever
+    extracted, nothing written, and the assertion sat inside `if status == 200`
+    so the test passed by not running. Both are fixed here: deterministic
+    stubs, and an assertion that always executes.
     """
+    import json
+
+    from app.core.config import settings
+    from app.core.di import get_kernel
+
     vault = tmp_path / "cognition-auto-vault"
     vault.mkdir()
 
-    # Temporarily set obsidian_vault_path to the temp vault
-    from app.core.config import settings
-
+    cognition = get_kernel().cognition
+    brain = cognition.brain
     original_path = settings.obsidian_vault_path
     original_learn = settings.memory_auto_learn
+    original_chat = brain.chat
+    original_tools = brain.chat_with_tools
+    original_embed = brain.embed
+
+    async def fake_chat(_messages, **_kwargs):
+        # Exactly the shape MemoryExtractor._parse_candidates expects.
+        return json.dumps([{
+            "fato": "O dono adora tecnologia e programação",
+            "tipo": "preference",
+            "importancia": 0.8,
+            "chave_perfil": "interesses",
+        }], ensure_ascii=False)
+
+    async def fake_tools(_messages, **_kwargs):
+        return {"content": "Anotado.", "tool_calls": []}
+
+    async def fake_embed(_text):
+        # remember() awaits this unconditionally. Left unstubbed, it is a REAL
+        # httpx call to OLLAMA_ENDPOINT — which tests pin unreachable (Step 1)
+        # — and remember()'s own try/except only resolves that after paying
+        # the full connect timeout. That cost used to be hidden inside the
+        # synchronous request; now that auto-learn runs off the critical path
+        # (Step 5), it would instead show up as this test hanging on drain().
+        return [0.1, 0.2, 0.3]
+
+    settings.obsidian_vault_path = str(vault)
+    settings.memory_auto_learn = True
+    brain.chat = fake_chat
+    brain.chat_with_tools = fake_tools
+    brain.embed = fake_embed
     try:
-        settings.obsidian_vault_path = str(vault)
-        settings.memory_auto_learn = True
+        r = client.post(
+            "/api/v1/chat",
+            json={"message": "eu amo tecnologia"},
+            headers=owner_headers,
+        )
+        assert r.status_code == 200, r.text
 
-        # Stub the brain to return a fake fact during auto-learn
-        from app.core.di import get_kernel
+        # Auto-learn now runs off the request's critical path (cognition.py
+        # Cognition._spawn) — the HTTP response can (and, being the point of
+        # that change, usually does) return before the background extraction
+        # and its vault export have actually finished. The task lives on
+        # TestClient's persistent portal loop (a dedicated background thread,
+        # started in its __enter__ and reused across every call in this `with`
+        # block — see starlette.testclient.TestClient._portal_factory), not
+        # one this sync test can `await` into directly. `portal.call` runs a
+        # coroutine ON that same loop and blocks this thread for the result,
+        # which is the deterministic equivalent of `await cognition.drain()`.
+        client.portal.call(cognition.drain)
 
-        brain = get_kernel().cognition.brain
-        original_chat = brain.chat
-
-        async def fake_chat(_messages, **_kwargs):
-            return "O usuário adora tecnologia"
-
-        brain.chat = fake_chat
-        try:
-            r = client.post(
-                "/api/v1/chat",
-                json={"message": "eu amo tecnologia"},
-                headers=owner_headers,
-            )
-            # Chat may return 503 if brain is offline, but auto-learn
-            # should have fired regardless (it runs on the reply path)
-            # The auto-learn happens AFTER persist, so it needs the chat
-            # to succeed. If brain is offline (503), auto-learn doesn't run.
-            # We handle this: if chat succeeds, check for the file.
-            if r.status_code == 200:
-                # Give auto-learn a moment to write the file
-                import time
-                time.sleep(0.1)
-                md_files = list(vault.rglob("*.md"))
-                assert any("tecnologia" in f.read_text(encoding="utf-8") for f in md_files)
-        finally:
-            brain.chat = original_chat
+        notes = list(vault.rglob("*.md"))
+        assert notes, "auto-export não escreveu nenhum .md no vault"
+        assert any(
+            "tecnologia" in f.read_text(encoding="utf-8") for f in notes
+        ), f"nenhuma nota menciona o fato aprendido: {[f.name for f in notes]}"
     finally:
+        brain.chat, brain.chat_with_tools, brain.embed = original_chat, original_tools, original_embed
         settings.obsidian_vault_path = original_path
         settings.memory_auto_learn = original_learn
 
@@ -476,6 +678,58 @@ def test_recall_after_import_includes_notes(client, owner_headers, vault):
     assert "Nota Aleatória" in titles
 
 
+def test_direct_recall_is_bounded_to_the_watcher_lag_window(client, owner_headers, monkeypatch):
+    """cognition.py's direct vault recall must ask for AT MOST ~2x the
+    watcher's own poll interval, not a static 72-hour window — content older
+    than that is the graph's job (recall_graph), not this synchronous,
+    every-turn filesystem scan's. Also proves the char cap (1200) and that
+    the scan runs off the event loop (asyncio.to_thread), by capturing the
+    real arguments cognition.py passes rather than the file-mtime behavior
+    read_recent_vault_notes/format_vault_context already test on their own.
+    """
+    import app.obsidian.recall as recall_module
+    from app.core.config import settings
+
+    captured: dict = {}
+
+    def fake_read_recent_vault_notes(vault_path, max_notes=10, max_age_hours=72.0):
+        captured["vault_path"] = vault_path
+        captured["max_notes"] = max_notes
+        captured["max_age_hours"] = max_age_hours
+        return []
+
+    def fake_format_vault_context(notes, max_chars=4000):
+        captured["max_chars"] = max_chars
+        return ""
+
+    monkeypatch.setattr(recall_module, "read_recent_vault_notes", fake_read_recent_vault_notes)
+    monkeypatch.setattr(recall_module, "format_vault_context", fake_format_vault_context)
+    monkeypatch.setattr(settings, "obsidian_vault_path", "/fake/vault")
+    monkeypatch.setattr(settings, "obsidian_vault_recall_max_notes", 7)
+    monkeypatch.setattr(settings, "obsidian_watch_interval", 45)
+
+    from app.core.di import get_kernel
+
+    brain = get_kernel().cognition.brain
+    original_tools = brain.chat_with_tools
+
+    async def fake_tools(_messages, **_kwargs):
+        return {"content": "ok", "tool_calls": []}
+
+    brain.chat_with_tools = fake_tools
+    try:
+        r = client.post(
+            "/api/v1/chat", json={"message": "oi"}, headers=owner_headers,
+        )
+        assert r.status_code == 200, r.text
+    finally:
+        brain.chat_with_tools = original_tools
+
+    assert captured["max_notes"] == 7
+    assert captured["max_age_hours"] == (2 * 45) / 3600
+    assert captured["max_chars"] == 1200
+
+
 # ── Status Endpoint Test ─────────────────────────────────────────────
 
 
@@ -492,7 +746,7 @@ def test_status_endpoint(client, owner_headers):
 
 def test_status_requires_auth(client):
     """Status endpoint should reject unauthenticated requests."""
-    assert client.get("/api/v1/obsidian/status").status_code == 403
+    assert client.get("/api/v1/obsidian/status").status_code == 401
 
 
 # ── Watch Endpoint Tests ─────────────────────────────────────────────

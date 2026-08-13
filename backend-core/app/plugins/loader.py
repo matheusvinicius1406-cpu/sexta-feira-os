@@ -8,11 +8,10 @@ from __future__ import annotations
 
 import importlib
 import logging
-import pkgutil
 from pathlib import Path
 from typing import Any
 
-from app.plugins import IPlugin, PluginRegistry, PluginBase
+from app.plugins import IPlugin, PluginBase, PluginRegistry
 
 logger = logging.getLogger("sexta-feira.plugins.loader")
 

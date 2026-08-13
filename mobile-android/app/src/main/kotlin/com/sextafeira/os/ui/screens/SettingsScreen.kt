@@ -2,6 +2,12 @@
 
 package com.sextafeira.os.ui.screens
 
+import android.Manifest
+import android.content.Context
+import android.content.pm.PackageManager
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
@@ -28,12 +34,16 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Devices
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.Memory
 import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material.icons.filled.PhoneAndroid
+import androidx.compose.material.icons.filled.Shield
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Radar
 import androidx.compose.material.icons.filled.Sensors
@@ -51,6 +61,7 @@ import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
@@ -147,6 +158,12 @@ fun SettingsScreen(
             // Paired Devices Section
             item { PairedDevicesSection(uiState, viewModel) }
 
+            // Agent (the phone as the brain's hands)
+            item { AgentSection(uiState, viewModel) }
+
+            // Security (active defense dashboard)
+            item { SecuritySection(uiState, viewModel) }
+
             // Memory Curation (shortcut)
             item { MemoryShortcutSection(navController) }
 
@@ -238,6 +255,157 @@ private fun ServerConnectionSection(
         ) {
             Text(
                 text = uiState.connectionError ?: "",
+                color = MaterialTheme.colorScheme.error,
+                fontSize = 12.sp,
+                modifier = Modifier.padding(top = 8.dp),
+            )
+        }
+    }
+}
+
+@Composable
+private fun AgentSection(
+    uiState: com.sextafeira.os.viewmodel.SettingsUiState,
+    viewModel: SettingsViewModel,
+) {
+    // Android 13+ precisa de permissão de notificação para o serviço em foreground.
+    val permissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission(),
+    ) { granted ->
+        if (granted) viewModel.toggleAgent(true)
+    }
+
+    // Lido fora do lambda onCheckChange (contexto não-composable).
+    val notifPermissionGranted = hasNotificationPermission()
+
+    SectionCard(
+        icon = Icons.Filled.PhoneAndroid,
+        title = "Agente — as Mãos",
+        subtitle = "O celular executa ordens do cérebro",
+    ) {
+        ToggleItem(
+            icon = Icons.Filled.Devices,
+            title = "Agente ativo",
+            description = if (uiState.agentPaired) {
+                "Ouvindo o kernel pelo canal de ações (WebSocket)"
+            } else {
+                "Pareie o dispositivo acima para ativar"
+            },
+            checked = uiState.agentEnabled,
+            onCheckChange = { enabled ->
+                when {
+                    !enabled -> viewModel.toggleAgent(false)
+                    !uiState.agentPaired ->
+                        viewModel.agentBlocked("Pareie o dispositivo acima para ativar as mãos")
+                    Build.VERSION.SDK_INT >= 33 &&
+                        uiState.agentPaired &&
+                        !notifPermissionGranted ->
+                        permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                    else -> viewModel.toggleAgent(true)
+                }
+            },
+        )
+
+        AnimatedVisibility(visible = uiState.agentStatus != null) {
+            Text(
+                text = uiState.agentStatus ?: "",
+                color = MaterialTheme.colorScheme.primary,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Medium,
+                modifier = Modifier.padding(top = 6.dp),
+            )
+        }
+    }
+}
+
+@Composable
+private fun hasNotificationPermission(): Boolean {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    return Build.VERSION.SDK_INT < 33 ||
+        context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) ==
+        PackageManager.PERMISSION_GRANTED
+}
+
+@Composable
+private fun SecuritySection(
+    uiState: com.sextafeira.os.viewmodel.SettingsUiState,
+    viewModel: SettingsViewModel,
+) {
+    SectionCard(
+        icon = Icons.Filled.Shield,
+        title = "Segurança — Defesa Ativa",
+        subtitle = "Tripwires, honeypots e auditoria do kernel",
+    ) {
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Button(
+                onClick = { viewModel.runSecurityAudit() },
+                enabled = !uiState.isSecurityLoading,
+                modifier = Modifier.height(40.dp),
+                shape = RoundedCornerShape(10.dp),
+            ) {
+                Icon(Icons.Filled.Shield, contentDescription = null, modifier = Modifier.size(16.dp))
+                Spacer(Modifier.width(6.dp))
+                Text("Auditar", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+            }
+            OutlinedButton(
+                onClick = { viewModel.loadSecurityThreats() },
+                enabled = !uiState.isSecurityLoading,
+                modifier = Modifier.height(40.dp),
+                shape = RoundedCornerShape(10.dp),
+            ) {
+                Icon(Icons.Filled.Warning, contentDescription = null, modifier = Modifier.size(16.dp))
+                Spacer(Modifier.width(6.dp))
+                Text("Ameaças", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+            }
+        }
+
+        if (uiState.isSecurityLoading) {
+            CircularProgressIndicator(
+                modifier = Modifier.padding(top = 10.dp).size(20.dp),
+                strokeWidth = 2.dp,
+            )
+        }
+
+        val audit = uiState.securityAudit
+        if (audit != null) {
+            Spacer(Modifier.height(10.dp))
+            val bypass = audit.access?.authDevBypass == true
+            val threats = audit.threats?.total ?: 0
+            val honeypots = audit.defenses?.honeypotsArmed ?: 0
+            val text = buildString {
+                append("Acesso: ").append(audit.access?.accessMode ?: "?")
+                if (bypass) append(" — ⚠️ bypass LIGADO")
+                append("\nAmeaças registradas: ").append(threats)
+                append("\nHoneypots armados: ").append(honeypots)
+                audit.recommendations.take(2).forEach { append("\n• ").append(it) }
+            }
+            Text(
+                text = text,
+                fontSize = 12.sp,
+                color = if (bypass) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+
+        if (uiState.securityThreats.isNotEmpty()) {
+            Spacer(Modifier.height(10.dp))
+            Text(
+                "Últimas ameaças:",
+                fontSize = 12.sp,
+                fontWeight = FontWeight.SemiBold,
+            )
+            uiState.securityThreats.take(5).forEach { t ->
+                Text(
+                    text = "${t.type ?: "?"}: ${t.detail ?: ""}",
+                    fontSize = 11.sp,
+                    color = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.padding(top = 2.dp),
+                )
+            }
+        }
+
+        uiState.securityError?.let {
+            Text(
+                it,
                 color = MaterialTheme.colorScheme.error,
                 fontSize = 12.sp,
                 modifier = Modifier.padding(top = 8.dp),

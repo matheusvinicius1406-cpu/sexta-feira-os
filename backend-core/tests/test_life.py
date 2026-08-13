@@ -192,10 +192,10 @@ def test_evals_run_without_cases_returns_none():
 # ---------- API ----------
 
 def test_life_apis_require_auth(client):
-    assert client.get("/api/v1/journal").status_code == 403
-    assert client.get("/api/v1/habits").status_code == 403
-    assert client.get("/api/v1/time/summary").status_code == 403
-    assert client.get("/api/v1/evals/cases").status_code == 403
+    assert client.get("/api/v1/journal").status_code == 401
+    assert client.get("/api/v1/habits").status_code == 401
+    assert client.get("/api/v1/time/summary").status_code == 401
+    assert client.get("/api/v1/evals/cases").status_code == 401
 
 
 def test_life_api_roundtrip(client, owner_headers):
@@ -216,7 +216,10 @@ def test_life_api_roundtrip(client, owner_headers):
     stopped = client.post("/api/v1/time/stop", headers=owner_headers).json()
     assert stopped["label"] == "planejamento"
     # evals: cases persist; run degrades to 503 with the brain offline
+    from tests.conftest import brain_offline
+
     client.post("/api/v1/evals/cases", headers=owner_headers,
                 json={"name": "sanidade", "prompt": "diga oi", "expected_contains": "oi"})
     assert len(client.get("/api/v1/evals/cases", headers=owner_headers).json()) == 1
-    assert client.post("/api/v1/evals/run", headers=owner_headers).status_code == 503
+    with brain_offline():                                # forced, not assumed
+        assert client.post("/api/v1/evals/run", headers=owner_headers).status_code == 503

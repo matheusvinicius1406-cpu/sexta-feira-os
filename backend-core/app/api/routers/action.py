@@ -109,6 +109,12 @@ async def stream(websocket: WebSocket, token: str = ""):
     await websocket.accept()
     bus.register(device.id, websocket)
     try:
+        # Hello first: the body learns the socket is live AND which device it
+        # is — a correct token can still sit behind a half-open connection.
+        # The agent app shows "mãos conectadas" only after this arrives.
+        await websocket.send_json(
+            {"type": "hello", "device_id": device.id, "device_name": device.name}
+        )
         backlog = service.pending_for(db, device.id)
         for c in backlog:
             await websocket.send_json(

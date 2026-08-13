@@ -41,6 +41,26 @@ jobs:
       - name: Tests (pytest)
         run: pytest
 
+      - name: Dependency vulnerabilities (pip-audit)
+        run: |
+          pip install pip-audit
+          pip-audit -r requirements.txt
+
+  secrets:
+    name: Secrets & supply chain
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # full history: gitleaks scans past commits too
+
+      # Gitleaks: vaza-segredo gate. Falha o CI se um segredo real (chave de
+      # API, senha, token) aparecer em qualquer commit — inclusive os antigos.
+      - name: Secret scan (gitleaks)
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
   rust:
     name: Rust (check + test)
     runs-on: ubuntu-latest

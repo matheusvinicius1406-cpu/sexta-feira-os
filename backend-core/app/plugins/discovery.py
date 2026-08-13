@@ -9,7 +9,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from app.plugins import IPlugin, PluginRegistry, PluginContext, PluginResult
+from app.plugins import IPlugin, PluginContext, PluginRegistry, PluginResult
 
 logger = logging.getLogger("sexta-feira.plugins.discovery")
 

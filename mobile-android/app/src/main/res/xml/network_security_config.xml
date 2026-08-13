@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Política de tráfego de rede — ponto único e auditável.
+
+  O kernel Sexta-Feira OS fala HTTP puro POR DESIGN: é um serviço privado que
+  roda na sua máquina ou na sua LAN, nunca exposto à internet. O app valida a
+  URL em ApiClient.validateKernelUrl e RECUSA http:// para hosts públicos —
+  o cleartext aqui nunca pode vazar credenciais para a internet, porque a
+  única forma de usar http é apontando para loopback ou rede privada.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>

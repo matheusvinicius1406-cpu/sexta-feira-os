@@ -9,6 +9,7 @@ from __future__ import annotations
 import asyncio
 import shutil
 import sqlite3
+import subprocess
 import time
 from datetime import UTC, datetime
 from pathlib import Path
@@ -184,26 +185,29 @@ class RunProgramNode(Node):
             )
 
         cwd = str(safe_path(cfg.diretorio, must_exist=True)) if cfg.diretorio else None
-        process = await asyncio.create_subprocess_exec(
-            cfg.programa, *cfg.argumentos,
-            stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE, cwd=cwd,
-        )
+        # Blocking subprocess.run, off the loop via to_thread — NOT
+        # asyncio.create_subprocess_exec. uvicorn pins Windows to
+        # WindowsSelectorEventLoopPolicy (uvicorn/loops/asyncio.py), which
+        # raises a bare NotImplementedError from the asyncio subprocess API on
+        # every platform this kernel ships for; this node would fail before
+        # the allowlisted program ever ran. subprocess.run's own `timeout`
+        # already kills the child and raises on expiry, so no manual
+        # kill()/wait() is needed here the way the asyncio version needed it.
         try:
-            stdout, stderr = await asyncio.wait_for(
-                process.communicate(), timeout=cfg.timeout_segundos
+            proc = await asyncio.to_thread(
+                subprocess.run, [cfg.programa, *cfg.argumentos],
+                capture_output=True, cwd=cwd, timeout=cfg.timeout_segundos,
             )
-        except TimeoutError:
-            process.kill()
-            await process.wait()
+        except subprocess.TimeoutExpired:
             raise RuntimeError(
                 f"'{cfg.programa}' passou de {cfg.timeout_segundos:g}s e foi encerrado"
             ) from None
 
         return NodeOutput.single({
-            "codigo": process.returncode,
-            "ok": process.returncode == 0,
-            "saida": stdout.decode("utf-8", "replace")[:20000],
-            "erro": stderr.decode("utf-8", "replace")[:5000],
+            "codigo": proc.returncode,
+            "ok": proc.returncode == 0,
+            "saida": proc.stdout.decode("utf-8", "replace")[:20000],
+            "erro": proc.stderr.decode("utf-8", "replace")[:5000],
         })
 
 

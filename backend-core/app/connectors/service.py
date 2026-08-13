@@ -129,6 +129,17 @@ class ConnectorService:
         db.commit()
 
     def get_secret_value(self, db: Session, owner_id: str, name: str) -> str | None:
+        # Honeytoken tripwire: a secret named honeypot.* is bait, never a real
+        # credential. Reading one means someone is probing the vault — record
+        # the threat, return nothing, leak nothing.
+        from app.core.threats import is_honeypot, record_threat_sync
+
+        if is_honeypot(name):
+            record_threat_sync(
+                db, "honeypot",
+                f"honeytoken '{name}' tocado no cofre de segredos",
+            )
+            return None
         s = db.query(Secret).filter(Secret.owner_id == owner_id, Secret.name == name).first()
         return self.vault.decrypt(s.value_encrypted) if s else None
 

@@ -52,8 +52,12 @@ def test_bad_pairing_code_rejected(client):
 
 
 def test_chat_degrades_gracefully_without_brain(client, owner_headers):
-    # Ollama isn't running in CI => a clean 503, not a crash.
-    r = client.post("/api/v1/chat", json={"message": "oi"}, headers=owner_headers)
+    # With the brain unreachable: a clean 503, never a crash. Forced, not assumed
+    # — this must hold on a machine that IS running Ollama too.
+    from tests.conftest import brain_offline
+
+    with brain_offline():
+        r = client.post("/api/v1/chat", json={"message": "oi"}, headers=owner_headers)
     assert r.status_code == 503
 
 
@@ -199,14 +203,21 @@ def test_voice_endpoints_require_auth(client):
 
 def test_auto_links_get_named_relations(client, owner_headers):
     """
-    When the brain is available, a semantic auto-link is NAMED (e.g. 'trabalha em')
-    instead of the generic 'related'. Deterministic via stubbed embed + chat.
+    With GRAPH_RELATION_LABELS on, a semantic auto-link is NAMED (e.g. 'trabalha
+    em') instead of the generic 'related'. Deterministic via stubbed embed + chat.
+
+    Labeling is OFF by default (config.py::graph_relation_labels) — the label is
+    never read back by recall, and a non-deterministic one could file a second
+    edge instead of updating the first — so this test opts in explicitly rather
+    than relying on the default, the way an owner who wants labels would.
     """
+    from app.core.config import settings
     from app.core.di import get_kernel
 
     kernel = get_kernel()
     orig_embed = kernel.memory.brain.embed
     orig_chat = kernel.memory.brain.chat
+    orig_labels = settings.graph_relation_labels
 
     async def fake_embed(_text: str):
         return [1.0, 0.0]  # everything is mutually similar -> auto-links
@@ -216,6 +227,7 @@ def test_auto_links_get_named_relations(client, owner_headers):
 
     kernel.memory.brain.embed = fake_embed
     kernel.memory.brain.chat = fake_chat
+    settings.graph_relation_labels = True
     try:
         client.post("/api/v1/memory", json={"content": "Sou engenheiro"},
                     headers=owner_headers)
@@ -227,6 +239,7 @@ def test_auto_links_get_named_relations(client, owner_headers):
     finally:
         kernel.memory.brain.embed = orig_embed
         kernel.memory.brain.chat = orig_chat
+        settings.graph_relation_labels = orig_labels
 
 
 # ---------------- automations (Teia) ----------------
@@ -396,8 +409,10 @@ def test_action_websocket_live_delivery(client, owner_headers):
                     headers=owner_headers)
     cmd_id = r.json()["command_id"]
 
-    # Device connects: receives the backlog command, then reports its result.
+    # Device connects: hello first, then the backlog command, then reports.
     with client.websocket_connect(f"/api/v1/actions/stream?token={dtoken}") as ws:
+        hello = ws.receive_json()
+        assert hello["type"] == "hello"
         msg = ws.receive_json()
         assert msg["type"] == "command" and msg["id"] == cmd_id and msg["action"] == "navigate"
         ws.send_json({"type": "result", "id": cmd_id, "status": "done", "result": {"ok": True}})

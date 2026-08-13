@@ -24,11 +24,8 @@ import logging
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
-from sqlalchemy.orm import Session
 
 from app.auth.jwt import get_current_owner
-from app.core.config import settings
-from app.db.database import get_db
 from app.engines.radio_engine import RadioEngine, Track
 from app.models.models import Owner
 

@@ -6,6 +6,7 @@ import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
+import com.sextafeira.os.data.agent.AgentSession
 import com.sextafeira.os.data.session.SessionManager
 import com.sextafeira.os.ui.navigation.RootNavigation
 import com.sextafeira.os.ui.theme.SextaFeiraTheme
@@ -24,6 +25,8 @@ class MainActivity : ComponentActivity() {
         // Restore saved session from DataStore before the UI renders,
         // so SplashScreen can check Session.isAuthenticated immediately.
         SessionManager.init(applicationContext)
+        // Restore device pairing so the agent knows it is a body.
+        AgentSession.init(applicationContext)
         
         setContent {
             SextaFeiraTheme {

@@ -6,13 +6,11 @@ from __future__ import annotations
 import hashlib
 import importlib
 import logging
-import os
-import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from app.plugins import IPlugin, PluginBase, PluginRegistry, PluginResult
+from app.plugins import PluginRegistry
 
 logger = logging.getLogger("sexta-feira.plugins.system")
 

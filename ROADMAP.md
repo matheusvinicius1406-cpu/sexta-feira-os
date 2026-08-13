@@ -18,12 +18,28 @@
   operários, 44 tipos de nó, 5 gatilhos (cron/intervalo/evento/webhook/manual), trilha de
   execução por nó, API REST + CLI e 10 automações prontas. **O n8n foi removido** — não há
   mais runtime Node.js no projeto.
+- ✅ **Cérebro único**: um modelo (`qwen3-vl:2b`) conversa, usa ferramentas e enxerga —
+  fim dos dois modelos residentes se expulsando da RAM.
+- ✅ **Agente próprio (Pulse Cognitivo)**: o kernel pensa em segundo plano, executa
+  ações seguras sozinho e propõe as que mudam o mundo — nada roda sem confirmação do
+  dono (`/api/v1/agent/pulse`, `/proposals`).
+- ✅ **Segundo cérebro (Obsidian)**: recall segue os links entre memórias (grafo, não só
+  similaridade), e todo fato aprendido automaticamente é espelhado como nota no vault.
+- ✅ **Otimizador de recursos + compressão de prompt**: mede a máquina real (contadores do
+  Ollama) em vez de adivinhar, e o histórico é comprimido antes de cada rodada de ferramenta.
+- ✅ **Agente Android (as mãos)**: o app vira corpo do kernel — um serviço em foreground
+  ouve o canal de ações (`/api/v1/actions/stream`, WebSocket + fallback por polling) e
+  executa nativamente: abrir apps, navegar, discar, compor SMS e notificar. Resultados
+  voltam ao cérebro, que aprende o que funcionou.
+- ✅ **Configurações + pareamento no app**: endereço do kernel, pareamento por código,
+  revogação de dispositivos e status do agente na tela de Configurações.
+- ✅ **Curadoria de memória no app**: ver, buscar, ensinar e esquecer memórias (tela própria).
 
 ## Próximo (curto prazo)
 
-- [ ] Tela de Configurações no Android: endereço do kernel + pareamento por código/QR.
-- [ ] Curadoria de memória no app (ver/editar/esquecer o que ele sabe).
-- [ ] Testes pytest para os routers novos (memory, schedule, action, connectors).
+- [ ] Agente Android: ações mais profundas (ler/resumir notificações, câmera, controle de mídia).
+- [ ] Autostart do agente após reboot (BOOT_COMPLETED) + pareamento por QR.
+- [ ] Testes pytest para os routers novos (memory, schedule, connectors).
 
 ## Médio prazo
 

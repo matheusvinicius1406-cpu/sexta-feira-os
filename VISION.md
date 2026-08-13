@@ -30,8 +30,8 @@ estado real, sem inflar: ✅ pronto · 🔧 parcial · 📋 planejado — e o qu
         ▼
   CÉREBRO (máquina sempre-ligada): Ollama + memória-grafo + tool-calling
         │ decide a ação
-        ├──► n8n (integrações: mensagens, casa, web…)          ✅ ponte pronta
-        ├──► Agente do CELULAR (intents Android: ligar, apps…)  📋 a construir
+        ├──► Teia (automações em Python, dentro do kernel)       ✅ ponte pronta
+        ├──► Agente do CELULAR (intents Android: ligar, apps…)  ✅ v1 construída
         └──► Agente do COMPUTADOR (abrir apps, scripts, arquivos) 📋 a construir
 ```
 
@@ -61,10 +61,12 @@ Tool-calling agêntico (✅): de uma frase, o cérebro escolhe e dispara `rememb
 `{action, params}` ao corpo alvo (fila persistida + WebSocket ao vivo + resultado). *Falta:*
 o **agente nativo em cada corpo** (Android/Desktop) que de fato executa a ação recebida.
 
-### 📱 Controle do celular (ligar, apps, câmera, notificações) — 📋 planejado
-Exige um **Agente Android**: recebe ordens do cérebro (WebSocket) e executa via Intents /
-Accessibility / APIs do Android (ligar, abrir apps, ler/responder notificações, etc.).
-Base pronta: pareamento de dispositivos + tokens. *Falta:* o app-agente e o protocolo de ação.
+### 📱 Controle do celular (ligar, apps, câmera, notificações) — 🔧 parcial
+O **Agente Android** existe (✅ v1): serviço em foreground que ouve o canal de ações
+(`/api/v1/actions/stream`, WebSocket com fallback por polling) e executa nativamente — abrir
+apps, navegar (geo/maps), discar (ACTION_DIAL), compor SMS e mostrar notificações — sempre
+com o dono mantendo o toque final (nada é feito sem a última confirmação na tela). Resultados
+voltam ao kernel. *Falta:* ler/resumir notificações, câmera, mídia e acessibilidade.
 
 ### 🧭 Navegação / 📞 Telefonia / 💬 Mensagens — 📋 planejado
 Casos do Agente Android (Waze/Maps por intent, chamadas, SMS, ler/resumir/responder).
@@ -121,10 +123,10 @@ PC, carro, relógio e óculos depende dos **executores por dispositivo** + sync 
 Para cumprir "abra o WhatsApp / ligue pro meu pai / abra o Android Studio / rode os
 testes", o cérebro precisa **entregar ordens aos corpos**. O plano:
 
-1. **Protocolo de Ação** no kernel: fila/stream de comandos por dispositivo + resultados.
-2. **Agente Android**: recebe e executa ações nativas (o celular vira "mãos").
-3. **Agente de Desktop**: idem para o computador.
-4. Tools do cérebro (`device_action`) que despacham para o corpo certo.
+1. **Protocolo de Ação** no kernel: fila/stream de comandos por dispositivo + resultados. ✅
+2. **Agente Android**: recebe e executa ações nativas (o celular vira "mãos"). ✅ v1
+3. **Agente de Desktop**: idem para o computador. 📋
+4. Tools do cérebro (`device_action`) que despacham para o corpo certo. ✅
 
 O kernel (contrato + fila + tools) é construível e **verificável com CI aqui**; os
 agentes nativos (Android/Desktop) você valida nos respectivos ambientes.

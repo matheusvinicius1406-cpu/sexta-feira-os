@@ -15,13 +15,11 @@ Architecture:
 """
 from __future__ import annotations
 
-import logging
-import re
-from dataclasses import dataclass, field
-from enum import Enum
-
 import asyncio
-import functools
+import logging
+from dataclasses import dataclass, field
+from enum import StrEnum
+
 import httpx
 
 from app.engines.ad_blocker import AdBlocker, AdBlockResult
@@ -57,7 +55,7 @@ DEFAULT_STATIONS = [
 ]
 
 
-class StreamType(str, Enum):
+class StreamType(StrEnum):
     INTERNET_RADIO = "radio"
     YOUTUBE = "youtube"
     SOUNDCLOUD = "soundcloud"
@@ -148,7 +146,7 @@ class RadioState:
 class RadioEngine:
     """
     Jarvis Radio Engine — toca rádio e música com filtro de anúncios.
-    
+
     Server-side: busca estações, YouTube, metadata, ad blocking
     Client-side: recebe URLs de stream e reproduce
     """
@@ -178,14 +176,14 @@ class RadioEngine:
     ) -> list[RadioStation]:
         """
         Search internet radio stations via Radio Browser API.
-        
+
         Args:
             query: Search term (name, tag)
             country: Filter by country code (BR, US, etc.)
             language: Filter by language (portuguese, english)
             tags: Filter by tags (rock, pop, sertanejo)
             limit: Max results
-            
+
         Returns:
             List of RadioStation objects
         """
@@ -518,11 +516,11 @@ class RadioEngine:
     async def play_search(self, query: str, source: str = "auto") -> dict:
         """
         Search and prepare a track for playback.
-        
+
         Args:
             query: Search query (song name, artist, station name)
             source: "radio", "youtube", or "auto" (try both)
-            
+
         Returns:
             {
                 "tracks": [Track],

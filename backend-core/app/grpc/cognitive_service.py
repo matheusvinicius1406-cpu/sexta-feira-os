@@ -1,13 +1,13 @@
 """
 CognitiveCore gRPC service — THIN GATEWAY.
- 
+
 Protocol translation only: protobuf → adapter → domain.
 No business logic. No DB sessions. No Kernel imports.
 """
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import grpc
 from google.protobuf import timestamp_pb2
@@ -67,11 +67,11 @@ def _item_to_pb(item) -> pb2.MemoryNode:
     ts_created = timestamp_pb2.Timestamp()
     if item.created_at:
         dt = item.created_at
-        ts_created.FromDatetime(dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc))
+        ts_created.FromDatetime(dt if dt.tzinfo else dt.replace(tzinfo=UTC))
     ts_updated = timestamp_pb2.Timestamp()
     if item.updated_at:
         dt = item.updated_at
-        ts_updated.FromDatetime(dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc))
+        ts_updated.FromDatetime(dt if dt.tzinfo else dt.replace(tzinfo=UTC))
     return pb2.MemoryNode(
         id=item.id, content=item.content, title=item.title,
         kind=_memory_kind_to_pb(item.kind), importance=item.importance,
@@ -96,7 +96,7 @@ class CognitiveCoreService(pb2_grpc.CognitiveCoreServicer):
     def __init__(self) -> None:
         self._memory = MemoryAdapter()
         self._cognition = CognitionAdapter()
-        self._started_at = datetime.now(timezone.utc)
+        self._started_at = datetime.now(UTC)
 
     # ── Health ────────────────────────────────────────────
 
@@ -107,7 +107,7 @@ class CognitiveCoreService(pb2_grpc.CognitiveCoreServicer):
             version="1.0.0-kernel",
             ollama_online=brain_online,
             voice_available=VoiceAdapter().available,
-            uptime_seconds=int((datetime.now(timezone.utc) - self._started_at).total_seconds()),
+            uptime_seconds=int((datetime.now(UTC) - self._started_at).total_seconds()),
         )
 
     # ── Chat (server streaming) ───────────────────────────

@@ -1,18 +1,21 @@
 """
 AttachmentAnalyzer — Jarvis analisa PDFs, imagens e documentos.
 
-Converts PDFs to images, extracts text, and feeds everything to the
-vision model for deep understanding. All local, all private.
+Converts PDFs to images, extracts text, and feeds each kind to the brain in the
+form it actually is: pixels as pixels, text as text. All local, all private.
 """
 from __future__ import annotations
 
-import base64
 import io
 import logging
 import tempfile
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from app.brain.vision import VisionEngine, VisionUnavailable
+
+if TYPE_CHECKING:
+    from pypdf import PdfReader
 
 logger = logging.getLogger("sexta-feira.attachments")
 
@@ -34,15 +37,20 @@ SUPPORTED_TYPES = {
 
 class AttachmentAnalyzer:
     """
-    Analyzes file attachments using the local vision model.
-    
+    Analyzes file attachments with the local brain.
+
     - Images → direct analysis
     - PDFs → page-by-page rendering → vision analysis
-    - Text → direct reading + summary
+    - Text → read and summarised as text, no image involved
+
+    `brain` and `vision` normally speak to the SAME model; they are separate
+    arguments because they are separate questions ("read this text" vs "look at
+    this picture"), not separate models.
     """
 
-    def __init__(self, vision: VisionEngine):
+    def __init__(self, vision: VisionEngine, brain=None):
         self.vision = vision
+        self.brain = brain
 
     @staticmethod
     def detect_type(filename: str, content_type: str | None = None) -> str:
@@ -69,7 +77,7 @@ class AttachmentAnalyzer:
     ) -> dict:
         """
         Analyze an attachment.
-        
+
         Returns:
             {
                 "type": "image" | "pdf" | "text" | "unknown",
@@ -209,12 +217,18 @@ class AttachmentAnalyzer:
             prompt += f"Instrução adicional: {instruction}\n\n"
         prompt += "Resuma, extraia pontos-chave, e forneça insights. Em português."
 
-        analysis = await self.vision.analyze_image(
-            # We pass a 1px transparent image just to use the vision model as a text analyzer
-            # Actually, let's just use the brain's chat for text analysis
-            b"aGVsbG8=",  # dummy base64
-            prompt,
-        )
+        # Text is asked as text. This used to call analyze_image with
+        # `b"aGVsbG8="` — base64 for "hello", which is not an image at all — and
+        # a comment conceding "actually, let's just use the brain's chat". It
+        # never worked: _prepare_image hands those bytes to PIL, PIL refuses,
+        # and every .txt/.md/.csv upload came back "Cannot decode image". The
+        # fake pixel existed only because the text model and the vision model
+        # were different processes; with one brain there is nothing to fake.
+        if self.brain is None:
+            raise VisionUnavailable(
+                "Análise de texto precisa do cérebro local, que não foi fornecido."
+            )
+        analysis = await self.brain.chat([{"role": "user", "content": prompt}])
 
         return {
             "type": "text",
@@ -224,10 +238,10 @@ class AttachmentAnalyzer:
         }
 
     @staticmethod
-    def _pdf_page_to_image(reader: "PdfReader", page_index: int) -> bytes | None:
+    def _pdf_page_to_image(reader: PdfReader, page_index: int) -> bytes | None:
         """
         Render a PDF page to JPEG image bytes.
-        
+
         Uses pypdf to extract the page, then Pillow to render.
         Falls back to a simple text extraction if rendering fails.
         """
@@ -237,7 +251,7 @@ class AttachmentAnalyzer:
             text = page.extract_text()
             if text and len(text.strip()) > 20:
                 # Create an image from the text
-                from PIL import Image, ImageDraw, ImageFont
+                from PIL import Image, ImageDraw
 
                 # Wrap text into lines
                 lines = []

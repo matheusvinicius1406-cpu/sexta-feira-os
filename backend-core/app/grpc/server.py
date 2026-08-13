@@ -11,12 +11,12 @@ import logging
 import grpc
 
 from app.core.config import settings
-from app.grpc.cognitive_service import CognitiveCoreService
-from app.grpc.voice_service import VoiceStreamService
+from app.grpc.automation_events_pb2_grpc import add_AutomationServiceServicer_to_server
 from app.grpc.automation_service import AutomationServiceServicer
 from app.grpc.cognitive_core_pb2_grpc import add_CognitiveCoreServicer_to_server
+from app.grpc.cognitive_service import CognitiveCoreService
+from app.grpc.voice_service import VoiceStreamService
 from app.grpc.voice_stream_pb2_grpc import add_VoiceStreamServicer_to_server
-from app.grpc.automation_events_pb2_grpc import add_AutomationServiceServicer_to_server
 
 logger = logging.getLogger("sexta-feira.grpc")
 

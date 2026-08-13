@@ -12,7 +12,7 @@ When no TTS engine is available, they serve as text-only responses.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 
 @dataclass(frozen=True)

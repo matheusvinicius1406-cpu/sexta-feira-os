@@ -98,7 +98,7 @@ def test_scheduler_fires_briefing_kind():
 # ---------- API ----------
 
 def test_briefing_requires_auth(client):
-    assert client.get("/api/v1/briefing").status_code == 403
+    assert client.get("/api/v1/briefing").status_code == 401
 
 
 def test_briefing_api_generate_and_schedule(client, owner_headers):
@@ -111,3 +111,30 @@ def test_briefing_api_generate_and_schedule(client, owner_headers):
     assert latest["id"] == r["id"]
     sched = client.post("/api/v1/briefing/schedule", json={"hour": 7}, headers=owner_headers).json()
     assert sched["recurrence_seconds"] == 86400
+
+
+def test_briefing_includes_the_focus_the_decision_engine_picked(client, owner_headers):
+    """"Foco sugerido" must actually reach the briefing.
+
+    It never did. PlanningStep built the BriefingService with
+    `decision=kernel.decision` one step BEFORE DecisionStep assigned it, so the
+    service held None; `_focus()` returns None for a falsy decision and
+    `_render()` omits the line when focus is falsy. Every other section rendered,
+    the endpoint answered 200, and one of the briefing's five advertised pillars
+    was simply absent — in every kernel ever booted.
+
+    Asserting the rendered text rather than the wiring is deliberate: it fails
+    for a re-broken pipeline AND for a briefing that silently stops rendering the
+    section for any other reason.
+    """
+    client.post("/api/v1/planning/goals",
+                json={"title": "Meta decisiva do foco", "priority": 5}, headers=owner_headers)
+    r = client.post("/api/v1/briefing", headers=owner_headers).json()
+
+    focus = r["content"]["focus"]
+    assert focus is not None, "seção 'focus' vazia — o Decision Engine não chegou ao briefing"
+    assert focus["goal"], "o foco veio sem meta escolhida"
+    assert "Foco sugerido:" in r["summary"], (
+        "o texto do briefing não traz a linha 'Foco sugerido' — "
+        f"resumo obtido:\n{r['summary']}"
+    )

@@ -19,11 +19,24 @@ if TYPE_CHECKING:
 
 from app.kernel.pipeline.steps import BaseStep
 from app.kernel.pipeline.steps.core_steps import (
-    ConfigStep, DatabaseStep, OwnerStep, EventBusStep,
-    MemoryStep, WorldModelStep, LearningStep, PlanningStep,
-    DecisionStep, AutomationStep, VoiceStep, PluginStep,
-    GrpcStep, ToolkitStep, CognitionStep,
-    BackgroundStep, ReadyStep,
+    AgentStep,
+    AutomationStep,
+    BackgroundStep,
+    CognitionStep,
+    ConfigStep,
+    DatabaseStep,
+    DecisionStep,
+    EventBusStep,
+    GrpcStep,
+    LearningStep,
+    MemoryStep,
+    OwnerStep,
+    PlanningStep,
+    PluginStep,
+    ReadyStep,
+    ToolkitStep,
+    VoiceStep,
+    WorldModelStep,
 )
 
 logger = logging.getLogger("sexta-feira.pipeline.startup")
@@ -47,6 +60,7 @@ class StartupPipeline:
         PluginStep,
         ToolkitStep,
         CognitionStep,
+        AgentStep,
         GrpcStep,
         BackgroundStep,
         ReadyStep,
@@ -72,7 +86,7 @@ class StartupPipeline:
             try:
                 await asyncio.wait_for(step.execute(kernel), timeout=step.timeout)
                 await publish_event(f"{step.name}.ready")
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 msg = f"Step '{step.name}' timed out after {step.timeout}s"
                 logger.error("[Pipeline] %s", msg)
                 self._errors.append(msg)

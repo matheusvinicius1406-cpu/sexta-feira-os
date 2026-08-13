@@ -20,12 +20,14 @@ from __future__ import annotations
 
 import logging
 import time
+from datetime import UTC, datetime
 from pathlib import Path
 
 from sqlalchemy.orm import Session
 
 from app.brain.memory import PersistentMemory
 from app.models.models import Memory
+from app.obsidian.exporter import _recover_vault_path
 from app.obsidian.importer import ImportStats, ObsidianImporter
 
 logger = logging.getLogger("sexta-feira.obsidian.watcher")
@@ -69,12 +71,52 @@ class ObsidianWatcher:
         self._running = False
         self.stats = WatcherStats()
 
+    def _seed_cache_from_db(self, db: Session, owner_id: str) -> None:
+        """Prime the mtime cache from what the DB already knows was imported,
+        so the first poll after a restart only treats genuinely new or
+        changed files as new or changed.
+
+        A file's on-disk mtime is trusted as "already synced" only when it is
+        NOT newer than the row's own last write (`Memory.updated_at`) — a
+        file touched AFTER we last imported it is genuinely stale, and must
+        fall through to the normal new/modified handling on this first poll,
+        same as it would on any later one. Both sides compare as naive UTC:
+        SQLite round-trips DateTime columns without tzinfo, so an aware
+        `_now()`-derived value never actually attached to the row we read
+        back (see the same pattern in agent/pulse.py::_scan).
+        """
+        rows = (
+            db.query(Memory)
+            .filter(Memory.owner_id == owner_id, Memory.source == "obsidian")
+            .all()
+        )
+        for mem in rows:
+            path = _recover_vault_path(mem.content)
+            if not path:
+                continue
+            try:
+                disk_mtime = Path(path).stat().st_mtime
+            except OSError:
+                continue  # gone from disk; the delete-detection path handles it once seeded
+            disk_modified_at = datetime.fromtimestamp(disk_mtime, tz=UTC).replace(tzinfo=None)
+            if mem.updated_at and disk_modified_at <= mem.updated_at:
+                self._mtime_cache[str(Path(path).resolve())] = disk_mtime
+
     async def poll(self, db: Session, owner_id: str, vault_path: str) -> None:
         """Single poll cycle: detect changes and sync them."""
         vault = Path(vault_path).resolve()
         if not vault.is_dir():
             logger.warning("Vault path does not exist, skipping poll: %s", vault)
             return
+
+        if not self._mtime_cache:
+            # First poll since this ObsidianWatcher was built — which is
+            # every kernel boot, since the cache lives only in this
+            # process's memory. Left empty, every file in the vault looks
+            # "new" below, so a plain restart re-imported (and re-embedded
+            # — one brain.embed() call per note) the WHOLE vault, every
+            # time, even when nothing had changed since the last run.
+            self._seed_cache_from_db(db, owner_id)
 
         self.stats.last_poll = time.time()
         current_files: dict[str, float] = {}

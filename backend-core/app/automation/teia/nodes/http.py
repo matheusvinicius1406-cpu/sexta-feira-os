@@ -16,6 +16,7 @@ from pydantic import BaseModel, Field
 from app.automation.teia.domain.execution import NodeInput, NodeOutput
 from app.automation.teia.domain.node import Node, NodeMetadata
 from app.core.config import settings
+from app.core.netguard import guarded_request
 
 
 class _HttpConfig(BaseModel):
@@ -45,15 +46,32 @@ class HttpRequestNode(Node):
         cfg = self.config
         timeout = cfg.timeout_segundos or settings.teia_http_timeout_seconds
 
-        async with httpx.AsyncClient(timeout=timeout, follow_redirects=True) as client:
+        # netguard validates the FINAL url (placeholders already resolved here)
+        # and every redirect hop. An automation cannot reach internal services
+        # through this node — that was a live SSRF in the 2026-08 audit.
+        async with httpx.AsyncClient(timeout=timeout) as client:
             try:
-                response = await client.request(
-                    cfg.metodo,
-                    cfg.url,
+                response = await guarded_request(
+                    client, cfg.metodo, cfg.url,
                     headers=cfg.cabecalhos or None,
                     params=cfg.query or None,
                     json=cfg.corpo if cfg.corpo is not None else None,
                 )
+            except ValueError as e:
+                # netguard refused an internal/private destination — the URL
+                # came from automation data, a webhook payload or the LLM, so
+                # this is an SSRF probe. Record it and fail closed.
+                try:
+                    with context.session() as db:
+                        from app.core.threats import record_threat_sync
+
+                        record_threat_sync(
+                            db, "ssrf",
+                            f"destino interno bloqueado pelo netguard: {e}",
+                        )
+                except Exception:  # noqa: BLE001 — never mask the original error
+                    pass
+                raise RuntimeError(str(e)) from e
             except httpx.RequestError as e:
                 raise RuntimeError(f"falha de rede em {cfg.metodo} {cfg.url}: {e}") from e
 

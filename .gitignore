@@ -47,6 +47,9 @@ venv/
 # ── Environment ───────────────────────────────────
 .env
 *.local
+# Cofre de segredos do kernel (criptografado com DPAPI do usuário) — estado da
+# máquina, nunca fonte.
+.secrets.enc
 
 # ── OS ────────────────────────────────────────────
 .DS_Store
@@ -83,3 +86,16 @@ tools/voicebox/backend/data/
 # Workspace das automações: inbox, arquivos que elas escrevem e os backups do
 # banco. É estado da sua máquina, não do repositório.
 backend-core/data/teia/
+
+# ── Kernel DB ─────────────────────────────────────
+# O SQLite do kernel (memórias, conversas, tudo) é estado local do dono,
+# nunca fonte. Estava sendo versionado — cada boot de dev sujava o diff com
+# um binário de megabytes que não é código de ninguém.
+backend-core/data/sexta_feira_os.db
+
+# TypeScript incremental build cache
+*.tsbuildinfo
+
+# Modelos de voz do Piper (.onnx, ~63 MB cada). Baixados sob demanda de
+# huggingface.co/rhasspy/piper-voices; são peso, não fonte.
+backend-core/data/voices/

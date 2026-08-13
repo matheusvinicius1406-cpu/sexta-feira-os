@@ -33,8 +33,18 @@ class JournalService:
         self.extractor = extractor  # MemoryExtractor | None (best-effort distillation)
 
     async def add(
-        self, db: Session, owner_id: str, content: str, mood: str | None = None
+        self, db: Session, owner_id: str, content: str, mood: str | None = None,
+        distil: bool = True,
     ) -> JournalEntry:
+        """`distil=False` skips the MemoryExtractor pass entirely.
+
+        Used by the kernel's own entries about itself (the Pulse's diary line,
+        e.g. "Pulse — objetivo 'x' vence em 3h") — those are a log of what the
+        AGENT did, not a durable fact about the OWNER, and extracting from them
+        anyway used to cost a full inference (plus, pre-Step-4, up to three
+        more for relation labels) on every tick that merely noticed something,
+        not just the ones that acted.
+        """
         content = (content or "").strip()
         if not content:
             raise ValueError("journal entry needs content")
@@ -48,7 +58,7 @@ class JournalService:
             await self.events.publish(
                 db, owner_id, "diario.registrado", {"mood": mood}, source="journal",
             )
-        if self.extractor:
+        if self.extractor and distil:
             try:  # a failed distillation never breaks the entry
                 await self.extractor.extract(db, owner_id, content, "")
             except Exception as e:  # noqa: BLE001
