@@ -39,9 +39,9 @@ def _recover_inline_tool_calls(content: str) -> tuple[list[dict], str]:
     """Pull tool calls a model wrote as text out of its own answer.
 
     Ollama exposes tool calls in a structured `tool_calls` field, but a small
-    model does not always cooperate: qwen2.5:3b regularly writes the ChatML
-    markup into `content` instead. The structured field is then empty, the
-    caller concludes "no tools wanted", and hands the raw
+    model does not always cooperate: it can write the ChatML markup into
+    `content` instead of the structured field. The structured field is then
+    empty, the caller concludes "no tools wanted", and hands the raw
     `<tool_call>{"name": "remember_about_me", ...}` to the owner as the reply.
 
     Returns the recovered calls (in Ollama's own shape, so the caller cannot
@@ -303,10 +303,11 @@ class Cognition:
             content = msg.get("content", "")
             if not tool_calls and tools:
                 # Small models sometimes emit the call as TEXT instead of using
-                # the structured field — qwen2.5 writes a literal
-                # `<tool_call>{"name": ...}</tool_call>`. Returned as-is, that
-                # markup lands on screen as the assistant's answer, which is how
-                # a reply became `<tool_call>\n{"name": "remember_about_me"...`.
+                # the structured field — a literal
+                # `<tool_call>{"name": ...}</tool_call>` lands in `content`.
+                # Returned as-is, that markup would land on screen as the
+                # assistant's answer: a reply became `<tool_call>\n{"name":
+                # "remember_about_me"...`.
                 tool_calls, content = _recover_inline_tool_calls(content)
             if not tool_calls:
                 return content

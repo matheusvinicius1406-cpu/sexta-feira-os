@@ -38,6 +38,7 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Lightbulb
 import androidx.compose.material.icons.filled.Memory
 import androidx.compose.material.icons.filled.Search
@@ -56,6 +57,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.SuggestionChip
 import androidx.compose.material3.SuggestionChipDefaults
 import androidx.compose.material3.Text
@@ -281,19 +284,18 @@ private fun SearchAndAddBar(
                 },
                 label = { Text("Fatos", fontSize = 12.sp) },
                 shape = RoundedCornerShape(20.dp),
-            )                            SuggestionChip(
-                                onClick = { viewModel.onSearchQueryChanged("preferência"); viewModel.search() },
-                                label = { Text("Preferências", fontSize = 12.sp) },
-                                shape = RoundedCornerShape(20.dp),
-                            )
-                        }
-
-                        // Graph view chip
-                        SuggestionChip(
-                            onClick = { navController.navigate(Route.MemoryGraph.route) },
-                            label = { Text("Grafo", fontSize = 12.sp) },
-                            shape = RoundedCornerShape(20.dp),
-                        )
+            )
+            SuggestionChip(
+                onClick = { viewModel.onSearchQueryChanged("preferência"); viewModel.search() },
+                label = { Text("Preferências", fontSize = 12.sp) },
+                shape = RoundedCornerShape(20.dp),
+            )
+            // Graph view chip
+            SuggestionChip(
+                onClick = { navController.navigate(Route.MemoryGraph.route) },
+                label = { Text("Grafo", fontSize = 12.sp) },
+                shape = RoundedCornerShape(20.dp),
+            )
         }
 
         // Teach dialog
@@ -699,21 +701,23 @@ private fun MemoryDetailView(
                                 )
                             }
                         }
-                    }                        Divider(
-                            modifier = Modifier.padding(vertical = 12.dp),
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.08f),
-                            thickness = 0.5.dp,
-                        )
+                    }
 
-                        // Content
-                        Text(
-                            text = memory.content ?: "(sem conteúdo)",
-                            fontSize = 14.sp,
-                            color = MaterialTheme.colorScheme.onSurface,
-                            lineHeight = 22.sp,
-                        )
+                    Divider(
+                        modifier = Modifier.padding(vertical = 12.dp),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.08f),
+                        thickness = 0.5.dp,
+                    )
 
-                        Divider(
+                    // Content
+                    Text(
+                        text = memory.content ?: "(sem conteúdo)",
+                        fontSize = 14.sp,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        lineHeight = 22.sp,
+                    )
+
+                    Divider(
                         modifier = Modifier.padding(vertical = 12.dp),
                         color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.08f),
                     )
@@ -861,12 +865,12 @@ private fun TeachMemoryDialog(
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
                     kinds.forEach { k ->
-                        SuggestionChip(
+                        FilterChip(
+                            selected = kind == k,
                             onClick = { kind = k },
                             label = { Text(k, fontSize = 11.sp) },
-                            selected = kind == k,
                             shape = RoundedCornerShape(20.dp),
-                            colors = SuggestionChipDefaults.suggestionChipColors(
+                            colors = FilterChipDefaults.filterChipColors(
                                 selectedContainerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
                                 selectedLabelColor = MaterialTheme.colorScheme.primary,
                             ),

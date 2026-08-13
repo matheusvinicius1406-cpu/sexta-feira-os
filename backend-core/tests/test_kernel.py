@@ -409,8 +409,10 @@ def test_action_websocket_live_delivery(client, owner_headers):
                     headers=owner_headers)
     cmd_id = r.json()["command_id"]
 
-    # Device connects: receives the backlog command, then reports its result.
+    # Device connects: hello first, then the backlog command, then reports.
     with client.websocket_connect(f"/api/v1/actions/stream?token={dtoken}") as ws:
+        hello = ws.receive_json()
+        assert hello["type"] == "hello"
         msg = ws.receive_json()
         assert msg["type"] == "command" and msg["id"] == cmd_id and msg["action"] == "navigate"
         ws.send_json({"type": "result", "id": cmd_id, "status": "done", "result": {"ok": True}})

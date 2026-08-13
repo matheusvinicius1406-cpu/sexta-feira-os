@@ -60,7 +60,7 @@ modelo, ciente de que volta a haver dois residentes.
 ```bash
 # 1. Ollama (o cérebro local) — instala e roda 100% na sua máquina
 curl -fsSL https://ollama.com/install.sh | sh
-ollama pull qwen3-vl:4b        # conversa + ferramentas + visão (3.3 GB)
+ollama pull qwen3-vl:2b        # conversa + ferramentas + visão (1.9 GB)
 ollama pull nomic-embed-text   # embeddings da memória (274 MB)
 
 # 2. Kernel

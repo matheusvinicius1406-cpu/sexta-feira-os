@@ -10,40 +10,40 @@ data class LoginRequest(
 )
 
 data class TokenResponse(
-    @SerializedName("access_token") val accessToken: String,
-    @SerializedName("token_type") val tokenType: String = "bearer",
-    @SerializedName("owner_id") val ownerId: String,
+    @field:SerializedName("access_token") val accessToken: String,
+    @field:SerializedName("token_type") val tokenType: String = "bearer",
+    @field:SerializedName("owner_id") val ownerId: String,
 )
 
 data class PairRequest(
-    @SerializedName("pairing_code") val pairingCode: String,
-    @SerializedName("device_name") val deviceName: String,
-    @SerializedName("device_kind") val deviceKind: String = "phone",
+    @field:SerializedName("pairing_code") val pairingCode: String,
+    @field:SerializedName("device_name") val deviceName: String,
+    @field:SerializedName("device_kind") val deviceKind: String = "phone",
 )
 
 data class PairResponse(
-    @SerializedName("device_token") val deviceToken: String,
-    @SerializedName("device_id") val deviceId: String,
+    @field:SerializedName("device_token") val deviceToken: String,
+    @field:SerializedName("device_id") val deviceId: String,
 )
 
 // ── Chat ────────────────────────────────────────────────
 
 data class ChatRequest(
     val message: String,
-    @SerializedName("conversation_id") val conversationId: String? = null,
-    @SerializedName("device_id") val deviceId: String? = null,
+    @field:SerializedName("conversation_id") val conversationId: String? = null,
+    @field:SerializedName("device_id") val deviceId: String? = null,
 )
 
 data class ChatResponse(
     val reply: String,
-    @SerializedName("conversation_id") val conversationId: String,
+    @field:SerializedName("conversation_id") val conversationId: String,
 )
 
 // ── SSE stream events ──────────────────────────────────
 
 data class StreamChunk(
     val chunk: String? = null,
-    @SerializedName("conversation_id") val conversationId: String? = null,
+    @field:SerializedName("conversation_id") val conversationId: String? = null,
     val done: Boolean? = null,
     val error: String? = null,
 )
@@ -53,8 +53,8 @@ data class StreamChunk(
 data class ConversationSummary(
     val id: String,
     val title: String? = null,
-    @SerializedName("updated_at") val updatedAt: String? = null,
-    @SerializedName("message_count") val messageCount: Int = 0,
+    @field:SerializedName("updated_at") val updatedAt: String? = null,
+    @field:SerializedName("message_count") val messageCount: Int = 0,
 )
 
 data class ConversationDetail(
@@ -66,7 +66,7 @@ data class ConversationDetail(
 data class MessageItem(
     val role: String,
     val content: String,
-    @SerializedName("created_at") val createdAt: String? = null,
+    @field:SerializedName("created_at") val createdAt: String? = null,
 )
 
 // ── Health ──────────────────────────────────────────────
@@ -75,19 +75,19 @@ data class HealthResponse(
     val status: String,
     val app: String? = null,
     val version: String? = null,
-    @SerializedName("brain_online") val brainOnline: Boolean = false,
-    @SerializedName("brain_model") val brainModel: String? = null,
-    @SerializedName("access_mode") val accessMode: String? = null,
+    @field:SerializedName("brain_online") val brainOnline: Boolean = false,
+    @field:SerializedName("brain_model") val brainModel: String? = null,
+    @field:SerializedName("access_mode") val accessMode: String? = null,
     val timestamp: String? = null,
 )
 
 // ── Obsidian ────────────────────────────────────────────
 
 data class ObsidianStatus(
-    @SerializedName("vault_path") val vaultPath: String? = null,
-    @SerializedName("vault_exists") val vaultExists: Boolean = false,
-    @SerializedName("notes_count") val notesCount: Int = 0,
-    @SerializedName("watcher_running") val watcherRunning: Boolean = false,
+    @field:SerializedName("vault_path") val vaultPath: String? = null,
+    @field:SerializedName("vault_exists") val vaultExists: Boolean = false,
+    @field:SerializedName("notes_count") val notesCount: Int = 0,
+    @field:SerializedName("watcher_running") val watcherRunning: Boolean = false,
 )
 
 // ── Device ──────────────────────────────────────────────
@@ -96,8 +96,8 @@ data class DeviceInfo(
     val id: String,
     val name: String,
     val kind: String,
-    @SerializedName("paired_at") val pairedAt: String? = null,
-    @SerializedName("last_seen_at") val lastSeenAt: String? = null,
+    @field:SerializedName("paired_at") val pairedAt: String? = null,
+    @field:SerializedName("last_seen_at") val lastSeenAt: String? = null,
     val revoked: Boolean = false,
 )
 
@@ -111,7 +111,7 @@ data class MemoryItem(
     val kind: String = "fact",
     val importance: Double = 0.5,
     val source: String? = null,
-    @SerializedName("created_at") val createdAt: String? = null,
+    @field:SerializedName("created_at") val createdAt: String? = null,
     val similarity: Double? = null,
 )
 
@@ -127,7 +127,7 @@ data class TeachRequest(
 data class RecallRequest(
     val query: String,
     val networked: Boolean = true,
-    @SerializedName("top_k") val topK: Int? = null,
+    @field:SerializedName("top_k") val topK: Int? = null,
 )
 
 /** Full graph response from GET /api/v1/memory/graph. */
@@ -189,8 +189,8 @@ data class SpeakRequest(
 
 data class VoiceStatusResponse(
     val enabled: Boolean = false,
-    @SerializedName("stt_available") val sttAvailable: Boolean = false,
-    @SerializedName("tts_available") val ttsAvailable: Boolean = false,
+    @field:SerializedName("stt_available") val sttAvailable: Boolean = false,
+    @field:SerializedName("tts_available") val ttsAvailable: Boolean = false,
 )
 
 data class TranscribeResponse(
@@ -201,8 +201,55 @@ data class TranscribeResponse(
 data class VoiceChatResponse(
     val transcript: String,
     val reply: String,
-    @SerializedName("conversation_id") val conversationId: String,
-    @SerializedName("audio_wav_base64") val audioWavBase64: String? = null,
+    @field:SerializedName("conversation_id") val conversationId: String,
+    @field:SerializedName("audio_wav_base64") val audioWavBase64: String? = null,
+)
+
+// ── Security (self-defense dashboard) ───────────────────
+
+data class SecurityAuditResponse(
+    @field:SerializedName("auditado_em") val auditedAt: String? = null,
+    @field:SerializedName("acesso") val access: SecurityAccess? = null,
+    @field:SerializedName("defesas") val defenses: SecurityDefenses? = null,
+    @field:SerializedName("ameacas") val threats: SecurityThreatSummary? = null,
+    @field:SerializedName("recomendacoes") val recommendations: List<String> = emptyList(),
+)
+
+data class SecurityAccess(
+    @field:SerializedName("access_mode") val accessMode: String? = null,
+    @field:SerializedName("auth_dev_bypass") val authDevBypass: Boolean = false,
+)
+
+data class SecurityDefenses(
+    val headers: List<String> = emptyList(),
+    @field:SerializedName("rate_limit") val rateLimit: SecurityRateLimit? = null,
+    val netguard: SecurityNetguard? = null,
+    @field:SerializedName("honeypots_armados") val honeypotsArmed: Int = 0,
+)
+
+data class SecurityRateLimit(
+    @field:SerializedName("max_tentativas") val maxAttempts: Int = 0,
+    @field:SerializedName("lockout_segundos") val lockoutSeconds: Int = 0,
+    @field:SerializedName("ips_bloqueados_agora") val lockedIpsNow: Int = 0,
+)
+
+data class SecurityNetguard(
+    val ativo: Boolean = false,
+    @field:SerializedName("hosts_internos_permitidos") val allowedHosts: List<String> = emptyList(),
+)
+
+data class SecurityThreatSummary(
+    val total: Int = 0,
+    val recentes: List<SecurityThreat> = emptyList(),
+)
+
+data class SecurityThreat(
+    val id: String? = null,
+    val type: String? = null,
+    val detail: String? = null,
+    @field:SerializedName("source_ip") val sourceIp: String? = null,
+    val at: String? = null,
+    val sequence: Int = 0,
 )
 
 // ── Generic Error ───────────────────────────────────────

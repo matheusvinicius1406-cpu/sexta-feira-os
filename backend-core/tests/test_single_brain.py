@@ -31,14 +31,14 @@ from app.kernel.pipeline.steps.core_steps import wanted_models
 # ── who sees ────────────────────────────────────────────────
 
 def test_an_empty_vision_model_means_the_brain_sees():
-    s = Settings(brain_model="qwen3-vl:4b", vision_model="")
-    assert s.vision_model_resolved == "qwen3-vl:4b"
+    s = Settings(brain_model="qwen3-vl:2b", vision_model="")
+    assert s.vision_model_resolved == "qwen3-vl:2b"
     assert s.vision_shares_the_brain
 
 
 def test_a_named_vision_model_still_wins():
     """The escape hatch has to keep working, or this is a lock-in, not a default."""
-    s = Settings(brain_model="qwen3-vl:4b", vision_model="llava:13b")
+    s = Settings(brain_model="qwen3-vl:2b", vision_model="llava:13b")
     assert s.vision_model_resolved == "llava:13b"
     assert not s.vision_shares_the_brain
 
@@ -53,13 +53,13 @@ def test_the_shared_brain_is_held_for_the_brains_keep_alive():
     conversation, it means the next message pays a cold load, which is the exact
     thrash that merging the models was meant to end.
     """
-    s = Settings(brain_model="qwen3-vl:4b", vision_model="",
+    s = Settings(brain_model="qwen3-vl:2b", vision_model="",
                  brain_keep_alive="10m", vision_keep_alive="30s")
     assert s.vision_keep_alive_resolved == "10m"
 
 
 def test_a_separate_vision_model_is_still_evicted_early():
-    s = Settings(brain_model="qwen3-vl:4b", vision_model="llava:7b",
+    s = Settings(brain_model="qwen3-vl:2b", vision_model="llava:7b",
                  brain_keep_alive="10m", vision_keep_alive="30s")
     assert s.vision_keep_alive_resolved == "30s"
 
@@ -68,23 +68,23 @@ def test_a_separate_vision_model_is_still_evicted_early():
 
 def test_one_model_filling_two_roles_is_reported_once(monkeypatch):
     """Otherwise an absent brain prints two warnings and the same pull twice."""
-    s = Settings(brain_model="qwen3-vl:4b", vision_model="", embedding_model="nomic-embed-text")
+    s = Settings(brain_model="qwen3-vl:2b", vision_model="", embedding_model="nomic-embed-text")
     monkeypatch.setattr("app.core.config.settings", s)
 
     wanted = wanted_models()
 
-    assert list(wanted) == ["qwen3-vl:4b", "nomic-embed-text"]
-    assert wanted["qwen3-vl:4b"] == ["conversa e ferramentas", "visão"]
+    assert list(wanted) == ["qwen3-vl:2b", "nomic-embed-text"]
+    assert wanted["qwen3-vl:2b"] == ["conversa e ferramentas", "visão"]
 
 
 def test_a_separate_vision_model_is_asked_for_separately(monkeypatch):
-    s = Settings(brain_model="qwen3-vl:4b", vision_model="llava:7b",
+    s = Settings(brain_model="qwen3-vl:2b", vision_model="llava:7b",
                  embedding_model="nomic-embed-text")
     monkeypatch.setattr("app.core.config.settings", s)
 
     wanted = wanted_models()
 
-    assert wanted["qwen3-vl:4b"] == ["conversa e ferramentas"]
+    assert wanted["qwen3-vl:2b"] == ["conversa e ferramentas"]
     assert wanted["llava:7b"] == ["visão"]
 
 
@@ -121,7 +121,7 @@ def test_no_images_leaves_the_messages_exactly_as_they_were():
 
 # ── the capability probe ────────────────────────────────────
 
-def _brain(handler, model: str = "qwen3-vl:4b") -> LocalBrain:
+def _brain(handler, model: str = "qwen3-vl:2b") -> LocalBrain:
     brain = LocalBrain(model=model)
     brain._client = httpx.AsyncClient(
         transport=httpx.MockTransport(handler), base_url="http://ollama.test"

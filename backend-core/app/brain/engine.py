@@ -2,7 +2,7 @@
 LocalBrain — the ONLY inference backend.
 
 It talks to a local Ollama server (default http://127.0.0.1:11434) for:
-  * reasoning / chat  (settings.brain_model, e.g. qwen3-vl:4b)
+  * reasoning / chat  (settings.brain_model, e.g. qwen3-vl:2b)
   * tool-calling      — the same model, deciding to act
   * seeing            — the same model, handed images inline
   * embeddings        (settings.embedding_model, e.g. nomic-embed-text)
@@ -251,9 +251,8 @@ class LocalBrain:
             400  {"error": "... llava:7b does not support tools"}
 
         which `raise_for_status` turned into an unhandled HTTPStatusError and a
-        500 on /chat. With llava:7b as the sole brain — it is a vision model, and
-        reports capabilities ["completion", "vision"] — that made every chat
-        request fail. So the fallback is real: drop the tools and ask again. The
+        500 on /chat. With a vision-only model as the sole brain — capabilities
+        ["completion", "vision"] — that made every chat request fail. So the fallback is real: drop the tools and ask again. The
         assistant answers without being able to act, which is the honest
         degradation, and the finding is remembered so the failed request is paid
         for once per process rather than on every message.
@@ -275,7 +274,7 @@ class LocalBrain:
         logger.warning(
             "%s não suporta tool-calling; respondendo sem ferramentas. "
             "Para que o Jarvis possa agir, use um modelo com 'tools' "
-            "(ex.: qwen2.5, llama3.1) em BRAIN_MODEL.",
+            "(ex.: qwen3-vl:2b) em BRAIN_MODEL.",
             self.model,
         )
         message = await self._post_chat(messages, None, temperature, max_tokens, images)
@@ -321,7 +320,13 @@ class LocalBrain:
                 # it gets the same one bounded retry with more room, instead of
                 # surfacing Ollama's internal parser crash as our own 500.
                 used = payload["options"]["num_predict"]
-                retry_budget = min(max(used * 3, 900), 2000)
+                # Cap raised 2000->3200 on live evidence: with the full tool
+                # catalog attached, this model needed MORE than 2000 tokens to
+                # finish thinking about even a trivial greeting (measured live,
+                # 2026-08-07) — the old cap meant the retry itself always lost
+                # too. Still finite: a request that needs more than this is
+                # treated as genuinely stuck, not chased forever.
+                retry_budget = min(max(used * 3, 900), 3200)
                 logger.warning(
                     "%s: Ollama 500 (provável tool call truncado em num_predict=%d) "
                     "— retentando com num_predict=%d",
@@ -351,7 +356,14 @@ class LocalBrain:
                     # the retry itself (not just counting attempts) keeps a
                     # single bad turn from becoming an unbounded one.
                     used = payload["options"]["num_predict"]
-                    retry_budget = min(max(used * 3, 900), 2000)
+                    # Cap raised 2000->3200 on live evidence: with the full tool
+                    # catalog attached, this model needed MORE than 2000 tokens
+                    # to finish thinking about even a trivial greeting (measured
+                    # live, 2026-08-07) — the old cap meant the retry itself
+                    # always lost too. Still finite: a request needing more
+                    # than this is treated as genuinely stuck, not chased
+                    # forever.
+                    retry_budget = min(max(used * 3, 900), 3200)
                     logger.info(
                         "retentando %s com num_predict=%d para o raciocínio terminar",
                         self.model, retry_budget,

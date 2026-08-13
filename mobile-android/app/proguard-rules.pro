@@ -1,36 +1,42 @@
 # Proguard rules for Sexta-Feira OS
+#
+# Strategy: obfuscate EVERYTHING except what needs reflection at runtime.
+# R8 keeps manifest-declared components (MainActivity, AgentService) and
+# anything referenced by kept code automatically; the keeps below are only
+# for the pieces that would break if renamed/stripped.
 
-# Keep Compose
+# --- Compose (bundled consumer rules + explicit keep for safety) ---
 -keep class androidx.compose.** { *; }
 -keepclasseswithmembernames class androidx.compose.** { *; }
 
-# Keep Retrofit
+# --- Retrofit + OkHttp ---
 -keep class retrofit2.** { *; }
 -keepclasseswithmembers class * {
     @retrofit2.http.* <methods>;
 }
-
-# Keep OkHttp
 -keep class okhttp3.** { *; }
 -keepclasseswithmembers class okhttp3.** { *; }
 
-# Keep Hilt
+# --- Hilt / Dagger (generated code is wired by name via its own consumer rules) ---
 -keep class dagger.hilt.** { *; }
 -keep class com.google.dagger.** { *; }
 
-# Keep model classes
+# --- Gson: model classes are read reflectively by field name ---
 -keep class com.sextafeira.os.data.api.** { *; }
--keep class com.sextafeira.os.domain.model.** { *; }
+-keep class com.sextafeira.os.data.agent.** { *; }
+-keepclassmembers class * {
+    @com.google.gson.annotations.SerializedName <fields>;
+}
 
-# Keep Kotlin metadata
+# --- Core module (shared code, no reflection, but small — keep for stability) ---
+-keep class com.sextafeira.os.core.** { *; }
+
+# --- Kotlin metadata ---
 -keep class kotlin.metadata.** { *; }
 -keepclassmembers class * {
     *** synthesizeObject(...);
 }
 
-# Keep our app code
--keep class com.sextafeira.os.** { *; }
-
-# Preserve line numbers for debugging
+# Line numbers for debugging release crashes (names are still obfuscated)
 -keepattributes SourceFile,LineNumberTable
 -renamesourcefileattribute SourceFile

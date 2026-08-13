@@ -482,7 +482,7 @@ class Optimizer:
                 f"{brain.name} não tem 'tools': o assistente conversa mas não "
                 f"consegue gravar memória, criar meta nem disparar automação."
             )
-            a.append("BRAIN_MODEL=um modelo com 'tools' E 'vision' (qwen3-vl:4b)")
+            a.append("BRAIN_MODEL=um modelo com 'tools' E 'vision' (qwen3-vl:2b)")
 
         # 2b — does it see, and is a second model still being paid for?
         #
@@ -495,7 +495,7 @@ class Optimizer:
                     f"{brain.name} não tem 'vision' e VISION_MODEL está vazio: "
                     f"câmera, OCR e anexos não têm quem os leia."
                 )
-                a.append("BRAIN_MODEL=um modelo com 'vision' (qwen3-vl:4b)")
+                a.append("BRAIN_MODEL=um modelo com 'vision' (qwen3-vl:2b)")
             elif not settings.vision_shares_the_brain and "vision" in brain.capabilities:
                 eyes = next(
                     (m for m in report.models if m.name == settings.vision_model_resolved), None

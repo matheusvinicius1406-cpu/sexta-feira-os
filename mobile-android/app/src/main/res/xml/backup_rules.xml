@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Dados do kernel ficam na máquina do dono (privacidade): nada é incluído
+     no backup da nuvem do Google. -->
+<full-backup-content>
+    <exclude domain="root" path="." />
+</full-backup-content>

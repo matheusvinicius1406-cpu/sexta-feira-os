@@ -1,13 +1,21 @@
 package com.sextafeira.os.viewmodel
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.sextafeira.os.agent.AgentService
+import com.sextafeira.os.data.agent.AgentMonitor
+import com.sextafeira.os.data.agent.AgentSession
+import com.sextafeira.os.data.agent.AgentStatus
 import com.sextafeira.os.data.api.ApiClient
 import com.sextafeira.os.data.api.DeviceInfo
 import com.sextafeira.os.data.api.HealthResponse
 import com.sextafeira.os.data.api.PairRequest
+import com.sextafeira.os.data.api.SecurityAuditResponse
+import com.sextafeira.os.data.api.SecurityThreat
 import com.sextafeira.os.data.api.SextaFeiraApi
 import com.sextafeira.os.data.settings.SettingsRepository
+import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -48,6 +56,17 @@ data class SettingsUiState(
     val voiceEnabled: Boolean = true,
     val memoryEnabled: Boolean = true,
     val automationEnabled: Boolean = true,
+
+    // Agente (mãos)
+    val agentPaired: Boolean = false,
+    val agentEnabled: Boolean = false,
+    val agentStatus: String? = null,
+
+    // Segurança (defesa ativa)
+    val isSecurityLoading: Boolean = false,
+    val securityAudit: SecurityAuditResponse? = null,
+    val securityThreats: List<SecurityThreat> = emptyList(),
+    val securityError: String? = null,
 )
 
 enum class ConnectionStatus {
@@ -64,6 +83,7 @@ class SettingsViewModel @Inject constructor(
     private val settingsRepository: SettingsRepository,
     private val api: SextaFeiraApi,
     private val okHttpClient: OkHttpClient,
+    @ApplicationContext private val context: Context,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(SettingsUiState())
@@ -75,6 +95,24 @@ class SettingsViewModel @Inject constructor(
             val saved = settingsRepository.kernelUrl.first()
             _uiState.update { it.copy(kernelUrl = saved) }
         }
+        // Restore device pairing + follow the agent's live status
+        AgentSession.init(context.applicationContext)
+        viewModelScope.launch {
+            _uiState.update { it.copy(agentPaired = AgentSession.getDeviceToken() != null) }
+        }
+        viewModelScope.launch {
+            AgentMonitor.status.collect { s ->
+                _uiState.update { it.copy(agentStatus = describeAgent(s)) }
+            }
+        }
+    }
+
+    private fun describeAgent(status: AgentStatus?): String? = when (status) {
+        null -> null
+        AgentStatus.Connected -> "conectado ao cérebro"
+        AgentStatus.Reconnecting, AgentStatus.Disconnected -> "reconectando…"
+        AgentStatus.Unpaired -> "sem pareamento — pareie o dispositivo"
+        is AgentStatus.ActionDone -> "executou: ${status.action}"
     }
 
     // ── Kernel URL ────────────────────────────────────────
@@ -175,12 +213,15 @@ class SettingsViewModel @Inject constructor(
                         deviceKind = "phone",
                     )
                 )
+                // This phone is now a BODY: keep the device token for the agent.
+                AgentSession.save(res.deviceToken, res.deviceId)
                 _uiState.update {
                     it.copy(
                         isPairing = false,
                         pairingCode = "",
                         pairingSuccess = "✅ Dispositivo pareado com sucesso!",
                         pairingError = null,
+                        agentPaired = true,
                     )
                 }
                 // Refresh device list after successful pairing
@@ -247,5 +288,64 @@ class SettingsViewModel @Inject constructor(
 
     fun onAutomationEnabledChanged(enabled: Boolean) {
         _uiState.update { it.copy(automationEnabled = enabled) }
+    }
+
+    // ── Agente (mãos) ─────────────────────────────────────
+
+    /** Start/stop the agent foreground service. */
+    fun toggleAgent(enabled: Boolean) {
+        _uiState.update { it.copy(agentEnabled = enabled) }
+        if (enabled) {
+            AgentService.start(context.applicationContext)
+        } else {
+            AgentService.stop(context.applicationContext)
+        }
+    }
+
+    /** User tried to enable the agent before pairing. */
+    fun agentBlocked(message: String) {
+        _uiState.update { it.copy(agentStatus = message, agentEnabled = false) }
+    }
+
+    // ── Segurança (defesa ativa) ────────────────────────
+
+    /** Run the kernel's security audit (posture report) and show it. */
+    fun runSecurityAudit() {
+        _uiState.update { it.copy(isSecurityLoading = true, securityError = null) }
+        viewModelScope.launch {
+            try {
+                val audit = api.securityAudit()
+                _uiState.update {
+                    it.copy(isSecurityLoading = false, securityAudit = audit)
+                }
+            } catch (e: Exception) {
+                _uiState.update {
+                    it.copy(
+                        isSecurityLoading = false,
+                        securityError = "Falha na auditoria: ${e.message ?: "desconhecido"}",
+                    )
+                }
+            }
+        }
+    }
+
+    /** Pull the threat trail — every tripwire that fired. */
+    fun loadSecurityThreats() {
+        _uiState.update { it.copy(isSecurityLoading = true, securityError = null) }
+        viewModelScope.launch {
+            try {
+                val threats = api.securityThreats(limite = 20)
+                _uiState.update {
+                    it.copy(isSecurityLoading = false, securityThreats = threats)
+                }
+            } catch (e: Exception) {
+                _uiState.update {
+                    it.copy(
+                        isSecurityLoading = false,
+                        securityError = "Falha ao buscar ameaças: ${e.message ?: "desconhecido"}",
+                    )
+                }
+            }
+        }
     }
 }

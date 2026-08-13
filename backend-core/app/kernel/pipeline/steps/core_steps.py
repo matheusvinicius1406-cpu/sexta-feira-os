@@ -97,7 +97,7 @@ def model_present(name: str, have: set[str]) -> bool:
     config saying `nomic-embed-text` must match a listed `nomic-embed-text:latest`
     — a plain `in` check calls a present model missing and cries wolf at every
     boot, which is how a real warning gets ignored. The reverse must hold too:
-    `qwen3-vl:4b` is NOT satisfied by having `qwen3-vl:2b` installed.
+    `qwen3-vl:2b` is NOT satisfied by having `qwen3-vl:4b` installed.
     """
     if name in have:
         return True
@@ -110,7 +110,7 @@ def wanted_models() -> dict[str, list[str]]:
     """The models this kernel needs, keyed by name, listing the roles each fills.
 
     Keyed by MODEL, not by role, because one model now fills several: the brain
-    talks, acts and sees. Keyed by role instead, an absent qwen3-vl:4b would be
+    talks, acts and sees. Keyed by role instead, an absent qwen3-vl:2b would be
     reported twice as two separate problems, and a `ollama pull` line would be
     printed twice for the same download.
     """
@@ -149,7 +149,7 @@ async def _report_brain_capabilities(brain) -> None:
         logger.warning(
             "%s não tem 'tools': o Jarvis conversa mas não age — nada de gravar "
             "memória, criar lembrete ou disparar automação. Use um modelo com "
-            "ferramentas (ex.: qwen3-vl:4b) em BRAIN_MODEL.",
+            "ferramentas (ex.: qwen3-vl:2b) em BRAIN_MODEL.",
             settings.brain_model,
         )
     if settings.vision_enabled and settings.vision_shares_the_brain and "vision" not in caps:

@@ -18,7 +18,7 @@ from dotenv import load_dotenv
 # which outrank pydantic's env_file, the backend-core copy silently overrode the
 # canonical one for every key it happened to define. Editing the file the config
 # points at changed nothing, with no error and no log line: the kernel booted on
-# BRAIN_MODEL=llava:7b long after the root .env said otherwise.
+# a BRAIN_MODEL from the other copy long after the root .env said otherwise.
 #
 # So the root file is loaded LAST, with override, and is now genuinely the one
 # that decides. The backend-core copy is still read first, so a key that exists
@@ -30,6 +30,16 @@ _ENV = Path(__file__).resolve().parents[2] / ".env"
 if _LEGACY_ENV.exists():
     load_dotenv(_LEGACY_ENV)
 load_dotenv(_ENV, override=True)
+
+# The master credentials (JWT_SECRET_KEY, VAULT_KEY, OWNER_PASSWORD,
+# DEVICE_PAIRING_CODE) live in an OS-encrypted store (Windows DPAPI), NOT in
+# the plaintext .env. This MUST run before Settings is built below — it feeds
+# the values into os.environ so pydantic picks them up exactly as if they had
+# come from .env, and on first run it migrates the plaintext copies into the
+# store. See app/core/secrets.py.
+from app.core.secrets import ensure_secrets_loaded  # noqa: E402
+
+ensure_secrets_loaded()
 
 import logging  # noqa: E402
 
@@ -57,6 +67,7 @@ from app.api.routers import (  # noqa: E402
     pulse,
     radio,
     schedule,
+    security,
     system,
     timetrack,
     vision,
@@ -65,15 +76,30 @@ from app.api.routers import (  # noqa: E402
 )
 from app.core.config import settings  # noqa: E402
 from app.core.di import get_kernel  # noqa: E402
+from app.core.security import (  # noqa: E402
+    HostGuardMiddleware,
+    RedactingFormatter,
+    SecurityHeadersMiddleware,
+)
 from app.db.migrations import run_migrations  # noqa: E402
 
 logging.basicConfig(level=settings.log_level)
+# Every handler this process owns redacts credential query params before the
+# line hits disk/console — the access log prints ?token=... in full otherwise.
+for handler in logging.root.handlers:
+    handler.setFormatter(RedactingFormatter())
 logger = logging.getLogger("sexta-feira")
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("🚀 %s v%s (access=%s)", settings.app_name, settings.app_version, settings.access_mode)
+    if settings.auth_dev_bypass:
+        logger.warning(
+            "⚠️ AUTH_DEV_BYPASS está LIGADO: qualquer processo nesta máquina lê o kernel "
+            "sem token (memórias, diário, automações). O HUD já autentica sozinho — "
+            "desligue a flag no .env a menos que tenha um motivo concreto."
+        )
     run_migrations()  # bring the schema up to date (versioned, Alembic)
     await get_kernel().start()
 
@@ -110,6 +136,11 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+# Hardened browser-facing headers (CSP, nosniff, frame/ref/policy). Added AFTER
+# CORS so it wraps everything.
+app.add_middleware(SecurityHeadersMiddleware)
+# Anti-DNS-rebinding: only enforced while the dev auth bypass is on.
+app.add_middleware(HostGuardMiddleware)
 
 app.include_router(health.router)
 app.include_router(auth.router)
@@ -130,6 +161,7 @@ app.include_router(radio.router)
 app.include_router(automation.router)
 app.include_router(action.router)
 app.include_router(schedule.router)
+app.include_router(security.router)
 app.include_router(connectors.router)
 app.include_router(vision.router)
 app.include_router(obsidian.router)
@@ -149,6 +181,43 @@ async def root():
     }
 
 
+# uvicorn's stock access log prints the full request line — including the
+# device JWT the action WebSocket carries in ?token=... Swap in the redacting
+# formatters so no token ever reaches the log.
+_UVICORN_LOG_CONFIG = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "default": {
+            "()": "app.core.security.RedactingDefaultFormatter",
+            "fmt": "%(levelprefix)s %(message)s",
+            "use_colors": None,
+        },
+        "access": {
+            "()": "app.core.security.RedactingAccessFormatter",
+            "fmt": '%(levelprefix)s %(client_addr)s - "%(request_line)s" %(status_code)s',
+        },
+    },
+    "handlers": {
+        "default": {
+            "formatter": "default",
+            "class": "logging.StreamHandler",
+            "stream": "ext://sys.stderr",
+        },
+        "access": {
+            "formatter": "access",
+            "class": "logging.StreamHandler",
+            "stream": "ext://sys.stdout",
+        },
+    },
+    "loggers": {
+        "uvicorn": {"handlers": ["default"], "level": "INFO", "propagate": False},
+        "uvicorn.error": {"level": "INFO"},
+        "uvicorn.access": {"handlers": ["access"], "level": "INFO", "propagate": False},
+    },
+}
+
+
 if __name__ == "__main__":
     import uvicorn
 
@@ -157,4 +226,5 @@ if __name__ == "__main__":
         host=settings.backend_host,
         port=settings.backend_port,
         reload=settings.debug,
+        log_config=_UVICORN_LOG_CONFIG,
     )

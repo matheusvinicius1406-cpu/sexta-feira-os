@@ -140,7 +140,7 @@ globalThis.CanvasRenderingContext2D.prototype.createConicGradient = function () 
  */
 const HEALTH = {
   status: 'ok', app: 'Sexta-Feira OS', version: '1.0.0-kernel',
-  brain_online: true, brain_model: 'llava:7b', access_mode: 'loopback',
+  brain_online: true, brain_model: 'qwen3-vl:2b', access_mode: 'loopback',
 }
 const GOAL = { id: 'g1', title: 'Meta', status: 'active', progress: 0.4, due_at: null }
 const MEMO = { id: 'm1', title: 'Nota', content: 'conteúdo', kind: 'fact' }
@@ -180,7 +180,7 @@ const ROUTES = {
   '/voice/status': { enabled: true, stt: 'whisper', tts: 'piper' },
   '/voice/packs': [{ name: 'jarvis', description: 'voz padrão' }],
   '/voice/personality': { greeting: 'Às ordens.' },
-  '/vision/status': { available: true, model: 'llava:7b' },
+  '/vision/status': { available: true, model: 'qwen3-vl:2b' },
   '/evals/cases': [], '/evals/runs': [],
   '/learning': [], '/learning/stats': { total: 0 },
   '/journal': [], '/habits': [], '/time/summary': {},

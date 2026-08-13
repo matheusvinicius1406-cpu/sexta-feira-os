@@ -5,10 +5,17 @@ Auth — single owner + device pairing. No open registration.
   POST /api/v1/auth/devices/pair   -> pair a new body (phone/car/glasses/watch)
   GET  /api/v1/auth/devices        -> list paired devices
   POST /api/v1/auth/devices/{id}/revoke
+
+/login and /devices/pair are the ONLY routes reachable without a token, so
+they are the only ones worth throttling: a sliding failure window per source
+IP with lockout (HTTP 429 + Retry-After) after a handful of misses — see
+app/core/rate_limit.py. Both also run a constant-time password/code check so
+response TIMING cannot be used to tell a real account from a fake one.
 """
+import hmac
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
@@ -16,11 +23,21 @@ from app.auth.jwt import (
     create_device_token,
     create_owner_token,
     get_current_owner,
+    hash_password,
     verify_password,
 )
 from app.core.config import settings
+from app.core.rate_limit import client_ip, throttle
+from app.core.threats import record_threat_sync
 from app.db.database import get_db
 from app.models.models import Device, Owner
+
+# Argon2 is intentionally slow; a dummy verify keeps the cost identical when
+# the email does not exist, so an attacker cannot measure "unknown email" vs
+# "wrong password" in login latency. Computed once at import with the same
+# context that made the real hashes — guaranteed valid and same cost.
+_DUMMY_HASH = hash_password("senha-de-email-inexistente")
+
 
 router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
 
@@ -48,20 +65,49 @@ class PairResponse(BaseModel):
 
 
 @router.post("/login", response_model=TokenResponse)
-async def login(body: LoginRequest, db: Session = Depends(get_db)):
+async def login(body: LoginRequest, request: Request, db: Session = Depends(get_db)):
+    key = client_ip(request)
+    locked = throttle.remaining_lockout(key)
+    if locked:
+        # Tripwire: a locked IP keeps knocking — that is an attacker, not a typo.
+        record_threat_sync(db, "brute-force", "lockout de login (IP " + key + ")", source_ip=key)
+        raise HTTPException(
+            status.HTTP_429_TOO_MANY_REQUESTS,
+            f"Muitas tentativas de login. Tente novamente em {locked}s.",
+            headers={"Retry-After": str(locked)},
+        )
     owner = db.query(Owner).filter(Owner.email == body.email).first()
-    if not owner or not verify_password(body.password, owner.hashed_password):
+    # Constant-time: verify against a dummy hash when the email is unknown so
+    # the latency is the same either way (see _DUMMY_HASH above).
+    ok = bool(owner) and verify_password(body.password, owner.hashed_password)
+    if not owner:
+        verify_password(body.password, _DUMMY_HASH)
+    if not ok:
+        throttle.register_failure(key)
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Credenciais inválidas")
+    throttle.reset(key)
     return TokenResponse(access_token=create_owner_token(owner.id), owner_id=owner.id)
 
 
 @router.post("/devices/pair", response_model=PairResponse)
-async def pair_device(body: PairRequest, db: Session = Depends(get_db)):
+async def pair_device(body: PairRequest, request: Request, db: Session = Depends(get_db)):
     """Pair a trusted body using the owner-set pairing code."""
+    key = client_ip(request)
+    locked = throttle.remaining_lockout(key)
+    if locked:
+        record_threat_sync(db, "brute-force", "lockout de pareamento (IP " + key + ")", source_ip=key)
+        raise HTTPException(
+            status.HTTP_429_TOO_MANY_REQUESTS,
+            f"Muitas tentativas de pareamento. Tente novamente em {locked}s.",
+            headers={"Retry-After": str(locked)},
+        )
     if not settings.device_pairing_code:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Pareamento desativado (defina DEVICE_PAIRING_CODE)")
-    if body.pairing_code != settings.device_pairing_code:
+    # Constant-time comparison — timing must not leak how much of the code matches.
+    if not hmac.compare_digest(body.pairing_code, settings.device_pairing_code):
+        throttle.register_failure(key)
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Código de pareamento inválido")
+    throttle.reset(key)
     owner = db.query(Owner).first()
     if not owner:
         raise HTTPException(status.HTTP_409_CONFLICT, "Nenhum dono configurado ainda")

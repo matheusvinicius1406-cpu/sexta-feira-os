@@ -11,6 +11,8 @@ import re
 
 import httpx
 
+from app.core.netguard import validate_outbound_url
+
 logger = logging.getLogger("sexta-feira.websearch")
 
 # DuckDuckGo HTML search (no API key needed)
@@ -178,6 +180,10 @@ class WebSearch:
             }
         """
         try:
+            # netguard: the brain must not be a proxy into the private network.
+            # Search results are attacker-influenceable, and this tool decides
+            # on its own which of them to fetch — the URL is validated first.
+            validate_outbound_url(url, reason="fetch_page")
             response = await self._client.get(url)
             response.raise_for_status()
             html = response.text

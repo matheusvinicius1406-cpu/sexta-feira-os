@@ -126,17 +126,18 @@ class Settings(BaseSettings):
     #   * qwen2.5:3b could call tools but was blind.
     #   * llava:7b could see but reports ["completion", "vision"] with NO
     #     "tools", so it refused every tool-calling request outright.
-    # Two models meant two residents on a 12 GB box, and Ollama evicts one to
-    # load the other — a single camera frame pushed the chat model out of RAM
-    # and the next message paid a cold load. Worse, no turn could ever look at
-    # an image AND act on what it saw: those were different models, and only
-    # one of them had hands.
+    # Two models meant two residents evicting each other from RAM — a single
+    # camera frame pushed the chat model out and the next message paid a cold
+    # load. Worse, no turn could ever look at an image AND act on what it saw:
+    # those were different models, and only one of them had hands.
     #
-    # qwen3-vl:4b reports ["completion", "tools", "vision", "thinking"] — the
-    # whole assistant in 3.3 GB. Whatever you put here needs BOTH "tools" and
-    # "vision"; the kernel checks at boot and says so if it doesn't (see
-    # app/kernel/pipeline/steps/core_steps.py).
-    brain_model: str = "qwen3-vl:4b"
+    # qwen3-vl:2b reports ["completion", "tools", "vision", "thinking"] — the
+    # whole assistant in 1.9 GB, and it is the largest size this reference
+    # machine (2 cores / ~12 GB RAM) can actually answer on: the 4b is
+    # measurably better but far too slow on it. Whatever you put here needs
+    # BOTH "tools" and "vision"; the kernel checks at boot and says so if it
+    # doesn't (see app/kernel/pipeline/steps/core_steps.py).
+    brain_model: str = "qwen3-vl:2b"
     # NOT a chat model and not merged into the brain: an embedder turns text
     # into a vector for semantic recall, costs 274 MB, and running that job on
     # a 4B generative model would be slower and worse at it.
@@ -148,22 +149,31 @@ class Settings(BaseSettings):
     brain_thinking: bool = False
     brain_temperature: float = 0.7
     # This is a CEILING on generation (`num_predict`), paid in full whenever the
-    # model doesn't stop on its own — and on CPU it routinely doesn't: measured
-    # on this project's own reference laptop, qwen3-vl generates at ~4.6 tok/s,
-    # so the old default of 2048 meant a WORST-CASE CHAT REPLY of ~7.5 minutes,
-    # every time the model rambled instead of stopping. The client (the HUD's
-    # 600s fetch deadline, or a plain curl) gives up long before that, so the
-    # owner sees "no response" while the kernel is still faithfully generating
-    # token 1,600 of an answer nobody will read. 320 caps the worst case at
-    # roughly a minute on that same hardware while leaving room for a real
-    # paragraph; raise it if your machine is faster or your answers are
-    # getting cut short.
-    brain_max_tokens: int = 320
+    # model doesn't stop on its own — and on CPU it routinely doesn't. The old
+    # default (2048) made a rambling reply take ~7.5 minutes; a first "fix"
+    # to 320 was WORSE — measured directly against Ollama with think:false
+    # (ignored by this model — see brain_thinking below), qwen3-vl spent
+    # 800-1100 tokens on a <think> block before answering EVEN A GREETING,
+    # every single time. 320 didn't shorten the answer, it just guaranteed
+    # the model got cut off mid-thought and returned nothing (see
+    # LocalBrain._post_chat's thinking-retry — that band-aid exists because
+    # of this). 1536 is calibrated with headroom above the measured ~1106
+    # tokens a trivial question needed to actually converge to a real reply
+    # (`done_reason: "stop"`, not "length"). This does not make replies
+    # fast — nothing here can, short of a model that actually stops
+    # thinking when told to — it makes them CORRECT instead of empty.
+    brain_max_tokens: int = 1536
     brain_context_messages: int = 12
     # Agentic tool-calling: let the brain act on its own (remember/recall/automations)
     # during a normal conversation — driven by voice/chat from the phone, no terminal.
     tools_enabled: bool = True
-    tool_max_rounds: int = 4
+    # optimizer.py's own _analyse() has recommended 2 here since it was written
+    # ("cada rodada é uma inferência inteira; em CPU o custo de uma quarta
+    # rodada supera o que ela costuma acrescentar") but the default stayed at
+    # 4 — the finding was never actually applied. On CPU each extra round is
+    # tens of seconds to minutes; 2 still lets the model call a tool, see the
+    # result, and act on it once, which covers the common case.
+    tool_max_rounds: int = 2
     # Sub-agents: the brain can delegate a sub-task to a focused helper that runs
     # on the SAME local model with a RESTRICTED toolset (query/knowledge only by
     # default — irreversible real-world actions stay with the main brain). Local
@@ -323,6 +333,11 @@ class Settings(BaseSettings):
     # HTTP node limits.
     teia_http_timeout_seconds: float = 30.0
     teia_http_max_response_kb: int = 512
+    # Outbound URL firewall (netguard.py): the HTTP node refuses internal
+    # destinations by default — loopback, private/LAN IPs, link-local, cloud
+    # metadata. A host listed here is explicitly allowed (e.g. a home NAS you
+    # want automations to reach). Empty = nothing internal, ever.
+    teia_allowed_outbound_hosts: list[str] = []
     # Where file nodes may read and write. The workspace is always allowed (and
     # created on boot); the Obsidian vault is added when configured.
     teia_workspace: str = str(Path(__file__).resolve().parents[2] / "data" / "teia")

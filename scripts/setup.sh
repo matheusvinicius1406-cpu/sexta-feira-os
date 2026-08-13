@@ -19,7 +19,7 @@ fi
 echo "⬇️  Baixando modelos locais (só desta vez)..."
 # Dois pulls, não três: o cérebro conversa, usa ferramentas E enxerga. Só o
 # modelo de embeddings vive à parte, porque virar texto em vetor é outro ofício.
-ollama pull "${BRAIN_MODEL:-qwen3-vl:4b}"
+ollama pull "${BRAIN_MODEL:-qwen3-vl:2b}"
 ollama pull "${EMBEDDING_MODEL:-nomic-embed-text}"
 
 # 2. Backend

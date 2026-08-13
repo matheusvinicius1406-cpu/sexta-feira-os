@@ -20,7 +20,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-from app.auth.jwt import get_current_owner
+from app.auth.jwt import get_current_owner, get_current_owner_strict
 from app.connectors.service import ConnectorService
 from app.core.di import get_connectors
 from app.db.database import get_db
@@ -76,10 +76,14 @@ async def list_capabilities(
 
 # ---------- secrets (declared before /{name} so 'secrets' isn't captured) ----------
 
+# The secrets vault uses get_current_owner_strict: with the dev auth bypass on,
+# ANY local process can read everything — except here. The owner's API keys are
+# the one thing that must never be readable by a process that did not present a
+# real token.
 @router.post("/secrets")
 async def set_secret(
     body: SecretRequest,
-    owner: Owner = Depends(get_current_owner),
+    owner: Owner = Depends(get_current_owner_strict),
     connectors: ConnectorService = Depends(get_connectors),
     db: Session = Depends(get_db),
 ):
@@ -89,7 +93,7 @@ async def set_secret(
 
 @router.get("/secrets")
 async def list_secrets(
-    owner: Owner = Depends(get_current_owner),
+    owner: Owner = Depends(get_current_owner_strict),
     connectors: ConnectorService = Depends(get_connectors),
     db: Session = Depends(get_db),
 ):
@@ -99,7 +103,7 @@ async def list_secrets(
 @router.delete("/secrets/{secret_name}")
 async def delete_secret(
     secret_name: str,
-    owner: Owner = Depends(get_current_owner),
+    owner: Owner = Depends(get_current_owner_strict),
     connectors: ConnectorService = Depends(get_connectors),
     db: Session = Depends(get_db),
 ):

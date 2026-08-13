@@ -1,8 +1,9 @@
 """
 Tool calls a small model writes as text instead of using the structured field.
 
-Ollama returns tool calls in `message.tool_calls`. qwen2.5:3b does not always
-cooperate: it writes the ChatML markup straight into `content`. The structured
+Ollama returns tool calls in `message.tool_calls`. A small model does not always
+cooperate: it can write the ChatML markup straight into `content` instead of the
+structured field. The structured
 field is then empty, the loop concludes no tool was wanted, and hands the markup
 to the owner as the answer. Observed verbatim on screen:
 

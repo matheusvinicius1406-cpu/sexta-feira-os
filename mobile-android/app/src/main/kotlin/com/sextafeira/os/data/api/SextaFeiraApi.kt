@@ -124,4 +124,16 @@ interface SextaFeiraApi {
 
     @GET("api/v1/connectors")
     suspend fun listConnectors(): List<ConnectorInfo>
+
+    // ── Security (self-defense dashboard) ───────────────
+
+    /** Posture report: which defenses are armed right now. */
+    @GET("api/v1/security/audit")
+    suspend fun securityAudit(): SecurityAuditResponse
+
+    /** The threat audit trail — every tripwire that fired. */
+    @GET("api/v1/security/threats")
+    suspend fun securityThreats(
+        @Query("limite") limite: Int = 20,
+    ): List<SecurityThreat>
 }

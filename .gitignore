@@ -47,6 +47,9 @@ venv/
 # ── Environment ───────────────────────────────────
 .env
 *.local
+# Cofre de segredos do kernel (criptografado com DPAPI do usuário) — estado da
+# máquina, nunca fonte.
+.secrets.enc
 
 # ── OS ────────────────────────────────────────────
 .DS_Store

@@ -161,6 +161,34 @@ def device_from_token(token: str, db: Session) -> Device | None:
     return device
 
 
+def get_current_owner_strict(
+    credentials: HTTPAuthorizationCredentials | None = Depends(security),
+    db: Session = Depends(get_db),
+) -> Owner:
+    """Like `get_current_owner`, but NEVER subject to the dev auth bypass.
+
+    The bypass exists so the local HUD can talk to a loopback kernel without
+    ceremony. Some endpoints hold data sensitive even on that trusted surface
+    (the connector secrets vault — readable by ANY local process the moment
+    the bypass is on). Those endpoints must always demand a real token; this
+    dependency is the difference between "any local program" and "the owner".
+    """
+    if not credentials or not credentials.credentials:
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Authorization token required")
+    payload = decode_token(credentials.credentials)
+    if not payload:
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid or expired token")
+    if payload.get("aud") == "device":
+        device_id = payload.get("device_id")
+        device = db.query(Device).filter(Device.id == device_id).first()
+        if not device or device.revoked:
+            raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Device not paired or revoked")
+    owner = db.query(Owner).filter(Owner.id == payload.get("sub")).first()
+    if not owner or not owner.is_active:
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Owner not found or inactive")
+    return owner
+
+
 def get_current_device(
     credentials: HTTPAuthorizationCredentials | None = Depends(security),
     db: Session = Depends(get_db),

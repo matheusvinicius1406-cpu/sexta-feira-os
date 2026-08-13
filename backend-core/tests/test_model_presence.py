@@ -15,11 +15,11 @@ from __future__ import annotations
 
 from app.kernel.pipeline.steps.core_steps import model_present
 
-INSTALLED = {"qwen3-vl:4b", "nomic-embed-text:latest"}
+INSTALLED = {"qwen3-vl:2b", "nomic-embed-text:latest"}
 
 
 def test_exact_tag_matches():
-    assert model_present("qwen3-vl:4b", INSTALLED)
+    assert model_present("qwen3-vl:2b", INSTALLED)
 
 
 def test_untagged_name_matches_the_installed_tag():
@@ -29,16 +29,16 @@ def test_untagged_name_matches_the_installed_tag():
     right there.
     """
     assert model_present("nomic-embed-text", INSTALLED)
-    assert model_present("qwen3-vl", INSTALLED), "nome sem tag deve casar com qwen3-vl:4b"
+    assert model_present("qwen3-vl", INSTALLED), "nome sem tag deve casar com qwen3-vl:2b"
 
 
 def test_a_different_tag_is_not_a_match():
     """The dangerous false negative: treating any tag as good enough.
 
-    Having qwen3-vl:2b does not mean qwen3-vl:4b is present — the kernel would
+    Having qwen3-vl:4b does not mean qwen3-vl:2b is present — the kernel would
     stay quiet and then fail at the first request with a 404 from Ollama.
     """
-    assert not model_present("qwen3-vl:2b", INSTALLED)
+    assert not model_present("qwen3-vl:4b", INSTALLED)
     assert not model_present("qwen3-vl:8b", INSTALLED)
 
 
@@ -54,5 +54,5 @@ def test_the_models_the_old_split_brain_used_are_no_longer_required():
 
 
 def test_nothing_installed_means_nothing_present():
-    for name in ("qwen3-vl:4b", "nomic-embed-text"):
+    for name in ("qwen3-vl:2b", "nomic-embed-text"):
         assert not model_present(name, set())

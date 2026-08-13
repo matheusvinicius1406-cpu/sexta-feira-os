@@ -77,7 +77,11 @@ def _to_workflow(body: SaveRequest) -> Workflow:
             return Workflow.model_validate(data)
         return Workflow.model_validate(body.definicao)
     except (ValueError, TypeError) as e:
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, f"grafo inválido: {e}") from e
+        # Only the FIRST problem line, truncated — the full pydantic traceback
+        # leaked internal schema details (field paths, library versions) to
+        # anyone who could reach the API.
+        first = str(e).splitlines()[0][:160] if str(e) else "workflow inválido"
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, f"grafo inválido: {first}") from e
 
 
 def _result_or_error(result) -> dict:

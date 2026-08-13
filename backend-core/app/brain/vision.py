@@ -29,16 +29,13 @@ from app.core.config import settings
 logger = logging.getLogger("sexta-feira.vision")
 
 # Last-resort fallback, in priority order: only consulted when the configured
-# model is missing from Ollama. qwen3-vl leads because it is the only family
-# here that also has "tools" — if the kernel has to fall back, it should fall
-# back onto something that could serve as the whole brain.
+# model is missing from Ollama. Only the qwen3-vl family is listed, because it
+# is the only family here that also has "tools" — if the kernel has to fall
+# back, it should fall back onto something that could serve as the whole brain.
 VISION_MODELS = [
+    "qwen3-vl:2b",
     "qwen3-vl:4b",
     "qwen3-vl:8b",
-    "llava:7b",
-    "llava:13b",
-    "bakllava",
-    "moondream",
 ]
 
 # Image processing limits

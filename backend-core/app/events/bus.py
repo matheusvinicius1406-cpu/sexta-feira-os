@@ -56,12 +56,15 @@ class EventBus:
         """Register an in-process subscriber for a type / 'prefix.*' / '*'."""
         self._subs.append((_matcher(pattern), handler, name or pattern))
 
-    async def publish(
-        self, db: Session, owner_id: str, type: str, payload: dict | None = None, *,
-        source: str = "kernel", correlation_id: str | None = None,
-        idempotency_key: str | None = None,
-    ) -> Event:
-        """Persist an event and dispatch it to matching subscribers (deterministic)."""
+    def _persist(
+        self, db: Session, owner_id: str, type: str, payload: dict | None,
+        source: str, correlation_id: str | None, idempotency_key: str | None,
+    ) -> tuple[Event, bool]:
+        """The shared write path: idempotency check, sequence, insert, commit.
+
+        Returns (event, created) — `created=False` means the idempotency key
+        already existed and the event was NOT inserted again.
+        """
         etype = (type or "").strip()
         if not etype:
             raise ValueError("event needs a type")
@@ -73,7 +76,7 @@ class EventBus:
                 .first()
             )
             if existing:
-                return existing  # already handled — do not re-dispatch
+                return existing, False  # already handled — do not re-dispatch
 
         seq = (
             db.query(func.max(Event.sequence)).filter(Event.owner_id == owner_id).scalar() or 0
@@ -87,8 +90,35 @@ class EventBus:
         db.add(ev)
         db.commit()
         db.refresh(ev)
+        return ev, True
 
-        await self._dispatch(db, ev)
+    async def publish(
+        self, db: Session, owner_id: str, type: str, payload: dict | None = None, *,
+        source: str = "kernel", correlation_id: str | None = None,
+        idempotency_key: str | None = None,
+    ) -> Event:
+        """Persist an event and dispatch it to matching subscribers (deterministic)."""
+        ev, created = self._persist(
+            db, owner_id, type, payload, source, correlation_id, idempotency_key
+        )
+        if created:
+            await self._dispatch(db, ev)
+        return ev
+
+    def sync_publish(
+        self, db: Session, owner_id: str, type: str, payload: dict | None = None, *,
+        source: str = "kernel", correlation_id: str | None = None,
+        idempotency_key: str | None = None,
+    ) -> Event:
+        """Persist an event WITHOUT dispatching subscribers.
+
+        For synchronous detection paths (auth lockout, host-guard, the vault)
+        where awaiting subscribers is impossible or pointless — threat.* events
+        have no subscribers; the audit trail is the contract.
+        """
+        ev, _created = self._persist(
+            db, owner_id, type, payload, source, correlation_id, idempotency_key
+        )
         return ev
 
     async def _dispatch(self, db: Session, ev: Event) -> None:
@@ -111,10 +141,21 @@ class EventBus:
     def history(
         self, db: Session, owner_id: str, limit: int = 200, type: str | None = None
     ) -> list[Event]:
-        """The audit trail, most recent first (by sequence)."""
+        """The audit trail, most recent first (by sequence).
+
+        `type` accepts the same patterns as subscribe(): exact, 'prefix.*'
+        (matches the prefix itself too), or '*' (everything). So
+        history(type="threat.*") returns every threat event.
+        """
         q = db.query(Event).filter(Event.owner_id == owner_id)
         if type:
-            q = q.filter(Event.type == type)
+            match = _matcher(type)
+            known = [
+                t for (t,) in db.query(Event.type).distinct().filter(
+                    Event.owner_id == owner_id
+                ).all() if match(t)
+            ]
+            q = q.filter(Event.type.in_(known))
         return q.order_by(Event.sequence.desc()).limit(limit).all()
 
     @staticmethod

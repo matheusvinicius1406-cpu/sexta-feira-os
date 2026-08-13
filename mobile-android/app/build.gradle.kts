@@ -2,8 +2,7 @@ plugins {
     id("com.android.application")
     kotlin("android")
     kotlin("kapt")
-    id("com.google.dagger.hilt.android")
-    kotlin("plugin.serialization")
+    id("com.google.dagger.hilt.android") version "2.47"
 }
 
 android {
@@ -25,7 +24,10 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            // R8: shrink + obfuscate. Anti-engenharia reversa do APK — sem isso,
+            // qualquer um descompila e lê o código inteiro com nomes originais.
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -33,7 +35,7 @@ android {
         }
         debug {
             isMinifyEnabled = false
-            debuggable = true
+            isDebuggable = true
         }
     }
 
@@ -48,6 +50,7 @@ android {
 
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 
     composeOptions {
@@ -84,12 +87,12 @@ dependencies {
     // Navigation
     implementation("androidx.navigation:navigation-compose:2.6.0")
 
-    // Networking - Retrofit + OkHttp
+    // Networking - Retrofit + OkHttp + Gson (usado no DI, nos models e no agente)
     implementation("com.squareup.retrofit2:retrofit:${rootProject.extra.get("retrofitVersion")}")
+    implementation("com.squareup.retrofit2:converter-gson:${rootProject.extra.get("retrofitVersion")}")
+    implementation("com.google.code.gson:gson:2.10.1")
     implementation("com.squareup.okhttp3:okhttp:${rootProject.extra.get("okHttpVersion")}")
     implementation("com.squareup.okhttp3:logging-interceptor:${rootProject.extra.get("okHttpVersion")}")
-    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:${rootProject.extra.get("kotlinSerializationVersion")}")
-    implementation("com.jakewharton.retrofit:retrofit2-kotlinx-serialization-converter:1.0.0")
 
     // Coroutines
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:${rootProject.extra.get("coroutinesVersion")}")

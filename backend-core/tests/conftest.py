@@ -49,6 +49,14 @@ os.environ["DATABASE_URL"] = f"sqlite:////tmp/sexta_test_{uuid.uuid4().hex}.db"
 # that cannot exist so pydantic-settings finds nothing, same as a machine
 # with no .env at all.
 os.environ["SEXTA_ENV_FILE"] = "/nonexistent/sexta-feira-os-test-isolation.env"
+# The encrypted secrets store must never be touched by tests: main.py calls
+# ensure_secrets_loaded() at import, and with OWNER_PASSWORD/DEVICE_PAIRING_CODE
+# set above it would otherwise MIGRATE the test values into the developer's real
+# repo-root .secrets.enc (which is authoritative over .env once it exists).
+# Point it at a temp file; a fresh one per session, discarded with the run.
+os.environ["SEXTA_SECRETS_FILE"] = os.path.join(
+    os.environ.get("TEMP", "/tmp"), f"sexta_test_secrets_{uuid.uuid4().hex}.enc"
+)
 
 # main.py calls load_dotenv(..., override=True) during its own import, which
 # clobbers the isolated env vars set above with whatever the developer's real
@@ -73,6 +81,18 @@ def client():
 
     with TestClient(app) as c:
         yield c
+
+
+@pytest.fixture(autouse=True)
+def _clean_throttle():
+    """The whole suite shares one TestClient, and the login/pair throttle counts
+    failures per source IP — every deliberate 401 in a test would otherwise lock
+    out 127.0.0.1 for the tests that run after it. Reset before each test."""
+    from app.core.rate_limit import throttle
+
+    throttle._failures.clear()
+    yield
+    throttle._failures.clear()
 
 
 @pytest.fixture(scope="session")

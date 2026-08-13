@@ -45,6 +45,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -174,11 +175,13 @@ fun ChatAssistantScreen(
 
         // ── Error ────────────────────────────────────────
         AnimatedVisibility(visible = error != null) {
-            Box(
+            Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .background(MaterialTheme.colorScheme.error)
-                    .padding(12.dp)
+                    .padding(12.dp),
+                verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 Text(
                     text = error ?: "",
@@ -472,6 +475,9 @@ private fun VoiceWaveform(
         min(amplitude / 32767f, 1f)
     }
 
+    // Capturado fora do DrawScope: não dá para ler MaterialTheme dentro do onDraw.
+    val waveColor = MaterialTheme.colorScheme.error
+
     val barCount = 30
     val amplitudes = remember(barCount) { FloatArray(barCount) { 0f } }
 
@@ -492,7 +498,7 @@ private fun VoiceWaveform(
             val actualBarWidth = barWidth * 0.6f
 
             drawRoundRect(
-                color = MaterialTheme.colorScheme.error.copy(
+                color = waveColor.copy(
                     alpha = 0.5f + amp * 0.5f
                 ),
                 topLeft = Offset(x, centerY - barHeight / 2f),
