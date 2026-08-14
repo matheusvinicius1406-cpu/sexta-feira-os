@@ -66,7 +66,7 @@ import * as Api from './api.js'
   const MODULES = [
     { id: "ai",       label: "AI",       icon: "hex",    kids: ["Models","Prompts","Context","Tuning","Evals"] },
     { id: "memory",   label: "Memory",   icon: "layers", kids: ["Recent","Semantic","Episodic","Purge"] },
-    { id: "agents",   label: "Agents",   icon: "nodes",  kids: ["Active","Queue","Registry","Logs","Spawn"] },
+    { id: "agents",   label: "Agents",   icon: "nodes",  kids: ["Pulse","Proposals","Active","Queue","Registry","Logs","Spawn"] },
     { id: "files",    label: "Files",    icon: "folder", kids: ["Recent","Index","Vault","Sync"] },
     { id: "projects", label: "Projects", icon: "grid",   kids: ["Active","Archive","Tasks","Timeline"] },
     { id: "terminal", label: "Terminal", icon: "term",   kids: ["Shell","History","Jobs","SSH"] },
@@ -921,6 +921,51 @@ import * as Api from './api.js'
     const q = raw.trim();
     if (!q) return [];
 
+    // Pulse: rodar um ciclo do agente agora. O relatório do tick é o retorno.
+    if (/^rodar\s+pulse$/i.test(q)) {
+      return [{
+        t: "Rodar ciclo do agente agora", s: "Agent",
+        go: () => Panel.openCustom("Agents · Pulse", async () => {
+          const r = await Api.pulseRun();
+          return {
+            rows: [
+              { k: "Ciclo", v: r.reason ?? "executado" },
+              { k: "Percebeu", v: String((r.noticed ?? []).length) },
+              { k: "Executou", v: String((r.executed ?? []).length) },
+              { k: "Propôs", v: String((r.proposed ?? []).length) },
+              { k: "Pulou", v: String((r.skipped ?? []).length) },
+            ],
+            note: (r.skipped ?? []).join(" · ") || undefined,
+          };
+        }),
+      }];
+    }
+
+    // Portão de confirmação: aprovar/recusar proposta pelo prefixo do id
+    // (o painel Agents · Proposals mostra os 8 primeiros caracteres).
+    const approve = q.match(/^aprovar\s+(\S+)/i);
+    if (approve) {
+      return [{
+        t: `Aprovar proposta ${approve[1]}`, s: "Agent",
+        go: () => Panel.openCustom("Agents · Proposals", async () => {
+          const id = await resolveProposal(approve[1]);
+          const p = await Api.approveProposal(id);
+          return { rows: [{ k: p.title ?? id, v: `aprovada · ${p.status ?? "executada"}` }] };
+        }),
+      }];
+    }
+    const reject = q.match(/^recusar\s+(\S+)/i);
+    if (reject) {
+      return [{
+        t: `Recusar proposta ${reject[1]}`, s: "Agent",
+        go: () => Panel.openCustom("Agents · Proposals", async () => {
+          const id = await resolveProposal(reject[1]);
+          const p = await Api.rejectProposal(id);
+          return { rows: [{ k: p.title ?? id, v: `recusada · ${p.status ?? "rejeitada"}` }] };
+        }),
+      }];
+    }
+
     // Defesa ativa: armar/desarmar honeytokens pelo cofre. O valor-isca nunca
     // importa (é bait — o kernel nunca o devolve), então o HUD gera um.
     const arm = q.match(/^armar\s+honeypot\s+(.+)/i);
@@ -974,6 +1019,14 @@ import * as Api from './api.js'
         };
       }) },
     ];
+  }
+
+  /** Proposta pelo prefixo do id (o painel Agents · Proposals mostra 8 chars). */
+  async function resolveProposal(prefix) {
+    const ps = await Api.proposals();
+    const hit = ps.find(p => String(p.id).toLowerCase().startsWith(prefix.toLowerCase()));
+    if (!hit) throw new Error(`nenhuma proposta começa com "${prefix}"`);
+    return hit.id;
   }
 
   function renderPal(q) {

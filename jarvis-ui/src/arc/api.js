@@ -141,6 +141,16 @@ export const generateBriefing = () => post('/briefing', {}, { timeout: SLOW_TIME
 // ── Scheduling / jobs ────────────────────────────────────────
 export const schedule = () => get('/schedule')
 
+// ── Agent (Pulse) — a iniciativa própria do kernel ───────────
+export const pulseStatus = () => get('/agent/pulse')
+export const pulseRun = () => post('/agent/pulse/run', {}, { timeout: SLOW_TIMEOUT_MS })
+export const proposals = (status) =>
+  get(status ? `/agent/proposals?status=${encodeURIComponent(status)}` : '/agent/proposals')
+export const approveProposal = (id) =>
+  post(`/agent/proposals/${encodeURIComponent(id)}/approve`, {}, { timeout: SLOW_TIMEOUT_MS })
+export const rejectProposal = (id) =>
+  post(`/agent/proposals/${encodeURIComponent(id)}/reject`, {}, { timeout: SLOW_TIMEOUT_MS })
+
 // ── Security (defesa ativa) ──────────────────────────────────
 export const securityAudit = () => get('/security/audit')
 export const securityThreats = (limite = 30) => get(`/security/threats?limite=${limite}`)

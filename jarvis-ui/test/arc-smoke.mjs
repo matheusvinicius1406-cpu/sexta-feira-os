@@ -164,6 +164,14 @@ const ROUTES = {
   '/world': [], '/world/profile': [],
   '/events': [EVENT],
   '/directors': [{ name: 'engenharia', role: 'Engenharia', mandate: 'cuidar do código' }],
+  '/agent/pulse': {
+    enabled: true,
+    last_report: { reason: 'heartbeat', noticed: [], executed: [], proposed: [], skipped: [] },
+    pending_proposals: 1,
+  },
+  '/agent/proposals': [
+    { id: 'p1', kind: 'acao', status: 'pending', title: 'Enviar lembrete', reason: 'o dono pediu', tool: 'notify', created_at: '2026-08-14T10:00:00Z' },
+  ],
   '/automations': [{ slug: 'captura-rapida', enabled: true }],
   '/automations/status': { armed: 3, running: 0 },
   '/automations/types': { nodes: ['inicio', 'notificar'], triggers: ['agenda', 'evento'] },

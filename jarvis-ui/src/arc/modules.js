@@ -143,7 +143,41 @@ export const PANELS = {
     }
   },
 
-  // ── Agents: directors + the Teia ───────────────────────────
+  // ── Agents: directors + the Teia + o Pulse ─────────────────
+  'agents/Pulse': async () => {
+    const p = await api.pulseStatus()
+    if (!p.enabled) {
+      return {
+        rows: [row('Agente', 'desligado')],
+        note: 'AGENT_PULSE_ENABLED=false no .env — ligue para o kernel pensar sozinho',
+      }
+    }
+    const r = p.last_report ?? {}
+    return {
+      rows: [
+        row('Agente', 'ativo'),
+        row('Propostas pendentes', p.pending_proposals ?? 0),
+        row('Último ciclo', r.reason ?? '—'),
+        row('Percebeu', (r.noticed ?? []).length),
+        row('Executou', (r.executed ?? []).length),
+        row('Propôs', (r.proposed ?? []).length),
+        row('Pulou', (r.skipped ?? []).length),
+      ],
+      note: 'rodar um ciclo agora: paleta `rodar pulse`',
+    }
+  },
+  'agents/Proposals': async () => {
+    const ps = await api.proposals()
+    return listing(
+      ps.slice(0, 12),
+      (p) =>
+        row(
+          truncate(p.title ?? p.id, 40),
+          `${p.kind ?? '?'} · ${p.status ?? '?'} · ${String(p.id ?? '').slice(0, 8)}`,
+        ),
+      'nenhuma proposta — o agente não está pedindo nada agora',
+    )
+  },
   'agents/Active': async () => {
     const [ds, st] = await Promise.all([api.directors(), api.automationStatus().catch(() => null)])
     return {
