@@ -25,7 +25,10 @@ from app.models.models import Capability, Secret
 
 logger = logging.getLogger("sexta-feira.connectors")
 
-_TOKEN = re.compile(r"\{(secret:[A-Za-z0-9_\-]+|[A-Za-z0-9_\-]+)\}")
+# O ponto importa: honeytokens têm nome `honeypot.*` — sem o ponto no
+# charset, {secret:honeypot.api_falsa} jamais casava e o tripwire nunca
+# disparava quando a isca era usada (o atacante não era detectado).
+_TOKEN = re.compile(r"\{(secret:[A-Za-z0-9_.\-]+|[A-Za-z0-9_.\-]+)\}")
 
 
 def _now() -> datetime:

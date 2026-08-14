@@ -270,6 +270,38 @@ def test_honeypot_secret_is_bait(client: TestClient, owner_headers):
     assert any("honeypot" in t["type"] for t in r.json())
 
 
+def test_honeypot_fires_when_used_in_capability_template(client: TestClient, owner_headers):
+    """Using the bait in a capability (the attacker path) trips the wire.
+
+    The template token must accept dots in the secret name — honeytokens are
+    named `honeypot.*`, so `{secret:honeypot.api_falsa}` has to resolve to the
+    bait, not fall through as a literal URL. Regression: the charset lacked
+    `.`, the match failed silently, and invoking the capability never recorded
+    the threat.
+    """
+    client.post(
+        "/api/v1/connectors/secrets", headers=owner_headers,
+        json={"name": "honeypot.api_falsa", "value": "sk-isca-que-nunca-sai"},
+    )
+    r = client.post(
+        "/api/v1/connectors", headers=owner_headers,
+        json={
+            "name": "toca_a_isca", "description": "teste", "method": "GET",
+            "url": "http://127.0.0.1:9/{secret:honeypot.api_falsa}",
+        },
+    )
+    assert r.status_code == 200
+
+    r = client.post("/api/v1/connectors/toca_a_isca/call", headers=owner_headers, json={})
+    # A chamada falha (a isca não vaza valor; o host não existe) — o que
+    # importa é que o tripwire disparou e a ameaça ficou no trilho.
+    assert r.status_code == 200
+    assert r.json()["ok"] is False
+
+    r = client.get("/api/v1/security/threats", headers=owner_headers)
+    assert any("honeypot" in t["type"] for t in r.json())
+
+
 def test_security_audit_reports_posture(client: TestClient, owner_headers):
     r = client.get("/api/v1/security/audit", headers=owner_headers)
     assert r.status_code == 200
