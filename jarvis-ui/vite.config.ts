@@ -1,18 +1,14 @@
 import { defineConfig } from 'vite'
-import path from 'path'
 
 /**
  * The ARC HUD is one canvas and two hand-written modules — no framework, no 3D
- * library. The Three.js/R3F chunking that used to live here described the old
- * React interface and now only produced four empty chunks, so it is gone. The
- * whole interface ships in ~21 kB.
+ * library. The whole interface ships in ~21 kB.
+ *
+ * (The React/Three.js interface that used to live here — src/widgets, the 3D
+ * scene, zustand — was removed: nothing referenced its entry point since the
+ * ARC took over index.html. History has it if it ever comes back.)
  */
 export default defineConfig({
-  resolve: {
-    alias: {
-      '@': path.resolve(__dirname, './src'),
-    },
-  },
   build: {
     target: 'esnext',
     minify: 'esbuild',
