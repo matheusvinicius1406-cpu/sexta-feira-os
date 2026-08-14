@@ -377,17 +377,30 @@ export const PANELS = {
 
   // ── Security (defesa ativa) ────────────────────────────────
   'security/Keys': async () => {
-    const ss = await api.secrets()
-    const names = Array.isArray(ss) ? ss : (ss.secrets ?? [])
-    return listing(
-      names,
-      (s) => {
-        const n = typeof s === 'string' ? s : (s.name ?? '—')
-        const isBait = String(n).toLowerCase().startsWith('honeypot.')
-        return row(n, isBait ? '🪤 isca armada — ler dispara alerta' : 'guardado no cofre')
-      },
-      'nenhum segredo guardado — crie um honeypot.* pela paleta: “armar honeypot <nome>”',
-    )
+    // Capabilities (o que o kernel pode chamar) + secrets (nomes do cofre;
+    // valores nunca saem do kernel). A API de secrets responde {"names": [...]}.
+    const [cs, ss] = await Promise.all([
+      api.connectors().catch(() => []),
+      api.secrets().catch(() => ({ names: [] })),
+    ])
+    const names = Array.isArray(ss) ? ss : (ss.names ?? ss.secrets ?? [])
+    const capRows = (cs ?? []).map((c) => row(
+      `${c.method ?? '?'} ${c.name}`,
+      `${c.category ?? 'general'} · ${c.enabled ? 'ativo' : 'desligado'}${(c.params ?? []).length ? ` · ${c.params.length} param(s)` : ''}`,
+    ))
+    const secretRows = names.map((s) => {
+      const n = typeof s === 'string' ? s : (s.name ?? '—')
+      const isBait = String(n).toLowerCase().startsWith('honeypot.')
+      return row(n, isBait ? '🪤 isca armada — ler dispara alerta' : 'guardado no cofre')
+    })
+    return {
+      rows: [...capRows, ...secretRows],
+      note: !capRows.length && !secretRows.length
+        ? 'nenhuma capability nem segredo — arme uma isca pela paleta: “armar honeypot <nome>”'
+        : !secretRows.length
+          ? 'nenhum segredo no cofre — arme uma isca pela paleta: “armar honeypot <nome>”'
+          : undefined,
+    }
   },
   'security/Audit': async () => {
     const a = await api.securityAudit()

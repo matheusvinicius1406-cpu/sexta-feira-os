@@ -193,7 +193,7 @@ const ROUTES = {
       status: 'pending', result: null, error: null, created_at: '2026-08-14T11:00:00Z',
     },
   ],
-  '/connectors/secrets': [{ name: 'OPENWEATHER' }, { name: 'honeypot.api_falsa' }],
+  '/connectors/secrets': { names: ['OPENWEATHER', 'honeypot.api_falsa'] },
   '/security/audit': {
     auditado_em: '2026-08-14T10:00:00Z',
     acesso: { access_mode: 'loopback', auth_dev_bypass: false },
@@ -212,7 +212,12 @@ const ROUTES = {
   '/security/threats': [
     { id: 't1', type: 'threat.honeypot', detail: 'honeypot.api_falsa lido', source_ip: '127.0.0.1', at: '2026-08-14T09:00:00Z' },
   ],
-  '/connectors': [],
+  '/connectors': [
+    {
+      name: 'clima', description: 'tempo por cidade', category: 'general',
+      method: 'GET', enabled: true, params: [{ name: 'cidade', required: true }],
+    },
+  ],
   '/radio/status': {
     enabled: true,
     state: {
