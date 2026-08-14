@@ -15,6 +15,7 @@ para o painel acender.
 
 | Router do kernel | Painéis / leituras no ARC |
 |---|---|
+| `agent` (pulse) | `agents/Pulse` (status + último ciclo) e `agents/Proposals` (portão de confirmação) + paleta `rodar pulse`, `aprovar/recusar <id>` — **2026-08-14** |
 | `auth` | `security/Perms`, `network/Devices` (aparelhos pareados) |
 | `automation` | `agents/*` (status, execuções, tipos, rodar) |
 | `briefing` | `projects/Timeline` (último briefing + gerar) |
@@ -26,6 +27,7 @@ para o painel acender.
 | `health` | `ai/Models`, `network/Nodes`, heartbeat do reator |
 | `memory` | `memory/*` (recentes, grafo, recall via paleta) |
 | `obsidian` | `files/*` (status do vault) |
+| `optimize` | `system/Optimize` + paleta `medir otimização` (probe lento que devolve a linha de `.env`) — **2026-08-14** |
 | `planning` | `projects/*` (metas, quadro) |
 | `schedule` | `terminal/Jobs` (**leitura** — sem criar/cancelar) |
 | `security` | `security/*` completo — Threats/Audit/Keys + paleta `armar/desarmar honeypot` |
@@ -38,8 +40,6 @@ para o painel acender.
 
 | Área | Endpoints do kernel | Valor / como entra |
 |---|---|---|
-| **Agente (Pulse)** | `GET /agent/pulse`, `POST /agent/pulse/run`, `GET /agent/proposals`, `POST /proposals/{id}/approve\|reject` | **Portão de confirmação**: ver o que o agente quer fazer e aprovar/recusar. Entra como sub-item de `Agents` — sem redesenho |
-| **Otimizador** | `GET /optimize`, `POST /optimize/probe\|context\|threads\|embedding-batch\|swap\|full` | Mede a inferência real e **devolve a linha de .env** (o dono decide; nunca escreve). Painel de leitura puro |
 | **Decision** | `GET /decision`, `GET /decision/next`, `GET /decision/{id}` | Por que o kernel escolheu o próximo objetivo (fundamenta o Foco do briefing) |
 | **Rádio** | `GET/POST /radio` (play, youtube, volume, skip…) | Mídia controlada pelo kernel; menor valor imediato |
 | **Ações pendentes** | `GET /actions/pending`, `POST /actions/dispatch`, `POST /actions/{id}/result` | Comandos que o kernel mandou aos corpos + resultados. Casa com `network/Devices` |
@@ -60,10 +60,10 @@ rotas):
 
 Os **12 módulos** do ARC são fixos por design (`docs/design-system/`). Estender
 o desenho radial (novo módulo) é decisão de design; sub-itens em módulos
-existentes não tocam no desenho:
+existentes não tocam no desenho — como já foi feito:
 
-- Pulse → `Agents` (novo sub-item)
-- Otimizador → `System` (novo sub-item)
+- ✅ Pulse → `Agents` (`Pulse` + `Proposals`)
+- ✅ Otimizador → `System` (`Optimize`)
 - Learning → `AI`
 - Time → `System`
 - Journal/Habits → `Files` ou módulo novo
@@ -71,14 +71,12 @@ existentes não tocam no desenho:
 
 ## Ordem sugerida
 
-1. **Pulse/Propostas** — portão de confirmação, alto valor, entra em `Agents` sem redesenho
-2. **Otimizador** — mede e sugere `.env`; painel de leitura puro
-3. **Schedule escrita** — criar/cancelar lembretes do HUD (paleta)
-4. **Journal/Habits + Time** — decidir: painéis ou remover exports mortos
-5. **Decision, Radio, Actions** — leitura; menor valor imediato
+1. **Schedule escrita** — criar/cancelar lembretes do HUD (paleta)
+2. **Journal/Habits + Time** — decidir: painéis ou remover exports mortos
+3. **Decision, Radio, Actions** — leitura; menor valor imediato
 
 ## Verificação
 
-`npm run check` em `jarvis-ui/` (smoke test: 51 submenus com leitura, 51 loaders
+`npm run check` em `jarvis-ui/` (smoke test: 54 submenus com leitura, 54 loaders
 exercitados) — cada rota nova chamada por um loader precisa de stub em
 `test/arc-smoke.mjs`, no shape real do router.
