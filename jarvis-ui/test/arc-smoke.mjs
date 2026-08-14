@@ -111,6 +111,12 @@ globalThis.document = {
 }
 
 globalThis.window = globalThis
+const _storage = new Map()
+globalThis.localStorage = {
+  getItem: (k) => (_storage.has(k) ? _storage.get(k) : null),
+  setItem: (k, v) => _storage.set(k, String(v)),
+  removeItem: (k) => _storage.delete(k),
+}
 globalThis.innerWidth = 1920
 globalThis.innerHeight = 1080
 globalThis.devicePixelRatio = 2

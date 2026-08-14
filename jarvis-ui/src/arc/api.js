@@ -41,7 +41,7 @@ export class KernelError extends Error {
 
   /** What the panel shows. Distinguishes the cases an owner must tell apart. */
   get human() {
-    if (this.status === 401) return 'kernel exigiu autenticação (AUTH_DEV_BYPASS está desligado?)'
+    if (this.status === 401) return 'kernel exigiu um token de dono — paleta: `login <email> <senha>`'
     if (this.status === 403) return 'autenticado, mas sem permissão para isto'
     if (this.status === 404) return 'este kernel não expõe esse recurso'
     if (this.status === 503) return this.detail || 'recurso indisponível neste kernel'
@@ -54,15 +54,38 @@ export class KernelError extends Error {
   }
 }
 
+/**
+ * Owner token for the endpoints that are strict by design (secrets vault,
+ * security posture) — those never accept the dev bypass, so the HUD presents
+ * a real JWT when it has one. Obtained via `login <email> <senha>` in the
+ * palette; kept in localStorage so the owner logs in once per browser.
+ */
+const TOKEN_KEY = 'sf.kernel.token'
+const getToken = () => {
+  try { return localStorage.getItem(TOKEN_KEY) ?? '' } catch { return '' }
+}
+export const setToken = (t) => {
+  try {
+    if (t) localStorage.setItem(TOKEN_KEY, t)
+    else localStorage.removeItem(TOKEN_KEY)
+  } catch { /* headless / storage disabled — session-only */ }
+}
+
+export const login = (email, password) => post('/auth/login', { email, password })
+
+export function hasToken() { return Boolean(getToken()) }
+
 async function request(path, { method = 'GET', body, timeout = TIMEOUT_MS, raw = false } = {}) {
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), timeout)
   try {
     const init = { method, signal: controller.signal, cache: 'no-store' }
+    const token = getToken()
+    if (token) init.headers = { Authorization: `Bearer ${token}` }
     if (body instanceof FormData) {
       init.body = body
     } else if (body !== undefined) {
-      init.headers = { 'Content-Type': 'application/json' }
+      init.headers = { ...(init.headers ?? {}), 'Content-Type': 'application/json' }
       init.body = JSON.stringify(body)
     }
     const res = await fetch(`${API}${path}`, init)

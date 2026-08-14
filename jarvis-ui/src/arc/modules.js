@@ -423,9 +423,11 @@ export const PANELS = {
   },
   'security/Perms': async () => {
     const [ds, h] = await Promise.all([api.devices(), api.health()])
+    const authed = api.hasToken()
     return {
       rows: [
         row('Access mode', h.access_mode),
+        row('Sessão', authed ? 'token de dono presente' : 'sem token — cofre e postura exigem `login <email> <senha>`'),
         row('Aparelhos pareados', ds.length),
         ...ds.map((d) => row(d.name ?? d.id, d.revoked ? 'revogado' : 'ativo')),
       ],

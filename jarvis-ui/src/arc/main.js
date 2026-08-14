@@ -974,6 +974,33 @@ import * as Api from './api.js'
       }];
     }
 
+    // Sessão: o cofre e a postura de segurança exigem um token de dono de
+    // verdade (nunca o bypass). Login guarda o JWT no navegador e toda
+    // request passa a apresentá-lo.
+    const lg = q.match(/^login\s+(\S+)\s+(\S+)/i);
+    if (lg) {
+      return [{
+        t: `Entrar como ${lg[1]}`, s: "Security",
+        go: () => Panel.openCustom("Security · Keys", async () => {
+          const r = await Api.login(lg[1], lg[2]);
+          Api.setToken(r.access_token);
+          return {
+            rows: [{ k: "sessão", v: `autenticado · dono ${(r.owner_id ?? "").slice(0, 8)}` }],
+            note: "o token fica neste navegador até `sair`",
+          };
+        }),
+      }];
+    }
+    if (/^sair$/i.test(q)) {
+      return [{
+        t: "Sair (esquecer token)", s: "Security",
+        go: () => Panel.openCustom("Security · Keys", async () => {
+          Api.setToken("");
+          return { rows: [{ k: "sessão", v: "encerrada — token esquecido" }] };
+        }),
+      }];
+    }
+
     // Actions: mandar um comando a um aparelho pareado.
     // `comandar <aparelho> <ação>` — seletor por nome ou tipo (celular, pc...).
     const cmd = q.match(/^comandar\s+(\S+)\s+(.+)/i);
