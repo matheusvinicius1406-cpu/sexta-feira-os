@@ -72,7 +72,7 @@ import * as Api from './api.js'
     { id: "terminal", label: "Terminal", icon: "term",   kids: ["Shell","History","Jobs","SSH"] },
     { id: "browser",  label: "Browser",  icon: "globe",  kids: ["Tabs","Research","Capture","Marks"] },
     { id: "security", label: "Security", icon: "shield", kids: ["Keys","Audit","Perms","Threats"] },
-    { id: "voice",    label: "Voice",    icon: "wave",   kids: ["Listen","Voices","Phrases","Latency"] },
+    { id: "voice",    label: "Voice",    icon: "wave",   kids: ["Listen","Voices","Phrases","Latency","Radio"] },
     { id: "network",  label: "Network",  icon: "signal", kids: ["Nodes","Traffic","Devices","VPN"] },
     { id: "system",   label: "System",   icon: "chip",   kids: ["CPU","Memory","Disk","Power","Temp","Optimize","Time"] },
     { id: "settings", label: "Settings", icon: "gear",   kids: ["Core","Voice","Theme","About"] },
@@ -920,6 +920,59 @@ import * as Api from './api.js'
   function dynamicCommands(raw) {
     const q = raw.trim();
     if (!q) return [];
+
+    // Rádio: buscar e tocar (primeiro resultado), volume, pular, preset.
+    const play = q.match(/^tocar\s+(.+)/i);
+    if (play) {
+      return [{
+        t: `Tocar: ${play[1].trim().slice(0, 40)}`, s: "Voice",
+        go: () => Panel.openCustom("Voice · Radio", async () => {
+          const r = await Api.radioSearch(play[1].trim());
+          const tracks = r.tracks ?? [];
+          if (!tracks.length) return { rows: [{ k: "tocar", v: "nada encontrado" }] };
+          const first = tracks[0];
+          await Api.radioPlay(first.stream_url
+            ? { url: first.stream_url, name: first.title }
+            : { video_id: first.id, name: first.title });
+          return {
+            rows: tracks.slice(0, 8).map((t) => ({ k: t.title, v: `${t.artist ?? ""} · ${t.stream_type ?? ""}` })),
+            note: `tocando: ${first.title}`,
+          };
+        }),
+      }];
+    }
+    const volume = q.match(/^volume\s+(\d{1,3})$/i);
+    if (volume) {
+      const lvl = Math.max(0, Math.min(100, parseInt(volume[1], 10)));
+      return [{
+        t: `Volume ${lvl}%`, s: "Voice",
+        go: () => Panel.openCustom("Voice · Radio", async () => {
+          await Api.radioVolume(lvl / 100);
+          return { rows: [{ k: "volume", v: `${lvl}%` }] };
+        }),
+      }];
+    }
+    if (/^pular\s+faixa$/i.test(q)) {
+      return [{
+        t: "Pular faixa", s: "Voice",
+        go: () => Panel.openCustom("Voice · Radio", async () => {
+          const r = await Api.radioSkip();
+          const t = r.track;
+          return { rows: [{ k: "pulou", v: t ? `${t.title}${t.artist ? ` — ${t.artist}` : ""}` : "fim da fila" }] };
+        }),
+      }];
+    }
+    const preset = q.match(/^tocar\s+preset\s+(\d+)$/i);
+    if (preset) {
+      return [{
+        t: `Tocar preset ${preset[1]}`, s: "Voice",
+        go: () => Panel.openCustom("Voice · Radio", async () => {
+          const r = await Api.radioPlayPreset(parseInt(preset[1], 10));
+          const t = r.playing;
+          return { rows: [{ k: "preset", v: t ? `${t.title}${t.artist ? ` — ${t.artist}` : ""}` : "tocando" }] };
+        }),
+      }];
+    }
 
     // Decision: o kernel escolhe o que focar agora (ranqueia metas abertas).
     if (/^decidir\s+foco$/i.test(q)) {

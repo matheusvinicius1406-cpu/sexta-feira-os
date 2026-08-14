@@ -203,6 +203,26 @@ const ROUTES = {
     { id: 't1', type: 'threat.honeypot', detail: 'honeypot.api_falsa lido', source_ip: '127.0.0.1', at: '2026-08-14T09:00:00Z' },
   ],
   '/connectors': [],
+  '/radio/status': {
+    enabled: true,
+    state: {
+      current_track: { id: 'radio-antena1', title: 'Antena 1', artist: '', stream_url: 'http://x', stream_type: 'internet_radio', duration: 0, thumbnail: '', has_ads: false, skip_segments: 0 },
+      queue_length: 1,
+      queue_index: 0,
+      is_playing: true,
+      volume: 0.8,
+      shuffle: false,
+      repeat: false,
+      ad_blocker_enabled: true,
+    },
+  },
+  '/radio/queue': {
+    queue: [
+      { id: 'radio-antena1', title: 'Antena 1', artist: '', stream_url: 'http://x', stream_type: 'internet_radio', duration: 0, thumbnail: '', has_ads: false, skip_segments: 0 },
+    ],
+    state: { queue_length: 1 },
+  },
+  '/radio/presets': [{ name: 'Antena 1', url: 'http://x' }],
   '/voice/status': { enabled: true, stt: 'whisper', tts: 'piper' },
   '/voice/packs': [{ name: 'jarvis', description: 'voz padrão' }],
   '/voice/personality': { greeting: 'Às ordens.' },

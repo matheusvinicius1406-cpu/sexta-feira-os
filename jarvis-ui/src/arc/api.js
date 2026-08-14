@@ -144,6 +144,19 @@ export const scheduleCreate = (body) => post('/schedule', body)
 export const scheduleCancel = (id) =>
   request(`/schedule/${encodeURIComponent(id)}`, { method: 'DELETE' })
 
+// ── Radio — mídia tocada pelo kernel ─────────────────────────
+export const radioStatus = () => get('/radio/status')
+export const radioQueue = () => get('/radio/queue')
+export const radioPresets = () => get('/radio/presets')
+export const radioSearch = (query) => post('/radio/search', { query }, { timeout: SLOW_TIMEOUT_MS })
+export const radioPlay = (body) => post('/radio/play', body, { timeout: SLOW_TIMEOUT_MS })
+export const radioSkip = () => post('/radio/skip', {})
+export const radioVolume = (level) => post(`/radio/volume/${level}`, {})
+export const radioPlayPreset = (index) => post(`/radio/presets/${index}`, {}, { timeout: SLOW_TIMEOUT_MS })
+export const radioToggleShuffle = () => post('/radio/shuffle', {})
+export const radioToggleRepeat = () => post('/radio/repeat', {})
+export const radioToggleAdblock = () => post('/radio/adblock', {})
+
 // ── Decision — por que o kernel escolheu o próximo objetivo ─
 export const decisionHistory = () => get('/decision/history')
 // Decide o foco agora (ranqueia metas abertas) — pode custar uma chamada ao cérebro.

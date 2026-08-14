@@ -456,6 +456,27 @@ export const PANELS = {
     rows: [],
     note: 'a latência medida do kernel fica no trilho à direita, em LATENCY',
   }),
+  'voice/Radio': async () => {
+    const [st, qu] = await Promise.all([
+      api.radioStatus().catch(() => null),
+      api.radioQueue().catch(() => ({ queue: [] })),
+    ])
+    const s = st?.state ?? {}
+    const cur = s.current_track
+    const rows = [
+      row('Tocando', cur ? `${cur.title}${cur.artist ? ` — ${cur.artist}` : ''}` : 'nada'),
+      row('Fila', s.queue_length ?? 0),
+      row('Volume', s.volume != null ? `${Math.round(s.volume * 100)}%` : '—'),
+      row('Shuffle', s.shuffle ? 'ligado' : 'desligado'),
+      row('Repeat', s.repeat ? 'ligado' : 'desligado'),
+      row('Adblock', s.ad_blocker_enabled ? 'ligado' : 'desligado'),
+      ...(qu.queue ?? []).slice(0, 6).map((t) => row(t.title, `${t.artist ?? ''} · ${t.stream_type ?? ''}`)),
+    ]
+    return {
+      rows,
+      note: 'tocar: paleta `tocar <busca>` · volume: `volume <0-100>` · `pular faixa` · `tocar preset <n>`',
+    }
+  },
 
   // ── Network ────────────────────────────────────────────────
   'network/Nodes': async () => {
