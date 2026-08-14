@@ -36,7 +36,7 @@ para o painel acender.
 | `planning` | `projects/*` (metas, quadro) |
 | `radio` | `voice/Radio` (faixa atual, fila, volume, shuffle, repeat, adblock) + paleta `tocar <busca>`, `volume <0-100>`, `pular faixa`, `tocar preset <n>` — **2026-08-14** |
 | `schedule` | `terminal/Jobs` + paleta `lembrar <texto> em <n> <min|h|d>` (com `repetir a cada`), `cancelar lembrete <id>` — **2026-08-14** |
-| `security` | `security/*` completo — Threats/Audit/Keys + paleta `armar/desarmar honeypot` |
+| `security` | `security/*` completo — Threats/Audit/Keys + paleta `armar/desarmar honeypot`. **Exige sessão**: cofre e postura são `strict` (nunca aceitam o bypass) — `login <email> <senha>` na paleta guarda o JWT e toda request o apresenta |
 | `system` | `system/*` (CPU, memória, disco, energia, temp) |
 | `timetrack` | `system/Time` (timer aberto + tempo fechado por rótulo) + paleta `iniciar/parar timer <rótulo>` — **2026-08-14** |
 | `vision` | status + câmera (`live.js`) + busca web (`vision/search`) |
