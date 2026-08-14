@@ -16,6 +16,7 @@ para o painel acender.
 | Router do kernel | Painéis / leituras no ARC |
 |---|---|
 | `agent` (pulse) | `agents/Pulse` (status + último ciclo) e `agents/Proposals` (portão de confirmação) + paleta `rodar pulse`, `aprovar/recusar <id>` — **2026-08-14** |
+| `action` | `network/Actions` (histórico de comandos aos corpos: ação, params, aparelho, status, erro, hora) + paleta `comandar <aparelho> <ação>` — **2026-08-14** |
 | `auth` | `security/Perms`, `network/Devices` (aparelhos pareados) |
 | `automation` | `agents/*` (status, execuções, tipos, rodar) |
 | `briefing` | `projects/Timeline` (último briefing + gerar) |
@@ -46,7 +47,6 @@ para o painel acender.
 
 | Área | Endpoints do kernel | Valor / como entra |
 |---|---|---|
-| **Ações pendentes** | `GET /actions/pending`, `POST /actions/dispatch`, `POST /actions/{id}/result` | Comandos que o kernel mandou aos corpos + resultados. Casa com `network/Devices` |
 | **Connectors (capabilities)** | `GET /connectors` (capabilities dos conectores) | Hoje `security/Keys` só mostra secrets; as capabilities vivas ficam de fora |
 
 ## 🟢 Nota de arquitetura
@@ -63,14 +63,15 @@ existentes não tocam no desenho — como já foi feito:
 - ✅ Decision → `Projects` (`Decision`)
 - ✅ Rádio → `Voice` (`Radio`)
 - ✅ Schedule escrita → comando de paleta + `terminal/Jobs`
+- ✅ Actions → `Network` (`Actions`)
 
 ## Ordem sugerida
 
-1. **Actions pendentes** — leitura; último item do mapa (com `/actions/pending` +
-   resultados em `network/Devices`)
+Nenhuma lacuna de router restante — só a leitura de capabilities de conectores
+(`GET /connectors`) como enriquecimento de `security/Keys`.
 
 ## Verificação
 
-`npm run check` em `jarvis-ui/` (smoke test: 60 submenus com leitura, 60 loaders
+`npm run check` em `jarvis-ui/` (smoke test: 61 submenus com leitura, 61 loaders
 exercitados) — cada rota nova chamada por um loader precisa de stub em
 `test/arc-smoke.mjs`, no shape real do router.
