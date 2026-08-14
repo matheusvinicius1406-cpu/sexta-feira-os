@@ -76,3 +76,27 @@ def test_missing_closing_tag_still_recovers():
     """Models truncate the closing tag more often than the JSON."""
     calls, _ = _recover_inline_tool_calls('<tool_call>{"name": "a", "arguments": {}}')
     assert [c["function"]["name"] for c in calls] == ["a"]
+
+
+def test_bare_json_call_is_recovered():
+    """A small model can write the whole call as bare JSON, no tags, no prose."""
+    raw = '{"name": "web_search", "arguments": {"query": "o que é sexta-feira"}}'
+    calls, content = _recover_inline_tool_calls(raw)
+    assert len(calls) == 1
+    assert calls[0]["function"]["name"] == "web_search"
+    assert calls[0]["function"]["arguments"] == {"query": "o que é sexta-feira"}
+    assert content == "", "a chamada não pode sobrar na resposta ao dono"
+
+
+def test_json_question_is_not_treated_as_a_call():
+    """A user asking something that happens to be JSON must not trigger tools."""
+    raw = '{"name": "qual é o nome da capital do Brasil", "arguments": "nenhum"}'
+    calls, content = _recover_inline_tool_calls(raw)
+    assert calls == []
+    assert content == raw
+
+
+def test_bare_json_without_arguments_is_ignored():
+    calls, content = _recover_inline_tool_calls('{"name": "web_search"}')
+    assert calls == []
+    assert content == '{"name": "web_search"}'

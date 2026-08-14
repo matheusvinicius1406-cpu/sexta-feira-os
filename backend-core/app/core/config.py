@@ -167,6 +167,17 @@ class Settings(BaseSettings):
     # Agentic tool-calling: let the brain act on its own (remember/recall/automations)
     # during a normal conversation — driven by voice/chat from the phone, no terminal.
     tools_enabled: bool = True
+    # Restrict the tool catalog the MAIN brain sees in chat. The full catalog is
+    # ~27 schemas (~2000+ tokens), and on a CPU box every one of those tokens is
+    # paid in prefill before the first reply token exists. An empty list means
+    # "everything" (backward compatible); when set, only the named tools are
+    # attached, so the brain keeps searching/acting while the prompt stays small.
+    # Sub-agents have their own list (subagent_allowed_tools) and are unaffected.
+    # Env format: a JSON array ("["web_search","recall"]"). The env source
+    # decodes lists as JSON before the model sees them, so a comma list would
+    # fail at parse time — keep the JSON array form in .env.
+    brain_allowed_tools: list[str] = []
+
     # optimizer.py's own _analyse() has recommended 2 here since it was written
     # ("cada rodada é uma inferência inteira; em CPU o custo de uma quarta
     # rodada supera o que ela costuma acrescentar") but the default stayed at

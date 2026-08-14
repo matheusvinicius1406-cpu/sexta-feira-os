@@ -40,31 +40,55 @@ def _recover_inline_tool_calls(content: str) -> tuple[list[dict], str]:
 
     Ollama exposes tool calls in a structured `tool_calls` field, but a small
     model does not always cooperate: it can write the ChatML markup into
-    `content` instead of the structured field. The structured field is then
-    empty, the caller concludes "no tools wanted", and hands the raw
-    `<tool_call>{"name": "remember_about_me", ...}` to the owner as the reply.
+    `content` instead of the structured field, or emit the call as a bare JSON
+    object (`{"name": "web_search", "arguments": {...}}`) with nothing else.
+    The structured field is then empty, the caller concludes "no tools wanted",
+    and hands the raw markup (or the raw JSON) to the owner as the reply.
 
     Returns the recovered calls (in Ollama's own shape, so the caller cannot
     tell them apart) and the content with the markup removed — what is left is
     whatever the model actually meant to say.
     """
-    if "<tool_call>" not in content:
-        return [], content
-
     calls: list[dict] = []
-    for raw in _INLINE_TOOL_CALL.findall(content):
-        try:
-            parsed = json.loads(raw)
-        except json.JSONDecodeError:
-            continue                      # truncated mid-JSON; not a usable call
-        name = parsed.get("name")
-        if not name:
-            continue
-        calls.append({"function": {"name": name, "arguments": parsed.get("arguments", {})}})
+    cleaned = content
+
+    if "<tool_call>" in content:
+        for raw in _INLINE_TOOL_CALL.findall(content):
+            try:
+                parsed = json.loads(raw)
+            except json.JSONDecodeError:
+                continue                  # truncated mid-JSON; not a usable call
+            name = parsed.get("name")
+            if not name:
+                continue
+            calls.append({"function": {"name": name, "arguments": parsed.get("arguments", {})}})
+        cleaned = _INLINE_TOOL_CALL.sub("", content).replace("<tool_call>", "").strip()
+
+    # A bare JSON tool call: the WHOLE reply is `{"name": ..., "arguments": ...}`
+    # with no prose around it. Small models write this when they mean to act but
+    # are unsure of the structured field. Requiring the whole content to be the
+    # object keeps a user's legitimately JSON-shaped question out of this path.
+    if not calls:
+        stripped = content.strip()
+        if stripped.startswith("{") and stripped.endswith("}"):
+            try:
+                parsed = json.loads(stripped)
+            except json.JSONDecodeError:
+                parsed = None
+            args = parsed.get("arguments") if isinstance(parsed, dict) else None
+            # A real call carries `arguments` as an OBJECT; a string here is a
+            # user's JSON-shaped sentence, not a call.
+            if isinstance(parsed, dict) and parsed.get("name") and isinstance(args, dict):
+                calls.append({
+                    "function": {
+                        "name": str(parsed["name"]),
+                        "arguments": args,
+                    },
+                })
+                cleaned = ""
 
     if calls:
         logger.info("recuperadas %d chamada(s) de ferramenta escritas como texto", len(calls))
-    cleaned = _INLINE_TOOL_CALL.sub("", content).replace("<tool_call>", "").strip()
     return calls, cleaned
 
 
@@ -275,7 +299,14 @@ class Cognition:
         was written by something that had never seen it.
         """
         use_tools = bool(self.toolkit) and settings.tools_enabled
-        tools = await self.toolkit.specs() if use_tools else None
+        if use_tools and settings.brain_allowed_tools:
+            # A lean catalog for the main brain: every tool schema is prefill the
+            # CPU pays before the first reply token. Restrict to the named tools
+            # (see config.brain_allowed_tools) so searching/acting stays on while
+            # the prompt stays small enough to answer quickly.
+            tools = await self.toolkit.specs_subset(settings.brain_allowed_tools)
+        else:
+            tools = await self.toolkit.specs() if use_tools else None
 
         # Attached ONCE, into the list every round reuses — not per round. The
         # image then sits in a stable prefix, so llama.cpp's KV cache carries it
