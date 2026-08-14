@@ -141,6 +141,13 @@ export const generateBriefing = () => post('/briefing', {}, { timeout: SLOW_TIME
 // ── Scheduling / jobs ────────────────────────────────────────
 export const schedule = () => get('/schedule')
 
+// ── Security (defesa ativa) ──────────────────────────────────
+export const securityAudit = () => get('/security/audit')
+export const securityThreats = (limite = 30) => get(`/security/threats?limite=${limite}`)
+export const setSecret = (name, value) => post('/connectors/secrets', { name, value })
+export const deleteSecret = (name) =>
+  request(`/connectors/secrets/${encodeURIComponent(name)}`, { method: 'DELETE' })
+
 // ── Browser: the kernel's web reach ──────────────────────────
 export const webSearch = (query) => post('/vision/search', { query }, { timeout: SLOW_TIMEOUT_MS })
 export const searchAndFetch = (query) =>

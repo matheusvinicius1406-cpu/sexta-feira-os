@@ -920,6 +920,36 @@ import * as Api from './api.js'
   function dynamicCommands(raw) {
     const q = raw.trim();
     if (!q) return [];
+
+    // Defesa ativa: armar/desarmar honeytokens pelo cofre. O valor-isca nunca
+    // importa (é bait — o kernel nunca o devolve), então o HUD gera um.
+    const arm = q.match(/^armar\s+honeypot\s+(.+)/i);
+    if (arm) {
+      const name = `honeypot.${arm[1].trim()}`;
+      return [{
+        t: `Armar honeytoken: ${name}`, s: "Security",
+        go: () => Panel.openCustom("Security · Threats", async () => {
+          await Api.setSecret(name, `sk-isca-${Math.random().toString(36).slice(2, 10)}`);
+          return {
+            rows: [{ k: name, v: "armado — quem o ler dispara um alerta de ameaça" }],
+            note: "o valor-isca foi gerado na hora e nunca será devolvido",
+          };
+        }),
+      }];
+    }
+    const disarm = q.match(/^desarmar\s+honeypot\s+(.+)/i);
+    if (disarm) {
+      const raw = disarm[1].trim();
+      const name = raw.toLowerCase().startsWith("honeypot.") ? raw : `honeypot.${raw}`;
+      return [{
+        t: `Desarmar honeytoken: ${name}`, s: "Security",
+        go: () => Panel.openCustom("Security · Threats", async () => {
+          await Api.deleteSecret(name);
+          return { rows: [{ k: name, v: "desarmado" }] };
+        }),
+      }];
+    }
+
     const search = q.match(/^buscar\s+(.+)/i);
     if (search) {
       const term = search[1];

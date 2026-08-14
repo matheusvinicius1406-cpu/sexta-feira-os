@@ -175,7 +175,25 @@ const ROUTES = {
   '/briefing': [],
   '/schedule': [{ id: 's1', name: 'briefing diário', action: 'briefing', next_run_at: '2026-08-04T07:00:00Z' }],
   '/auth/devices': [{ id: 'd1', name: 'celular', platform: 'android', revoked: false }],
-  '/connectors/secrets': [{ name: 'OPENWEATHER' }],
+  '/connectors/secrets': [{ name: 'OPENWEATHER' }, { name: 'honeypot.api_falsa' }],
+  '/security/audit': {
+    auditado_em: '2026-08-14T10:00:00Z',
+    acesso: { access_mode: 'loopback', auth_dev_bypass: false },
+    defesas: {
+      headers: ['X-Content-Type-Options', 'Content-Security-Policy'],
+      rate_limit: { max_tentativas: 5, janela_segundos: 900, lockout_segundos: 900, ips_bloqueados_agora: 0 },
+      netguard: { ativo: true, hosts_internos_permitidos: '' },
+      honeypots_armados: 1,
+    },
+    ameacas: {
+      total: 1,
+      recentes: [{ id: 't1', type: 'threat.honeypot', detail: 'honeypot.api_falsa lido', source_ip: '127.0.0.1', at: '2026-08-14T09:00:00Z' }],
+    },
+    recomendacoes: [],
+  },
+  '/security/threats': [
+    { id: 't1', type: 'threat.honeypot', detail: 'honeypot.api_falsa lido', source_ip: '127.0.0.1', at: '2026-08-14T09:00:00Z' },
+  ],
   '/connectors': [],
   '/voice/status': { enabled: true, stt: 'whisper', tts: 'piper' },
   '/voice/packs': [{ name: 'jarvis', description: 'voz padrão' }],

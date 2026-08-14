@@ -300,23 +300,38 @@ export const PANELS = {
   'browser/Marks': async () =>
     absent('não há favoritos: o que vale ser guardado vira memória, em Memory.'),
 
-  // ── Security ───────────────────────────────────────────────
+  // ── Security (defesa ativa) ────────────────────────────────
   'security/Keys': async () => {
     const ss = await api.secrets()
     const names = Array.isArray(ss) ? ss : (ss.secrets ?? [])
     return listing(
       names,
-      (s) => row(typeof s === 'string' ? s : (s.name ?? '—'), 'guardado no cofre'),
-      'nenhum segredo guardado',
+      (s) => {
+        const n = typeof s === 'string' ? s : (s.name ?? '—')
+        const isBait = String(n).toLowerCase().startsWith('honeypot.')
+        return row(n, isBait ? '🪤 isca armada — ler dispara alerta' : 'guardado no cofre')
+      },
+      'nenhum segredo guardado — crie um honeypot.* pela paleta: “armar honeypot <nome>”',
     )
   },
   'security/Audit': async () => {
-    const es = await api.events()
-    return listing(
-      es.slice(0, 15),
-      (e) => row(when(e.created_at), `${e.type} · ${e.source ?? ''}`),
-      'nenhum evento para auditar',
-    )
+    const a = await api.securityAudit()
+    const d = a.defesas ?? {}
+    const rl = d.rate_limit ?? {}
+    const ng = d.netguard ?? {}
+    const rows = [
+      row('Acesso', a.acesso?.access_mode),
+      row('Bypass dev', a.acesso?.auth_dev_bypass ? 'LIGADO ⚠️ desligue no .env' : 'desligado'),
+      row('Honeypots armados', d.honeypots_armados),
+      row('Netguard (SSRF)', ng.ativo ? 'ativo' : 'desligado'),
+      row('Hosts internos permitidos', (ng.hosts_internos_permitidos ?? '').trim() || 'nenhum'),
+      row('Rate limit', `${rl.max_tentativas ?? '?'} tentativas / ${rl.janela_segundos ?? '?'}s`),
+      row('Lockout', `${rl.lockout_segundos ?? '?'}s`),
+      row('IPs bloqueados agora', rl.ips_bloqueados_agora ?? 0),
+      row('Ameaças no total', a.ameacas?.total ?? 0),
+    ]
+    const recs = (a.recomendacoes ?? []).filter(Boolean)
+    return { rows, note: recs.length ? recs.join(' · ') : 'tudo em ordem — nenhuma recomendação pendente' }
   },
   'security/Perms': async () => {
     const [ds, h] = await Promise.all([api.devices(), api.health()])
@@ -328,8 +343,18 @@ export const PANELS = {
       ],
     }
   },
-  'security/Threats': async () =>
-    absent('não há detecção de ameaças neste kernel. O que existe é a trilha de eventos, em Audit.'),
+  'security/Threats': async () => {
+    const ts = await api.securityThreats(30)
+    return listing(
+      ts,
+      (t) => {
+        const type = String(t.type ?? '?').replace(/^threat\./, '')
+        const ip = t.source_ip || '—'
+        return row(`${type} · ${ip} · ${when(t.at)}`, truncate(t.detail ?? ''))
+      },
+      'nenhuma ameaça registrada — nenhum tripwire disparou',
+    )
+  },
 
   // ── Voice ──────────────────────────────────────────────────
   'voice/Listen': async () => {
