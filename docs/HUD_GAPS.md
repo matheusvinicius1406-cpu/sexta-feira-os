@@ -21,7 +21,7 @@ para o painel acender.
 | `automation` | `agents/*` (status, execuções, tipos, rodar) |
 | `briefing` | `projects/Timeline` (último briefing + gerar) |
 | `chat` | conversas + `live.js` (chat, voz, visão) |
-| `connectors` | `security/Keys` (**só secrets**; capabilities não) |
+| `connectors` | `security/Keys` — capabilities vivas (método, categoria, ativo, params) + secrets do cofre — **2026-08-14** |
 | `decision` | `projects/Decision` (histórico: escolha, racional, data) + paleta `decidir foco` — **2026-08-14** |
 | `directors` | `ai/Prompts`, `agents/Active` |
 | `evals` | `ai/Evals` (casos + execuções) |
@@ -43,12 +43,6 @@ para o painel acender.
 | `voice` | `voice/*` + loop de voz (`live.js`) |
 | `world` | `ai/Context` (digest), briefing, `world/*` no kernel |
 
-## 🔴 Lacunas sem nenhuma presença no ARC
-
-| Área | Endpoints do kernel | Valor / como entra |
-|---|---|---|
-| **Connectors (capabilities)** | `GET /connectors` (capabilities dos conectores) | Hoje `security/Keys` só mostra secrets; as capabilities vivas ficam de fora |
-
 ## 🟢 Nota de arquitetura
 
 Os **12 módulos** do ARC são fixos por design (`docs/design-system/`). Estender
@@ -67,8 +61,10 @@ existentes não tocam no desenho — como já foi feito:
 
 ## Ordem sugerida
 
-Nenhuma lacuna de router restante — só a leitura de capabilities de conectores
-(`GET /connectors`) como enriquecimento de `security/Keys`.
+Nenhuma lacuna restante — os 26 routers do kernel têm presença no ARC.
+Próximos passos naturais: validar os fluxos de escrita contra o kernel rodando
+(armar iscas, comandar aparelhos, decidir foco) e evoluir o que o kernel ainda
+não mede.
 
 ## Verificação
 
