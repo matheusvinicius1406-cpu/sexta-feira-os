@@ -21,17 +21,23 @@ para o painel acender.
 | `briefing` | `projects/Timeline` (último briefing + gerar) |
 | `chat` | conversas + `live.js` (chat, voz, visão) |
 | `connectors` | `security/Keys` (**só secrets**; capabilities não) |
+| `decision` | `projects/Decision` (histórico: escolha, racional, data) + paleta `decidir foco` — **2026-08-14** |
 | `directors` | `ai/Prompts`, `agents/Active` |
 | `evals` | `ai/Evals` (casos + execuções) |
 | `events` | `memory/Episodic` |
+| `habits` | `files/Habits` (nome + streak) + paleta `marcar hábito <nome>` — **2026-08-14** |
 | `health` | `ai/Models`, `network/Nodes`, heartbeat do reator |
+| `journal` | `files/Journal` (anotações com humor e data) + paleta `anotar <texto>` — **2026-08-14** |
+| `learning` | `ai/Learning` (total, qualidade média recente, lições) — **2026-08-14** |
 | `memory` | `memory/*` (recentes, grafo, recall via paleta) |
 | `obsidian` | `files/*` (status do vault) |
 | `optimize` | `system/Optimize` + paleta `medir otimização` (probe lento que devolve a linha de `.env`) — **2026-08-14** |
 | `planning` | `projects/*` (metas, quadro) |
-| `schedule` | `terminal/Jobs` (**leitura** — sem criar/cancelar) |
+| `radio` | `voice/Radio` (faixa atual, fila, volume, shuffle, repeat, adblock) + paleta `tocar <busca>`, `volume <0-100>`, `pular faixa`, `tocar preset <n>` — **2026-08-14** |
+| `schedule` | `terminal/Jobs` + paleta `lembrar <texto> em <n> <min|h|d>` (com `repetir a cada`), `cancelar lembrete <id>` — **2026-08-14** |
 | `security` | `security/*` completo — Threats/Audit/Keys + paleta `armar/desarmar honeypot` |
 | `system` | `system/*` (CPU, memória, disco, energia, temp) |
+| `timetrack` | `system/Time` (timer aberto + tempo fechado por rótulo) + paleta `iniciar/parar timer <rótulo>` — **2026-08-14** |
 | `vision` | status + câmera (`live.js`) + busca web (`vision/search`) |
 | `voice` | `voice/*` + loop de voz (`live.js`) |
 | `world` | `ai/Context` (digest), briefing, `world/*` no kernel |
@@ -40,21 +46,8 @@ para o painel acender.
 
 | Área | Endpoints do kernel | Valor / como entra |
 |---|---|---|
-| **Decision** | `GET /decision`, `GET /decision/next`, `GET /decision/{id}` | Por que o kernel escolheu o próximo objetivo (fundamenta o Foco do briefing) |
-| **Rádio** | `GET/POST /radio` (play, youtube, volume, skip…) | Mídia controlada pelo kernel; menor valor imediato |
 | **Ações pendentes** | `GET /actions/pending`, `POST /actions/dispatch`, `POST /actions/{id}/result` | Comandos que o kernel mandou aos corpos + resultados. Casa com `network/Devices` |
-| **Schedule (escrita)** | `POST/DELETE /schedule` | Criar/cancelar lembretes da UI (hoje `terminal/Jobs` só lê) |
-
-## 🟡 Exports mortos no `api.js` do ARC
-
-Existem no `src/arc/api.js` mas **nenhum módulo lê** (o smoke test até stuba as
-rotas):
-
-| Export | Rota | Decisão pendente |
-|---|---|---|
-| `journal`, `habits` | `/journal`, `/habits` | Virar painéis (módulo Journal?) ou remover |
-| `timeSummary` | `/time/summary` | Virar painel (sub-item de `System`?) ou remover |
-| `learningStats`, `learnings` | `/learning/stats`, `/learning` | Virar painel (sub-item de `AI`?) ou remover |
+| **Connectors (capabilities)** | `GET /connectors` (capabilities dos conectores) | Hoje `security/Keys` só mostra secrets; as capabilities vivas ficam de fora |
 
 ## 🟢 Nota de arquitetura
 
@@ -64,19 +57,20 @@ existentes não tocam no desenho — como já foi feito:
 
 - ✅ Pulse → `Agents` (`Pulse` + `Proposals`)
 - ✅ Otimizador → `System` (`Optimize`)
-- Learning → `AI`
-- Time → `System`
-- Journal/Habits → `Files` ou módulo novo
-- Schedule escrita → comando de paleta + `terminal/Jobs`
+- ✅ Journal/Habits → `Files` (`Journal`, `Habits`)
+- ✅ Time → `System` (`Time`)
+- ✅ Learning → `AI` (`Learning`)
+- ✅ Decision → `Projects` (`Decision`)
+- ✅ Rádio → `Voice` (`Radio`)
+- ✅ Schedule escrita → comando de paleta + `terminal/Jobs`
 
 ## Ordem sugerida
 
-1. **Schedule escrita** — criar/cancelar lembretes do HUD (paleta)
-2. **Journal/Habits + Time** — decidir: painéis ou remover exports mortos
-3. **Decision, Radio, Actions** — leitura; menor valor imediato
+1. **Actions pendentes** — leitura; último item do mapa (com `/actions/pending` +
+   resultados em `network/Devices`)
 
 ## Verificação
 
-`npm run check` em `jarvis-ui/` (smoke test: 54 submenus com leitura, 54 loaders
+`npm run check` em `jarvis-ui/` (smoke test: 60 submenus com leitura, 60 loaders
 exercitados) — cada rota nova chamada por um loader precisa de stub em
 `test/arc-smoke.mjs`, no shape real do router.
