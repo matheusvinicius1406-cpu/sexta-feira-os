@@ -990,6 +990,34 @@ import * as Api from './api.js'
       }];
     }
 
+    // Agenda: criar lembrete `lembrar <texto> em <n> <min|h|d>`, com
+    // recorrência opcional `repetir a cada <n> <unidade>`. Checa ANTES do
+    // recall de memória, que é o `lembrar X` sem tempo.
+    const remind = parseReminder(q);
+    if (remind) {
+      return [{
+        t: `Lembrete: ${remind.text} (${remind.in_minutes ?? remind.in_hours ?? remind.in_days} ${remind.recurrence_seconds ? ", repetindo" : ""})`, s: "Schedule",
+        go: () => Panel.openCustom("Terminal · Jobs", async () => {
+          const t = await Api.scheduleCreate(remind);
+          return {
+            rows: [{ k: t.text ?? "lembrete", v: `agendado · ${when(t.due_at)}` }],
+            note: remind.recurrence_seconds ? `repete a cada ${Math.round(remind.recurrence_seconds / 60)} min` : undefined,
+          };
+        }),
+      }];
+    }
+    const cancel = q.match(/^cancelar\s+lembrete\s+(\S+)/i);
+    if (cancel) {
+      return [{
+        t: `Cancelar lembrete ${cancel[1]}`, s: "Schedule",
+        go: () => Panel.openCustom("Terminal · Jobs", async () => {
+          const id = await resolveTask(cancel[1]);
+          await Api.scheduleCancel(id);
+          return { rows: [{ k: id, v: "cancelado" }] };
+        }),
+      }];
+    }
+
     // Defesa ativa: armar/desarmar honeytokens pelo cofre. O valor-isca nunca
     // importa (é bait — o kernel nunca o devolve), então o HUD gera um.
     const arm = q.match(/^armar\s+honeypot\s+(.+)/i);
@@ -1051,6 +1079,37 @@ import * as Api from './api.js'
     const hit = ps.find(p => String(p.id).toLowerCase().startsWith(prefix.toLowerCase()));
     if (!hit) throw new Error(`nenhuma proposta começa com "${prefix}"`);
     return hit.id;
+  }
+
+  /** Tarefa agendada pelo prefixo do id (o painel Terminal · Jobs mostra 8 chars). */
+  async function resolveTask(prefix) {
+    const ts = await Api.schedule();
+    const hit = ts.find(t => String(t.id).toLowerCase().startsWith(prefix.toLowerCase()));
+    if (!hit) throw new Error(`nenhuma tarefa agendada começa com "${prefix}"`);
+    return hit.id;
+  }
+
+  /**
+   * "lembrar <texto> em <n> <min|h|d>" (recorrência opcional "repetir a cada
+   * <n> <unidade>") → corpo do POST /schedule. Retorna null se não casar.
+   */
+  function parseReminder(raw) {
+    const m = raw.match(
+      /^lembrar\s+(.+?)\s+em\s+(\d+(?:[.,]\d+)?)\s*(min|minutos?|h|horas?|d|dias?)(?:\s+repetir\s+a\s+cada\s+(\d+(?:[.,]\d+)?)\s*(min|minutos?|h|horas?|d|dias?))?\s*$/i
+    );
+    if (!m) return null;
+    const toMinutes = (u) => (u.startsWith("min") ? 1 : u.startsWith("h") ? 60 : 1440);
+    const n = parseFloat(m[2].replace(",", "."));
+    const unit = m[3].toLowerCase();
+    const body = { kind: "reminder", text: m[1].trim() };
+    if (unit.startsWith("h")) body.in_hours = n;
+    else if (unit.startsWith("d")) body.in_days = n;
+    else body.in_minutes = n;
+    if (m[4]) {
+      const rn = parseFloat(m[4].replace(",", "."));
+      body.recurrence_seconds = Math.round(rn * toMinutes(m[5].toLowerCase()) * 60);
+    }
+    return body;
   }
 
   function renderPal(q) {

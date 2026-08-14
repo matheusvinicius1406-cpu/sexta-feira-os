@@ -181,7 +181,7 @@ const ROUTES = {
   '/planning/board': { pending: [GOAL], active: [], done: [] },
   '/briefing/latest': { id: 'b1', summary: 'Briefing\nFoco sugerido: Meta', created_at: '2026-08-03T07:00:00Z' },
   '/briefing': [],
-  '/schedule': [{ id: 's1', name: 'briefing diário', action: 'briefing', next_run_at: '2026-08-04T07:00:00Z' }],
+  '/schedule': [{ id: 's1', kind: 'briefing', text: 'briefing diário', due_at: '2026-08-04T07:00:00Z', status: 'pending' }],
   '/auth/devices': [{ id: 'd1', name: 'celular', platform: 'android', revoked: false }],
   '/connectors/secrets': [{ name: 'OPENWEATHER' }, { name: 'honeypot.api_falsa' }],
   '/security/audit': {

@@ -313,8 +313,8 @@ export const PANELS = {
     const ts = await api.schedule()
     return listing(
       ts,
-      (t) => row(t.name ?? t.id, `${t.action ?? ''} · ${when(t.next_run_at ?? t.run_at)}`),
-      'nenhuma tarefa agendada',
+      (t) => row(truncate(t.text ?? t.id, 40), `${t.kind ?? '?'} · ${t.status ?? '?'} · ${when(t.due_at)}`),
+      'nenhuma tarefa agendada — crie uma: paleta `lembrar <texto> em <n> <min|h|d>`',
     )
   },
   'terminal/SSH': async () =>

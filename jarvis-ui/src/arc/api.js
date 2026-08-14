@@ -140,6 +140,9 @@ export const generateBriefing = () => post('/briefing', {}, { timeout: SLOW_TIME
 
 // ── Scheduling / jobs ────────────────────────────────────────
 export const schedule = () => get('/schedule')
+export const scheduleCreate = (body) => post('/schedule', body)
+export const scheduleCancel = (id) =>
+  request(`/schedule/${encodeURIComponent(id)}`, { method: 'DELETE' })
 
 // ── Optimizer — o kernel mede a própria inferência ───────────
 export const optimize = () => get('/optimize')
