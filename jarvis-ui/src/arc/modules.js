@@ -314,6 +314,18 @@ export const PANELS = {
       'quadro vazio',
     )
   },
+  'projects/Decision': async () => {
+    const hs = await api.decisionHistory()
+    return listing(
+      hs.slice(0, 12),
+      (d) =>
+        row(
+          truncate(d.chosen_label ?? d.question ?? d.id, 40),
+          `${truncate(d.rationale ?? '', 44)} · ${when(d.created_at)}`,
+        ),
+      'nenhuma decisão registrada — `decidir foco` escolhe o próximo objetivo',
+    )
+  },
   'projects/Timeline': async () => {
     const b = await api.briefingLatest().catch(() => null)
     if (!b) return { rows: [], note: 'nenhum briefing gerado ainda' }

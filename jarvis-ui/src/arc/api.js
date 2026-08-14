@@ -144,6 +144,11 @@ export const scheduleCreate = (body) => post('/schedule', body)
 export const scheduleCancel = (id) =>
   request(`/schedule/${encodeURIComponent(id)}`, { method: 'DELETE' })
 
+// ── Decision — por que o kernel escolheu o próximo objetivo ─
+export const decisionHistory = () => get('/decision/history')
+// Decide o foco agora (ranqueia metas abertas) — pode custar uma chamada ao cérebro.
+export const decideNext = () => post('/decision/next', {}, { timeout: SLOW_TIMEOUT_MS })
+
 // ── Optimizer — o kernel mede a própria inferência ───────────
 export const optimize = () => get('/optimize')
 // Probe: cronometra cada modelo (frio/quente, tok/s) — minutos em CPU.

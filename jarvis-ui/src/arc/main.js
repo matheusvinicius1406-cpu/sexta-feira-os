@@ -68,7 +68,7 @@ import * as Api from './api.js'
     { id: "memory",   label: "Memory",   icon: "layers", kids: ["Recent","Semantic","Episodic","Purge"] },
     { id: "agents",   label: "Agents",   icon: "nodes",  kids: ["Pulse","Proposals","Active","Queue","Registry","Logs","Spawn"] },
     { id: "files",    label: "Files",    icon: "folder", kids: ["Recent","Index","Vault","Sync","Journal","Habits"] },
-    { id: "projects", label: "Projects", icon: "grid",   kids: ["Active","Archive","Tasks","Timeline"] },
+    { id: "projects", label: "Projects", icon: "grid",   kids: ["Active","Archive","Tasks","Timeline","Decision"] },
     { id: "terminal", label: "Terminal", icon: "term",   kids: ["Shell","History","Jobs","SSH"] },
     { id: "browser",  label: "Browser",  icon: "globe",  kids: ["Tabs","Research","Capture","Marks"] },
     { id: "security", label: "Security", icon: "shield", kids: ["Keys","Audit","Perms","Threats"] },
@@ -920,6 +920,28 @@ import * as Api from './api.js'
   function dynamicCommands(raw) {
     const q = raw.trim();
     if (!q) return [];
+
+    // Decision: o kernel escolhe o que focar agora (ranqueia metas abertas).
+    if (/^decidir\s+foco$/i.test(q)) {
+      return [{
+        t: "Decidir o foco agora", s: "Projects",
+        go: () => Panel.openCustom("Projects · Decision", async () => {
+          const r = await Api.decideNext();
+          if (!r.decision) {
+            return { rows: [{ k: "foco", v: "nenhum" }], note: r.reason ?? "nenhum objetivo elegível" };
+          }
+          const d = r.decision;
+          return {
+            rows: [
+              { k: "Foco", v: d.chosen_label ?? "—" },
+              { k: "Porquê", v: d.rationale ?? "—" },
+              { k: "Política", v: d.policy ?? "—" },
+            ],
+            note: (d.options ?? []).length ? `${d.options.length} opção(ões) avaliada(s)` : undefined,
+          };
+        }),
+      }];
+    }
 
     // Otimizador: cronometrar cada modelo de verdade (lento, explícito).
     if (/^(medir otimização|medir otimizacao|otimizar)$/i.test(q)) {

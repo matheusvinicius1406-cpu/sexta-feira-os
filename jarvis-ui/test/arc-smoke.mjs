@@ -208,6 +208,9 @@ const ROUTES = {
   '/voice/personality': { greeting: 'Às ordens.' },
   '/vision/status': { available: true, model: 'qwen3-vl:2b' },
   '/evals/cases': [], '/evals/runs': [],
+  '/decision/history': [
+    { id: 'd1', question: 'O que focar agora?', policy: 'urgencia', chosen_id: 'g1', chosen_label: 'Meta', rationale: 'mais urgente e mais próximo', options: [{ label: 'Meta' }], created_at: '2026-08-14T10:00:00Z' },
+  ],
   '/optimize': {
     endpoint: 'http://127.0.0.1:11434',
     host: { cores: 8, ram_gb: 16 },
