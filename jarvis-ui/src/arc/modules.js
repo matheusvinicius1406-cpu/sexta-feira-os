@@ -106,6 +106,19 @@ export const PANELS = {
       ],
     }
   },
+  'ai/Learning': async () => {
+    const [xs, st] = await Promise.all([api.learnings(), api.learningStats().catch(() => null)])
+    return {
+      rows: [
+        row('Aprendizados', st?.total ?? xs.length),
+        row('Qualidade média (recentes)', st?.recent_avg_quality ?? '—'),
+        ...xs.slice(0, 10).map((x) => row(when(x.created_at), truncate(x.lesson || x.context))),
+      ],
+      note: xs.length
+        ? 'lições destiladas de conversas e resultados'
+        : 'nenhuma lição registrada ainda — o kernel aprende sozinho com o tempo',
+    }
+  },
 
   // ── Memory ─────────────────────────────────────────────────
   'memory/Recent': async () => {
@@ -252,6 +265,22 @@ export const PANELS = {
   'files/Vault': async () => {
     const s = await api.obsidianStatus()
     return { rows: Object.entries(s).map(([k, v]) => row(k, typeof v === 'object' ? JSON.stringify(v) : v)) }
+  },
+  'files/Journal': async () => {
+    const es = await api.journal()
+    return listing(
+      es.slice(0, 15),
+      (e) => row(when(e.created_at), `${e.mood ? `[${e.mood}] ` : ''}${truncate(e.content)}`),
+      'nenhuma anotação — escreva uma: paleta `anotar <texto>`',
+    )
+  },
+  'files/Habits': async () => {
+    const hs = await api.habits()
+    return listing(
+      hs,
+      (h) => row(h.name, `${h.streak ?? 0} dia(s)`),
+      'nenhum hábito — marque um: paleta `marcar hábito <nome>`',
+    )
   },
   'files/Sync': async () => {
     const s = await api.obsidianStatus()
@@ -490,6 +519,26 @@ export const PANELS = {
   'system/Temp': async () => {
     const s = await api.system()
     return absent(s.unavailable?.temperature ?? 'temperatura não é legível nesta plataforma')
+  },
+  'system/Time': async () => {
+    const [sm, cur] = await Promise.all([
+      api.timeSummary().catch(() => []),
+      api.timeCurrent().catch(() => null),
+    ])
+    const seconds = (s) => {
+      if (typeof s !== 'number' || !isFinite(s)) return '—'
+      const h = Math.floor(s / 3600)
+      const m = Math.floor((s % 3600) / 60)
+      return h > 0 ? `${h}h ${m}m` : `${m}m`
+    }
+    const running = cur?.running
+    return {
+      rows: [
+        row('Agora', running ? `${running.label} (desde ${when(running.started_at)})` : 'nenhum timer aberto'),
+        ...sm.slice(0, 10).map((x) => row(x.label, seconds(x.seconds))),
+      ],
+      note: 'tempo fechado por rótulo — `iniciar timer <rótulo>` / `parar timer`',
+    }
   },
   'system/Optimize': async () => {
     const o = await api.optimize()

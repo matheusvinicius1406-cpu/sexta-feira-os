@@ -258,5 +258,10 @@ export const learnings = () => get('/learning')
 
 // ── Journal / habits / time ──────────────────────────────────
 export const journal = () => get('/journal')
+export const journalAdd = (content, mood) => post('/journal', { content, mood: mood ?? null })
 export const habits = () => get('/habits')
+export const habitCheck = (name) => post('/habits/check', { name })
 export const timeSummary = () => get('/time/summary')
+export const timeCurrent = () => get('/time/current')
+export const timeStart = (label) => post('/time/start', { label })
+export const timeStop = () => post('/time/stop', {})

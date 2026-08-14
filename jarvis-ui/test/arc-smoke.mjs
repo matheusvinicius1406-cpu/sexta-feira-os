@@ -217,8 +217,9 @@ const ROUTES = {
     findings: ['Nada gritante: a configuração atual está coerente com esta máquina.'],
     actions: [],
   },
-  '/learning': [], '/learning/stats': { total: 0 },
-  '/journal': [], '/habits': [], '/time/summary': {},
+  '/learning': [], '/learning/stats': { total: 0, recent_avg_quality: null, recent_count: 0 },
+  '/journal': [], '/habits': [],
+  '/time/summary': [{ label: 'trabalho', seconds: 3600 }], '/time/current': { running: null },
   '/chat/conversations': [],
 }
 

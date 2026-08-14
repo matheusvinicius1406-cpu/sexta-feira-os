@@ -64,17 +64,17 @@ import * as Api from './api.js'
      1 — MODULE GRAPH
      ═══════════════════════════════════════════════════════ */
   const MODULES = [
-    { id: "ai",       label: "AI",       icon: "hex",    kids: ["Models","Prompts","Context","Tuning","Evals"] },
+    { id: "ai",       label: "AI",       icon: "hex",    kids: ["Models","Prompts","Context","Tuning","Evals","Learning"] },
     { id: "memory",   label: "Memory",   icon: "layers", kids: ["Recent","Semantic","Episodic","Purge"] },
     { id: "agents",   label: "Agents",   icon: "nodes",  kids: ["Pulse","Proposals","Active","Queue","Registry","Logs","Spawn"] },
-    { id: "files",    label: "Files",    icon: "folder", kids: ["Recent","Index","Vault","Sync"] },
+    { id: "files",    label: "Files",    icon: "folder", kids: ["Recent","Index","Vault","Sync","Journal","Habits"] },
     { id: "projects", label: "Projects", icon: "grid",   kids: ["Active","Archive","Tasks","Timeline"] },
     { id: "terminal", label: "Terminal", icon: "term",   kids: ["Shell","History","Jobs","SSH"] },
     { id: "browser",  label: "Browser",  icon: "globe",  kids: ["Tabs","Research","Capture","Marks"] },
     { id: "security", label: "Security", icon: "shield", kids: ["Keys","Audit","Perms","Threats"] },
     { id: "voice",    label: "Voice",    icon: "wave",   kids: ["Listen","Voices","Phrases","Latency"] },
     { id: "network",  label: "Network",  icon: "signal", kids: ["Nodes","Traffic","Devices","VPN"] },
-    { id: "system",   label: "System",   icon: "chip",   kids: ["CPU","Memory","Disk","Power","Temp","Optimize"] },
+    { id: "system",   label: "System",   icon: "chip",   kids: ["CPU","Memory","Disk","Power","Temp","Optimize","Time"] },
     { id: "settings", label: "Settings", icon: "gear",   kids: ["Core","Voice","Theme","About"] },
   ];
 
@@ -1006,6 +1006,48 @@ import * as Api from './api.js'
         }),
       }];
     }
+    // Diário, hábitos e timer — escritas rápidas, cada uma com o painel de destino.
+    const note = q.match(/^anotar\s+(.+)/i);
+    if (note) {
+      return [{
+        t: `Anotar no diário: ${note[1].trim().slice(0, 40)}`, s: "Files",
+        go: () => Panel.openCustom("Files · Journal", async () => {
+          const e = await Api.journalAdd(note[1].trim());
+          return { rows: [{ k: "anotado", v: e.content }] };
+        }),
+      }];
+    }
+    const habit = q.match(/^marcar\s+hábito\s+(.+)/i);
+    if (habit) {
+      return [{
+        t: `Marcar hábito: ${habit[1].trim().slice(0, 40)}`, s: "Files",
+        go: () => Panel.openCustom("Files · Habits", async () => {
+          const r = await Api.habitCheck(habit[1].trim());
+          return { rows: [{ k: r.habit ?? "hábito", v: `streak ${r.streak ?? 0} dia(s)` }] };
+        }),
+      }];
+    }
+    const timerOn = q.match(/^iniciar\s+timer\s+(.+)/i);
+    if (timerOn) {
+      return [{
+        t: `Iniciar timer: ${timerOn[1].trim().slice(0, 40)}`, s: "System",
+        go: () => Panel.openCustom("System · Time", async () => {
+          const e = await Api.timeStart(timerOn[1].trim());
+          return { rows: [{ k: e.label ?? "timer", v: "aberto" }] };
+        }),
+      }];
+    }
+    if (/^parar\s+timer$/i.test(q)) {
+      return [{
+        t: "Parar timer", s: "System",
+        go: () => Panel.openCustom("System · Time", async () => {
+          const r = await Api.timeStop();
+          const stopped = r?.stopped;
+          return { rows: [{ k: "timer", v: stopped ? "parado" : "nenhum aberto" }] };
+        }),
+      }];
+    }
+
     const cancel = q.match(/^cancelar\s+lembrete\s+(\S+)/i);
     if (cancel) {
       return [{
