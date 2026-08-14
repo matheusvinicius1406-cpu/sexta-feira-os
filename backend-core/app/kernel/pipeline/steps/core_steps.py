@@ -378,12 +378,20 @@ class ToolkitStep(BaseStep):
         from app.adapters._events import publish_event
         from app.brain.subagents import SubAgentRunner
         from app.brain.tools import ToolKit
+        from app.brain.vision import VisionEngine
+        from app.brain.web_search import WebSearch
         from app.core.config import settings
         from app.directors.service import DirectorService
         toolkit = ToolKit(
             kernel.memory, kernel.automations, kernel.actions, kernel.scheduler,
             kernel.connectors, kernel.world, kernel.planning, kernel.decision, kernel.learning,
             kernel.briefing,
+            # web_search/vision were left unwired here, so the brain's own
+            # web_search/fetch_page/analyze_image tools answered "indisponível"
+            # even though the API routes could search fine. Same singletons the
+            # routes use (cheap to construct; model detection is lazy).
+            vision=VisionEngine(),
+            web_search=WebSearch(),
         )
         if kernel.brain and settings.subagents_enabled:
             toolkit.subagents = SubAgentRunner(kernel.brain, toolkit)
