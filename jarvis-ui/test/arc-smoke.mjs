@@ -183,6 +183,16 @@ const ROUTES = {
   '/briefing': [],
   '/schedule': [{ id: 's1', kind: 'briefing', text: 'briefing diário', due_at: '2026-08-04T07:00:00Z', status: 'pending' }],
   '/auth/devices': [{ id: 'd1', name: 'celular', platform: 'android', revoked: false }],
+  '/actions': [
+    {
+      id: 'c1', device_id: 'd1', action: 'abrir_app', params: { app: 'spotify' },
+      status: 'done', result: 'ok', error: null, created_at: '2026-08-14T10:00:00Z',
+    },
+    {
+      id: 'c2', device_id: 'd1', action: 'tocar_campainha', params: {},
+      status: 'pending', result: null, error: null, created_at: '2026-08-14T11:00:00Z',
+    },
+  ],
   '/connectors/secrets': [{ name: 'OPENWEATHER' }, { name: 'honeypot.api_falsa' }],
   '/security/audit': {
     auditado_em: '2026-08-14T10:00:00Z',

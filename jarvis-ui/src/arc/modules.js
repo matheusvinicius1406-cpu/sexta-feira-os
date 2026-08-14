@@ -500,6 +500,17 @@ export const PANELS = {
       'nenhum aparelho pareado',
     )
   },
+  'network/Actions': async () => {
+    const cmds = await api.actionsHistory()
+    return listing(
+      cmds,
+      (c) => row(
+        `${c.action}${Object.keys(c.params ?? {}).length ? ` ${JSON.stringify(c.params)}` : ''}`,
+        `${c.device_id} · ${c.status}${c.error ? ` · erro: ${truncate(c.error, 60)}` : ''} · ${when(c.created_at)}`,
+      ),
+      'nenhum comando enviado aos aparelhos ainda',
+    )
+  },
   'network/VPN': async () =>
     absent('o kernel não gerencia VPN. Ele escuta em loopback ou na LAN — veja Access mode em Nodes.'),
 

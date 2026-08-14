@@ -179,6 +179,13 @@ export const approveProposal = (id) =>
 export const rejectProposal = (id) =>
   post(`/agent/proposals/${encodeURIComponent(id)}/reject`, {}, { timeout: SLOW_TIMEOUT_MS })
 
+// ── Actions — as mãos do kernel em cada aparelho ─────────────
+// Histórico de comandos enviados aos corpos (lado do dono).
+export const actionsHistory = () => get('/actions')
+// Envia um comando a um aparelho pareado (seletor: nome ou tipo natural).
+export const actionDispatch = (device, action, params) =>
+  post('/actions/dispatch', { device, action, params: params || {} })
+
 // ── Security (defesa ativa) ──────────────────────────────────
 export const securityAudit = () => get('/security/audit')
 export const securityThreats = (limite = 30) => get(`/security/threats?limite=${limite}`)

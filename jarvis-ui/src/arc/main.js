@@ -73,7 +73,7 @@ import * as Api from './api.js'
     { id: "browser",  label: "Browser",  icon: "globe",  kids: ["Tabs","Research","Capture","Marks"] },
     { id: "security", label: "Security", icon: "shield", kids: ["Keys","Audit","Perms","Threats"] },
     { id: "voice",    label: "Voice",    icon: "wave",   kids: ["Listen","Voices","Phrases","Latency","Radio"] },
-    { id: "network",  label: "Network",  icon: "signal", kids: ["Nodes","Traffic","Devices","VPN"] },
+    { id: "network",  label: "Network",  icon: "signal", kids: ["Nodes","Traffic","Devices","Actions","VPN"] },
     { id: "system",   label: "System",   icon: "chip",   kids: ["CPU","Memory","Disk","Power","Temp","Optimize","Time"] },
     { id: "settings", label: "Settings", icon: "gear",   kids: ["Core","Voice","Theme","About"] },
   ];
@@ -970,6 +970,30 @@ import * as Api from './api.js'
           const r = await Api.radioPlayPreset(parseInt(preset[1], 10));
           const t = r.playing;
           return { rows: [{ k: "preset", v: t ? `${t.title}${t.artist ? ` — ${t.artist}` : ""}` : "tocando" }] };
+        }),
+      }];
+    }
+
+    // Actions: mandar um comando a um aparelho pareado.
+    // `comandar <aparelho> <ação>` — seletor por nome ou tipo (celular, pc...).
+    const cmd = q.match(/^comandar\s+(\S+)\s+(.+)/i);
+    if (cmd) {
+      return [{
+        t: `Comandar ${cmd[1]} → ${cmd[2].trim().slice(0, 40)}`, s: "Network",
+        go: () => Panel.openCustom("Network · Actions", async () => {
+          const r = await Api.actionDispatch(cmd[1], cmd[2].trim());
+          if (r.ok === false) {
+            return { rows: [{ k: "comando", v: "não enviado" }], note: r.error ?? "dispositivo não encontrado" };
+          }
+          return {
+            rows: [
+              { k: "Dispositivo", v: r.device ?? cmd[1] },
+              { k: "Comando", v: cmd[2].trim() },
+              { k: "Status", v: r.status ?? "—" },
+              { k: "Entrega", v: r.delivered ? "recebido ao vivo" : "na fila (corpo vai buscar)" },
+            ],
+            note: `id: ${(r.command_id ?? "").slice(0, 8)}`,
+          };
         }),
       }];
     }
