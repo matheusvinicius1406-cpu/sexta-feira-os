@@ -208,6 +208,15 @@ const ROUTES = {
   '/voice/personality': { greeting: 'Às ordens.' },
   '/vision/status': { available: true, model: 'qwen3-vl:2b' },
   '/evals/cases': [], '/evals/runs': [],
+  '/optimize': {
+    endpoint: 'http://127.0.0.1:11434',
+    host: { cores: 8, ram_gb: 16 },
+    models: [
+      { name: 'qwen3-vl:2b', size_gb: 1.9, quantization: 'Q4_K_M', capabilities: ['completion', 'tools', 'vision'], loaded: true },
+    ],
+    findings: ['Nada gritante: a configuração atual está coerente com esta máquina.'],
+    actions: [],
+  },
   '/learning': [], '/learning/stats': { total: 0 },
   '/journal': [], '/habits': [], '/time/summary': {},
   '/chat/conversations': [],

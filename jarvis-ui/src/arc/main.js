@@ -74,7 +74,7 @@ import * as Api from './api.js'
     { id: "security", label: "Security", icon: "shield", kids: ["Keys","Audit","Perms","Threats"] },
     { id: "voice",    label: "Voice",    icon: "wave",   kids: ["Listen","Voices","Phrases","Latency"] },
     { id: "network",  label: "Network",  icon: "signal", kids: ["Nodes","Traffic","Devices","VPN"] },
-    { id: "system",   label: "System",   icon: "chip",   kids: ["CPU","Memory","Disk","Power","Temp"] },
+    { id: "system",   label: "System",   icon: "chip",   kids: ["CPU","Memory","Disk","Power","Temp","Optimize"] },
     { id: "settings", label: "Settings", icon: "gear",   kids: ["Core","Voice","Theme","About"] },
   ];
 
@@ -920,6 +920,30 @@ import * as Api from './api.js'
   function dynamicCommands(raw) {
     const q = raw.trim();
     if (!q) return [];
+
+    // Otimizador: cronometrar cada modelo de verdade (lento, explícito).
+    if (/^(medir otimização|medir otimizacao|otimizar)$/i.test(q)) {
+      return [{
+        t: "Medir a inferência (lento — minutos em CPU)", s: "System",
+        go: () => Panel.openCustom("System · Optimize", async () => {
+          const o = await Api.optimizeProbe();
+          const rows = (o.models ?? []).map((m) => ({
+            k: m.name,
+            v: m.error
+              ? `erro: ${m.error}`
+              : [
+                  m.warm_reply_s != null ? `quente ${m.warm_reply_s}s` : null,
+                  m.cold_load_s != null ? `frio ${m.cold_load_s}s` : null,
+                  m.tokens_per_s != null ? `${m.tokens_per_s} tok/s` : null,
+                ].filter(Boolean).join(" · ") || "—",
+          }));
+          return {
+            rows,
+            note: [...(o.findings ?? []), ...(o.actions ?? [])].join(" · ") || "nenhuma ação recomendada",
+          };
+        }),
+      }];
+    }
 
     // Pulse: rodar um ciclo do agente agora. O relatório do tick é o retorno.
     if (/^rodar\s+pulse$/i.test(q)) {

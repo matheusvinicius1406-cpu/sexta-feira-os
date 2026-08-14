@@ -491,6 +491,27 @@ export const PANELS = {
     const s = await api.system()
     return absent(s.unavailable?.temperature ?? 'temperatura não é legível nesta plataforma')
   },
+  'system/Optimize': async () => {
+    const o = await api.optimize()
+    const host = o.host ?? {}
+    const rows = [
+      row('Ollama', o.endpoint),
+      row('Máquina', `${host.cores ?? '?'} núcleos · ${host.ram_gb ?? '?'} GB RAM`),
+      ...(o.models ?? []).map((m) =>
+        row(m.name, `${m.size_gb ?? '?'} GB · ${m.quantization ?? '?'} · ${m.loaded ? 'na RAM' : 'em disco'}`),
+      ),
+    ]
+    const findings = (o.findings ?? []).filter(Boolean)
+    const actions = (o.actions ?? []).filter(Boolean)
+    return {
+      rows,
+      note: [
+        findings.length ? `achados: ${findings.join(' · ')}` : null,
+        actions.length ? `ações: ${actions.join(' · ')}` : null,
+        'medir a inferência real: paleta `medir otimização` (lento — minutos em CPU)',
+      ].filter(Boolean).join(' — '),
+    }
+  },
 
   // ── Settings ───────────────────────────────────────────────
   'settings/Core': async () => {

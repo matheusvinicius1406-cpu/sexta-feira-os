@@ -141,6 +141,13 @@ export const generateBriefing = () => post('/briefing', {}, { timeout: SLOW_TIME
 // ── Scheduling / jobs ────────────────────────────────────────
 export const schedule = () => get('/schedule')
 
+// ── Optimizer — o kernel mede a própria inferência ───────────
+export const optimize = () => get('/optimize')
+// Probe: cronometra cada modelo (frio/quente, tok/s) — minutos em CPU.
+export const optimizeProbe = () => post('/optimize/probe', {}, { timeout: SLOW_TIMEOUT_MS })
+// Varredura completa: contexto, threads, batch, swap + linhas de .env.
+export const optimizeFull = () => post('/optimize/full', {}, { timeout: SLOW_TIMEOUT_MS })
+
 // ── Agent (Pulse) — a iniciativa própria do kernel ───────────
 export const pulseStatus = () => get('/agent/pulse')
 export const pulseRun = () => post('/agent/pulse/run', {}, { timeout: SLOW_TIMEOUT_MS })
