@@ -19,6 +19,7 @@ from app.auth.jwt import get_current_owner
 from app.brain.attachments import AttachmentAnalyzer
 from app.brain.vision import VisionEngine, VisionUnavailable
 from app.brain.web_search import WebSearch
+from app.browser.activity import record_search
 from app.models.models import Owner
 
 logger = logging.getLogger("sexta-feira.vision.router")
@@ -81,6 +82,13 @@ def get_web_search() -> WebSearch:
     if _web_search is None:
         _web_search = WebSearch()
     return _web_search
+
+
+def _top_url(top_content) -> str | None:
+    """The URL of the fetched result, when there is one — never invented."""
+    if isinstance(top_content, dict):
+        return top_content.get("url") or top_content.get("href") or None
+    return None
 
 
 # ── Endpoints ──────────────────────────────────────────────
@@ -191,6 +199,8 @@ async def web_search(
             max_results=body.max_results,
             fetch_top=body.fetch_top,
         )
+        # The kernel's own "tab": every successful search is one open window.
+        record_search(body.query, "search", len(result.results), _top_url(result.top_content))
         return result
     except Exception as e:
         raise HTTPException(
@@ -211,4 +221,5 @@ async def search_and_fetch(
         max_results=body.max_results,
         fetch_top=True,
     )
+    record_search(body.query, "search_and_fetch", len(result.results), _top_url(result.top_content))
     return result

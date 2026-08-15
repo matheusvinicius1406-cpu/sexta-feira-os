@@ -51,6 +51,7 @@ from app.api.routers import (  # noqa: E402
     auth,
     automation,
     briefing,
+    browser,
     chat,
     connectors,
     decision,
@@ -61,6 +62,7 @@ from app.api.routers import (  # noqa: E402
     journal,
     learning,
     memory,
+    network,
     obsidian,
     optimize,
     planning,
@@ -166,6 +168,8 @@ app.include_router(connectors.router)
 app.include_router(vision.router)
 app.include_router(obsidian.router)
 app.include_router(system.router)
+app.include_router(network.router)
+app.include_router(browser.router)
 app.include_router(optimize.router)
 app.include_router(pulse.router)
 
