@@ -124,6 +124,9 @@ export const networkTraffic = () => get('/network/traffic')
 // VPN: o que o SO reporta — interfaces de túnel no ar, rota padrão (o kernel
 // mede; não conecta nem desconecta VPN).
 export const networkVpn = () => get('/network/vpn')
+// SSH: status de sessões apenas — quem está conectado e se a porta 22 escuta.
+// Nunca shell, proxy ou encaminhamento por HTTP.
+export const terminalSsh = () => get('/terminal/ssh')
 
 // ── Brain / chat ─────────────────────────────────────────────
 export const health = () => get('/health')

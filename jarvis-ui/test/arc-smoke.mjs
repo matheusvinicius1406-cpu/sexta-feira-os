@@ -298,6 +298,17 @@ const ROUTES = {
     ],
     count: 1,
   },
+  '/terminal/ssh': {
+    ssh_server: { listening: true, port: 22, process: 'sshd' },
+    sessions: [
+      { user: 'marcos', host: '192.168.1.20', terminal: 'pts/1', remote: true, started_at: '2026-08-15T10:00:00Z' },
+      { user: 'marcos gas', host: null, terminal: null, remote: false, started_at: '2026-08-15T09:00:00Z' },
+    ],
+    sessions_count: 2,
+    remote_count: 1,
+    note: 'o kernel reporta sessões SSH; não abre shell, não faz proxy nem encaminha porta.',
+    unavailable: {},
+  },
   '/optimize': {
     endpoint: 'http://127.0.0.1:11434',
     host: { cores: 8, ram_gb: 16 },

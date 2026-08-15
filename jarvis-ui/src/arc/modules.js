@@ -370,8 +370,24 @@ export const PANELS = {
       'nenhuma tarefa agendada — crie uma: paleta `lembrar <texto> em <n> <min|h|d>`',
     )
   },
-  'terminal/SSH': async () =>
-    absent('o kernel não fala SSH. Ele roda na sua máquina; não há sessão remota a listar.'),
+  'terminal/SSH': async () => {
+    const s = await api.terminalSsh()
+    const server = s.ssh_server
+    const rows = [
+      row('Porta 22', server ? (server.listening ? `escutando${server.process ? ` (${server.process})` : ''}` : 'fechada') : '—'),
+      row('Sessões ativas', s.sessions_count ?? 0),
+      row('Remotas', s.remote_count ?? 0),
+    ]
+    const sessions = s.sessions ?? []
+    rows.push(...sessions.slice(0, 8).map((x) => row(
+      `${x.user}${x.remote ? ` @ ${x.host}` : ''}`,
+      `${x.terminal ?? 'console'} · ${when(x.started_at)}`,
+    )))
+    return {
+      rows,
+      note: [s.note, s.unavailable?.ssh].filter(Boolean).join(' — ') || undefined,
+    }
+  },
 
   // ── Browser: the kernel's reach into the web ───────────────
   'browser/Tabs': async () => {
