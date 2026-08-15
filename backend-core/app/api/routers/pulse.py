@@ -38,7 +38,7 @@ def _proposal_out(p) -> dict:
         "id": p.id, "kind": p.kind, "status": p.status, "title": p.title,
         "reason": p.reason, "tool": p.tool,
         "tool_args": json.loads(p.tool_args) if p.tool_args else None,
-        "result": p.result, "error": p.error,
+        "result": p.result, "error": p.error, "source": p.source,
         "created_at": p.created_at, "decided_at": p.decided_at, "executed_at": p.executed_at,
     }
 

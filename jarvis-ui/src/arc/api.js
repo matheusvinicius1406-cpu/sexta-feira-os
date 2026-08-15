@@ -306,6 +306,10 @@ export const cortexRulesEvaluate = (contexto) =>
  */
 export const cortexDecidir = (contexto) => post('/cortex/decidir', contexto ? { contexto } : {})
 export const cortexDecidirUltimo = () => get('/cortex/decidir/ultimo')
+
+/** Regras disparadas viram propostas do agente (source=cortex), com a trilha. */
+export const cortexRegrasPropor = (contexto) =>
+  post('/cortex/regras/propor', contexto ? { contexto } : {})
 export const voicePersonality = () => get('/voice/personality')
 
 /** Transcribe recorded audio. Returns `{ text }` — whatever the kernel heard. */

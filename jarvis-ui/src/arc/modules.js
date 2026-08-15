@@ -201,8 +201,12 @@ export const PANELS = {
       // Uma proposta pendente é uma oferta: um clique aprova e o kernel executa.
       // Recusar é a ação irmã — note explica o comando para não lotar a linha.
       if (p.status === 'pending') {
+        // Proposta de regra do cortex: o reason carrega a trilha do "por que" —
+        // mostra a regra + prioridade + condições que casaram.
+        const why = p.reason ? truncate(p.reason, 90) : null
         return {
           ...base,
+          v: why ? `${base.v} · ${why}` : base.v,
           cmd: `aprovar ${p.id}`,
           label: p.tool ? `▶ executar ${p.tool}` : '▶ aprovar',
         }

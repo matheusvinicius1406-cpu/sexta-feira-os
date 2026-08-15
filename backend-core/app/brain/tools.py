@@ -514,6 +514,27 @@ class ToolKit:
                     },
                 },
             },
+            {
+                "type": "function",
+                "function": {
+                    "name": "cortex_regra",
+                    "description": (
+                        "Executa a ação de uma regra do cortex (o cérebro simbólico, sem LLM). "
+                        "tipo=intent roda o verbo nas engines reais; sugestao/observar registram "
+                        "a observação como aprendizado; falar devolve o texto da fala."
+                    ),
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "acao": {
+                                "type": "object",
+                                "description": "a ação da regra: {tipo: intent|sugestao|observar|falar, valor: <texto ou {verb, target}>}",
+                            },
+                        },
+                        "required": ["acao"],
+                    },
+                },
+            },
         ]
 
     async def dispatch(self, name: str, args: dict[str, Any], db: Session, owner_id: str) -> str:
@@ -678,6 +699,30 @@ class ToolKit:
                     return "Briefing indisponível."
                 b = await self.briefing.generate(db, owner_id, kind="on_demand")
                 return b.summary
+            if name == "cortex_regra":
+                from app.cortex import VERBS as _VERBS
+                from app.cortex import parse as _cortex_parse
+                from app.cortex import run_intent as _cortex_run
+                acao = args.get("acao") or {}
+                tipo = acao.get("tipo")
+                valor = acao.get("valor")
+                if tipo == "intent" and isinstance(valor, dict):
+                    texto = " ".join(
+                        str(x) for x in (valor.get("verb", ""), valor.get("target")) if x
+                    ).strip()
+                    it = _cortex_parse(_VERBS, texto)
+                    if it is None:
+                        return f"Intenção não reconhecida: {texto}"
+                    return await _cortex_run(db, owner_id, it)
+                if tipo == "falar":
+                    return f"Jarvis diria: {valor}"
+                if tipo in ("sugestao", "observar"):
+                    return await self.dispatch(
+                        "record_learning",
+                        {"context": "regra do cortex", "observation": valor, "tag": "cortex-regra"},
+                        db, owner_id,
+                    )
+                return f"Ação de regra desconhecida: {tipo}"
             if name == "record_learning":
                 if not self.learning:
                     return "Aprendizado indisponível."

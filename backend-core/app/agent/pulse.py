@@ -369,7 +369,7 @@ class CognitivePulse:
 
     def propose(
         self, db: Session, owner_id: str, tool: str, args: dict,
-        title: str, reason: str | None = None,
+        title: str, reason: str | None = None, source: str = "pulse",
     ) -> PulseProposal:
         p = PulseProposal(
             id=str(uuid.uuid4()), owner_id=owner_id, kind="action", status="pending",
@@ -378,7 +378,7 @@ class CognitivePulse:
             # sort_keys=True: the dedupe key (tool + canonical args) is built the
             # same way, so a repeated proposal is recognized and not filed twice.
             tool_args=json.dumps(args, sort_keys=True, ensure_ascii=False) if args else None,
-            source="pulse",
+            source=source,
         )
         db.add(p)
         db.commit()

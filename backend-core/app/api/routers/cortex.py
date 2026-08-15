@@ -14,14 +14,14 @@ o cortex decide — e a resposta pode vir falada (TTS) ou mostrada.
 """
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.auth.jwt import get_current_owner
 from app.cortex import VERBS, parse, run_intent
 from app.cortex.context import build_context
-from app.cortex.nucleus import decidir
+from app.cortex.nucleus import decidir, propor_regras
 from app.cortex.rules import RuleError, evaluate, load_rules
 from app.db.database import get_db
 from app.models.models import Owner
@@ -181,6 +181,26 @@ async def cortex_decidir(
     from app.core.di import get_decision
 
     return await decidir(db, owner.id, get_decision(), contexto=body.contexto)
+
+
+@router.post("/regras/propor")
+async def cortex_regras_propor(
+    body: CortexRulesEvaluateRequest,
+    owner: Owner = Depends(get_current_owner),
+    db: Session = Depends(get_db),
+):
+    """Regras disparadas viram PROPOSTAS do agente (source="cortex"), com a
+    trilha anexada no reason. Aprovar executa pelo toolkit; regras `auto: true`
+    executam na hora pelo mesmo rastro."""
+    from app.core.di import get_pulse
+
+    pulse = get_pulse()
+    if pulse is None:
+        raise HTTPException(
+            status.HTTP_503_SERVICE_UNAVAILABLE,
+            "Pulse desligado (AGENT_PULSE_ENABLED=false) — regras não podem virar propostas.",
+        )
+    return await propor_regras(db, owner.id, pulse, contexto=body.contexto)
 
 
 @router.get("/decidir/ultimo")

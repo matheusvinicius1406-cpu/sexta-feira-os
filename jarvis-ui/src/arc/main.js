@@ -1872,6 +1872,26 @@ import * as Api from './api.js'
       }];
     }
 
+    // Regras → pulse: regras disparadas viram PROPOSTAS (source=cortex) com a
+    // trilha anexada; aprova com 1 clique em Agents · Proposals.
+    if (/^propor regras$/i.test(q)) {
+      return [{
+        t: "Propor regras (pulse)", s: "Cortex",
+        go: () => Panel.openCustom("Cortex · Propostas", async () => {
+          const r = await Api.cortexRegrasPropor();
+          const criadas = r.propostas_criadas ?? [];
+          const auto = r.auto_executadas ?? [];
+          const rows = criadas.length
+            ? (r.regras?.decisions ?? []).map(d => ({ k: d.regra, v: d.descricao }))
+            : [{ k: "nenhuma regra disparou", v: "o mundo atual não gera proposta" }];
+          return {
+            rows,
+            note: `${criadas.length} proposta(s) criada(s)${auto.length ? ` · ${auto.length} auto-executada(s)` : ""} — aprovar em Agents · Proposals (▶ executar)`,
+          };
+        }),
+      }];
+    }
+
     // Núcleo decisório: um ciclo único sem LLM — contexto → regras → metas
     // ranqueadas (DecisionEngine) → escolha determinística com rationale.
     if (/^decidir$/i.test(q)) {

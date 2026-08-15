@@ -417,6 +417,28 @@ const ROUTES = {
       policy: 'regras_primeiro',
     },
   },
+  '/cortex/regras/propor': {
+    propostas_criadas: ['prop-r1', 'prop-r2'],
+    auto_executadas: [],
+    puladas_por_dedupe: 0,
+    regras: {
+      total: 11, dispararam: 2,
+      decisions: [
+        { regra: 'madrugada-silencio', descricao: 'De madrugada, com música tocando, sugere silêncio', prioridade: 30, auto: false, acoes: [{ tipo: 'sugestao', valor: 'São horas de descanso, senhor.' }] },
+        { regra: 'madrugada-calma', descricao: 'De madrugada, sugere trocar para algo calmo', prioridade: 20, auto: false, acoes: [{ tipo: 'sugestao', valor: 'Posso tocar algo mais calmo.' }] },
+      ],
+      trail: [
+        {
+          regra: 'madrugada-silencio', descricao: 'De madrugada, com música tocando, sugere silêncio',
+          disparou: true, auto: false,
+          condicoes: [
+            { condicao: 'hora_entre', esperado: [23, 6], passou: true, detalhe: 'hora=23 ∈ [23,6)' },
+            { condicao: 'radio_tocando', esperado: true, passou: true, detalhe: 'radio_tocando=True (esperado True)' },
+          ],
+        },
+      ],
+    },
+  },
   '/cortex/decidir/ultimo': {
     decisao: {
       id: 'dec-nucleo-1', question: 'nucleo', policy: 'regras_primeiro',

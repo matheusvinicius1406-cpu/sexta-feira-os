@@ -113,3 +113,62 @@ async def decidir(db: Session, owner_id: str, decision, contexto: dict | None = 
         "foco": foco,
         "escolha": {**escolha, "rationale": racional, "policy": policy},
     }
+
+
+async def propor_regras(db: Session, owner_id: str, pulse, contexto: dict | None = None) -> dict:
+    """Transforma cada regra disparada numa PROPOSTA do agente (source="cortex"),
+    com a trilha anexada no reason — o "por que" viaja junto. A aprovação do
+    dono executa a ação pelo mesmo toolkit (tool cortex_regra). Regras com
+    `auto: true` executam na hora, pelo mesmo rastro auditável."""
+    ctx = contexto if contexto is not None else await build_context(db, owner_id)
+    rules = load_rules()
+    result = evaluate(rules, ctx)
+
+    pendentes = {
+        p.title
+        for p in pulse.list_proposals(db, owner_id, status="pending")
+        if p.source == "cortex"
+    }
+    criadas: list[str] = []
+    auto_executadas: list[str] = []
+    puladas = 0
+
+    for dec in result["decisions"]:
+        if dec["descricao"] in pendentes:
+            puladas += 1
+            continue
+        trail = next((t for t in result["trail"] if t["regra"] == dec["regra"]), None)
+        por_que = " ; ".join(
+            c["detalhe"] for c in (trail or {}).get("condicoes", []) if c.get("passou")
+        )
+        acao = dec["acoes"][0] if dec["acoes"] else None
+        p = pulse.propose(
+            db, owner_id,
+            tool="cortex_regra" if acao else None,
+            args={"acao": acao} if acao else {},
+            title=dec["descricao"],
+            reason=(
+                f"regra '{dec['regra']}' (p{dec['prioridade']}"
+                f"{' · auto' if dec['auto'] else ''}) — por que: {por_que}"
+            ),
+            source="cortex",
+        )
+        criadas.append(p.id)
+        if dec["auto"] and acao:
+            try:
+                done = await pulse.execute_proposal(db, owner_id, p.id)
+                auto_executadas.append(done.id)
+            except Exception as e:  # noqa: BLE001 — a falha fica na proposta
+                logger.warning("auto-regra '%s' falhou ao executar: %s", dec["regra"], e)
+
+    return {
+        "propostas_criadas": criadas,
+        "auto_executadas": auto_executadas,
+        "puladas_por_dedupe": puladas,
+        "regras": {
+            "total": len(result["trail"]),
+            "dispararam": len(result["decisions"]),
+            "decisions": result["decisions"],
+            "trail": result["trail"],
+        },
+    }
