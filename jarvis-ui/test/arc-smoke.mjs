@@ -348,6 +348,49 @@ const ROUTES = {
     response: 'São 14:32 de 15/08/2026.',
     raw: 'que horas são',
   },
+  '/cortex/rules': {
+    count: 2,
+    regras: [
+      {
+        id: 'madrugada-silencio',
+        descricao: 'De madrugada, com música tocando, sugere silêncio',
+        prioridade: 30, auto: false,
+        condicoes: { hora_entre: [23, 6], radio_tocando: true },
+        acoes: [{ tipo: 'sugestao', valor: 'São horas de descanso, senhor.' }],
+        arquivo: 'default.yaml',
+      },
+      {
+        id: 'cpu-em-alta',
+        descricao: 'CPU alta merece uma olhada',
+        prioridade: 25, auto: false,
+        condicoes: { cpu_maior_que: 90 },
+        acoes: [{ tipo: 'observar', valor: 'CPU acima de 90%.' }],
+        arquivo: 'default.yaml',
+      },
+    ],
+  },
+  '/cortex/rules/avaliar': {
+    decisions: [
+      {
+        regra: 'madrugada-silencio',
+        descricao: 'De madrugada, com música tocando, sugere silêncio',
+        prioridade: 30, auto: false,
+        acoes: [{ tipo: 'sugestao', valor: 'São horas de descanso, senhor.' }],
+      },
+    ],
+    trail: [
+      {
+        regra: 'madrugada-silencio',
+        descricao: 'De madrugada, com música tocando, sugere silêncio',
+        disparou: true, auto: false,
+        condicoes: [
+          { condicao: 'hora_entre', esperado: [23, 6], passou: true, detalhe: 'hora=23 ∈ [23,6)' },
+          { condicao: 'radio_tocando', esperado: true, passou: true, detalhe: 'radio_tocando=True (esperado True)' },
+        ],
+      },
+    ],
+    contexto: { agora: { hora: 23, dia_semana: 'sexta' }, radio: { tocando: true } },
+  },
 }
 
 const seen = new Set()

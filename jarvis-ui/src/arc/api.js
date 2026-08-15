@@ -290,6 +290,15 @@ export const voicePack = (key) => get(`/voice/packs/${encodeURIComponent(key)}`)
  */
 export const cortexIntent = (text) => post('/cortex/intent', { text })
 export const cortexVerbs = () => get('/cortex/verbs')
+
+/**
+ * Regras declarativas: a camada de decisão do cortex. `avaliar` monta o
+ * snapshot do mundo (ou usa um contexto simulado) e devolve as decisões com a
+ * trilha condição por condição — o "por que decidi".
+ */
+export const cortexRules = () => get('/cortex/rules')
+export const cortexRulesEvaluate = (contexto) =>
+  post('/cortex/rules/avaliar', contexto ? { contexto } : {})
 export const voicePersonality = () => get('/voice/personality')
 
 /** Transcribe recorded audio. Returns `{ text }` — whatever the kernel heard. */

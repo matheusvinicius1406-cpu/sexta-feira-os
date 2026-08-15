@@ -1,0 +1,82 @@
+# Regras do cortex — decisão declarativa.
+#
+# Cada regra diz "quando <condições>, então <ações>". O motor avalia contra o
+# snapshot de contexto (backend-core/app/cortex/context.py) e devolve a
+# decisão com a trilha condição por condição — o "por que decidi".
+#
+#   auto: false  → a regra PROPÕE (painel Cortex · Regras mostra; você decide)
+#   auto: true   → a regra EXECUTA sozinha (intent roda nas engines reais)
+#
+# Ações permitidas: falar (texto falado), sugestao (recomendação), observar
+# (registro), intent (verbo do cortex + alvo). Nada além disso é executável —
+# regra YAML nunca vira código.
+
+- id: madrugada-silencio
+  descricao: "De madrugada, com música alta tocando, sugere silêncio"
+  prioridade: 30
+  auto: false
+  when:
+    hora_entre: [23, 6]
+    radio_tocando: true
+  then:
+    sugestao: "São horas de descanso, senhor. Quer que eu pare a música?"
+
+- id: madrugada-calma
+  descricao: "De madrugada, sugere trocar para algo calmo em vez de só parar"
+  prioridade: 20
+  auto: false
+  when:
+    hora_entre: [23, 5]
+    radio_tocando: true
+  then:
+    sugestao: "Ou, se preferir, posso tocar algo mais calmo para dormir."
+
+- id: manha-bom-dia
+  descricao: "Pela manhã em dia útil, cumprimenta e oferece o briefing"
+  prioridade: 15
+  auto: false
+  when:
+    hora_entre: [6, 12]
+    dia_semana: [segunda, terca, quarta, quinta, sexta]
+  then:
+    sugestao: "Bom dia. Posso gerar o briefing do dia, se quiser."
+
+- id: sexta-relaxar
+  descricao: "Sexta à noite, sugere música para desacelerar"
+  prioridade: 18
+  auto: false
+  when:
+    hora_entre: [18, 23]
+    dia_semana: [sexta]
+    radio_tocando: false
+  then:
+    sugestao: "Sexta à noite — quer que eu toque algo para relaxar?"
+
+- id: cpu-em-alta
+  descricao: "CPU alta por muito tempo merece uma olhada"
+  prioridade: 25
+  auto: false
+  when:
+    cpu_maior_que: 90
+  then:
+    observar: "CPU acima de 90% — sugiro abrir System · CPU para ver o que está pesando."
+
+- id: fila-grande
+  descricao: "Fila de música grande demais fica difícil de navegar"
+  prioridade: 10
+  auto: false
+  when:
+    radio_fila_maior_que: 10
+  then:
+    sugestao: "A fila está com mais de 10 faixas. Quer que eu embaralhe?"
+
+- id: voz-personagem-madrugada
+  descricao: "A persona ativa responde ao contexto — o Ultron à noite é teatral"
+  prioridade: 5
+  auto: false
+  when:
+    hora_entre: [23, 6]
+    voz_pack: ultron
+    radio_tocando: true
+  then:
+    sugestao: "Os humanos dormem, eu permaneço. Mas até eu reconheço: desligue a música."

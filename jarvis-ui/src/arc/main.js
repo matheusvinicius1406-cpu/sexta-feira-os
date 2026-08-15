@@ -1834,6 +1834,44 @@ import * as Api from './api.js'
         }),
       }];
     }
+    // Regras declarativas do cortex: `avaliar regras` roda o motor contra o
+    // mundo real e mostra as decisões com a trilha condição por condição;
+    // `regras` lista a gramática de decisão carregada.
+    if (/^avaliar regras$/i.test(q)) {
+      return [{
+        t: "Avaliar regras (cortex)", s: "Cortex",
+        go: () => Panel.openCustom("Cortex · Regras", async () => {
+          const r = await Api.cortexRulesEvaluate();
+          const decs = r.decisions ?? [];
+          const trail = r.trail ?? [];
+          const rows = decs.length
+            ? decs.map(d => ({ k: d.regra, v: d.acoes?.[0]?.valor ?? d.descricao }))
+            : [{ k: "nenhuma regra disparou", v: "o mundo atual não casa com nenhuma condição" }];
+          const top = trail.find(t => t.disparou);
+          const why = top
+            ? top.condicoes.map(c => `${c.detalhe}${c.passou ? " ✓" : " ✗"}`).join(" · ")
+            : "nenhuma condição casou";
+          return {
+            rows,
+            note: `${decs.length} de ${trail.length} regras · por que: ${why}`,
+          };
+        }),
+      }];
+    }
+    if (/^regras$/i.test(q)) {
+      return [{
+        t: "Regras do cortex", s: "Cortex",
+        go: () => Panel.openCustom("Cortex · Regras", async () => {
+          const r = await Api.cortexRules();
+          const rs = r.regras ?? [];
+          return {
+            rows: rs.map(g => ({ k: g.id, v: `${g.descricao} (p${g.prioridade}${g.auto ? " · auto" : ""})` })),
+            note: `${rs.length} regras declarativas — condição → ação, com trilha do porquê`,
+          };
+        }),
+      }];
+    }
+
     return [
       { t: `Jarvis: ${q}`, s: "Cortex", go: () => runCortex(q) },
       { t: `Perguntar: ${q}`, s: "Chat", go: () => Live.say(q) },
