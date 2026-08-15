@@ -41,6 +41,14 @@ _CONDITION_OPS = {
     "cpu_maior_que",
     "metas_ativas_maior_que",
     "memorias_maior_que",
+    # mundo / marcadores / timer / memória semântica
+    "fato_igual",
+    "fato_existe",
+    "marcador_existe",
+    "marcadores_maior_que",
+    "timer_rodando",
+    "timer_label",
+    "memoria_tem",
 }
 
 _WEEKDAYS = {
@@ -197,6 +205,64 @@ def _eval_one(op: str, expected, ctx: dict) -> tuple[bool, str]:
         if cur is None:
             return False, f"memorias={cur} (indisponível)"
         return int(cur) > n, f"memorias={cur} > {n}"
+
+    if op == "fato_igual":
+        fatos = _obs(ctx, "mundo", "fatos")
+        if not isinstance(fatos, dict) or not isinstance(expected, dict) or not expected:
+            return False, "fato_igual: mundo indisponível ou contrato inválido ({chave: valor})"
+        chave, valor = next(iter(expected.items()))
+        cur = fatos.get(chave)
+        return str(cur) == str(valor), f"fato '{chave}'={cur} (esperado '{valor}')"
+
+    if op == "fato_existe":
+        fatos = _obs(ctx, "mundo", "fatos")
+        if not isinstance(fatos, dict):
+            return False, "fato_existe: mundo indisponível"
+        presente = str(expected) in fatos
+        return presente, f"fato '{expected}' {'presente' if presente else 'ausente'}"
+
+    if op == "marcador_existe":
+        itens = _obs(ctx, "marcadores", "itens")
+        if not isinstance(itens, list):
+            return False, "marcador_existe: marcadores indisponíveis"
+        texto = str(expected).lower()
+        hit = any(
+            texto in str(i.get("titulo", "")).lower() or texto in str(i.get("url", "")).lower()
+            for i in itens
+        )
+        achou = "encontrado" if hit else "não encontrado"
+        return hit, f"marcador contendo '{expected}' {achou} em {len(itens)} marcador(es)"
+
+    if op == "marcadores_maior_que":
+        cur = _obs(ctx, "marcadores", "total")
+        n = int(expected)
+        if cur is None:
+            return False, f"marcadores={cur} (indisponível)"
+        return int(cur) > n, f"marcadores={cur} > {n}"
+
+    if op == "timer_rodando":
+        cur = _obs(ctx, "timetrack", "rodando")
+        if cur is None:
+            return False, "timer_rodando: timetrack indisponível"
+        return bool(cur) is bool(expected), f"timer_rodando={cur} (esperado {expected})"
+
+    if op == "timer_label":
+        label = _obs(ctx, "timetrack", "label")
+        if label is None:
+            return False, "timer_label: nenhum timer aberto"
+        return str(label).lower() == str(expected).lower(), f"timer='{label}' (esperado '{expected}')"
+
+    if op == "memoria_tem":
+        recentes = _obs(ctx, "memoria", "recentes")
+        if not isinstance(recentes, list):
+            return False, "memoria_tem: memórias indisponíveis"
+        texto = str(expected).lower()
+        hit = any(
+            texto in str(m.get("titulo", "")).lower() or texto in str(m.get("conteudo", "")).lower()
+            for m in recentes
+        )
+        achou = "encontrada" if hit else "não encontrada"
+        return hit, f"memória contendo '{expected}' {achou} em {len(recentes)} recentes"
 
     return False, f"{op}: operador não implementado"
 

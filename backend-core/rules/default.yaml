@@ -80,3 +80,45 @@
     radio_tocando: true
   then:
     sugestao: "Os humanos dormem, eu permaneço. Mas até eu reconheço: desligue a música."
+
+- id: timer-aberto-madrugada
+  descricao: "Timer aberto de madrugada merece ser fechado"
+  prioridade: 22
+  auto: false
+  when:
+    hora_entre: [23, 6]
+    timer_rodando: true
+  then:
+    sugestao: "Seu timer está aberto de madrugada. Quer que eu pare o tempo?"
+
+- id: foco-sem-timer
+  descricao: "Foco declarado no mundo e nenhum timer rodando — oferece começar"
+  prioridade: 17
+  auto: false
+  when:
+    fato_igual:
+      foco_atual: trabalho
+    timer_rodando: false
+    dia_semana: [segunda, terca, quarta, quinta, sexta]
+  then:
+    sugestao: "Você marcou foco em trabalho e não há timer aberto. Inicio o timer 'trabalho'?"
+
+- id: pasta-de-marcadores
+  descricao: "Muitos marcadores acumulados merecem uma limpeza"
+  prioridade: 12
+  auto: false
+  when:
+    marcadores_maior_que: 10
+  then:
+    sugestao: "Você já tem mais de 10 marcadores. Quer que eu liste os mais antigos para limpar?"
+
+- id: reuniao-guardada
+  descricao: "Se algo sobre reunião foi guardado e é segunda de manhã, oferece lembrar"
+  prioridade: 14
+  auto: false
+  when:
+    memoria_tem: reunião
+    hora_entre: [8, 11]
+    dia_semana: [segunda]
+  then:
+    sugestao: "Você guardou algo sobre reunião. Quer que eu lembre o que era?"

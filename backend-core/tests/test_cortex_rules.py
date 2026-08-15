@@ -107,6 +107,94 @@ def test_radio_voz_cpu_conditions():
     assert "ultron" in ds2[1]["detalhe"]
 
 
+# ── operadores novos: mundo, marcadores, timer, memória ──
+
+
+def test_fato_igual_matches_world_facts():
+    r = Rule(id="t", description="t", when={"fato_igual": {"foco_atual": "trabalho"}}, then={"sugestao": "x"})
+    ds = eval_conditions(r, _ctx(mundo={"fatos": {"foco_atual": "trabalho", "localizacao": "casa"}}))
+    assert ds[0]["passou"] is True
+    assert "foco_atual" in ds[0]["detalhe"] and "trabalho" in ds[0]["detalhe"]
+
+    ds2 = eval_conditions(r, _ctx(mundo={"fatos": {"foco_atual": "leitura"}}))
+    assert ds2[0]["passou"] is False
+
+
+def test_fato_existe_presence():
+    r = Rule(id="t", description="t", when={"fato_existe": "localizacao"}, then={"sugestao": "x"})
+    assert eval_conditions(r, _ctx(mundo={"fatos": {"localizacao": "casa"}}))[0]["passou"] is True
+    assert eval_conditions(r, _ctx(mundo={"fatos": {}}))[0]["passou"] is False
+    ds = eval_conditions(r, _ctx())  # mundo ausente
+    assert ds[0]["passou"] is False
+    assert "indisponível" in ds[0]["detalhe"]
+
+
+def test_marcador_existe_scans_titles_and_urls():
+    r = Rule(id="t", description="t", when={"marcador_existe": "ollama"}, then={"sugestao": "x"})
+    itens = [{"titulo": "Ollama", "url": "https://ollama.com"}, {"titulo": "GitHub", "url": "https://github.com"}]
+    assert eval_conditions(r, _ctx(marcadores={"total": 2, "itens": itens}))[0]["passou"] is True
+
+    r2 = Rule(id="t2", description="t2", when={"marcador_existe": "huggingface"}, then={"sugestao": "x"})
+    assert eval_conditions(r2, _ctx(marcadores={"total": 2, "itens": itens}))[0]["passou"] is False
+    ds = eval_conditions(r2, _ctx())
+    assert ds[0]["passou"] is False
+
+
+def test_marcadores_maior_que():
+    r = Rule(id="t", description="t", when={"marcadores_maior_que": 10}, then={"sugestao": "x"})
+    assert eval_conditions(r, _ctx(marcadores={"total": 12, "itens": []}))[0]["passou"] is True
+    assert eval_conditions(r, _ctx(marcadores={"total": 3, "itens": []}))[0]["passou"] is False
+
+
+def test_timer_rodando_and_label():
+    r = Rule(id="t", description="t", when={"timer_rodando": True}, then={"sugestao": "x"})
+    assert eval_conditions(r, _ctx(timetrack={"rodando": True, "label": "trabalho"}))[0]["passou"] is True
+    assert eval_conditions(r, _ctx(timetrack={"rodando": False, "label": None}))[0]["passou"] is False
+
+    r2 = Rule(id="t2", description="t2", when={"timer_label": "trabalho"}, then={"sugestao": "x"})
+    assert eval_conditions(r2, _ctx(timetrack={"rodando": True, "label": "Trabalho"}))[0]["passou"] is True
+    ds = eval_conditions(r2, _ctx(timetrack={"rodando": False, "label": None}))
+    assert ds[0]["passou"] is False
+    assert "nenhum timer" in ds[0]["detalhe"]
+
+
+def test_memoria_tem_scans_recent_memories():
+    r = Rule(id="t", description="t", when={"memoria_tem": "reunião"}, then={"sugestao": "x"})
+    recentes = [{"titulo": "Nota", "conteudo": "tenho reunião às 9"}, {"titulo": "Ideia", "conteudo": "refatorar"}]
+    assert eval_conditions(r, _ctx(memoria={"total": 2, "recentes": recentes}))[0]["passou"] is True
+    ds = eval_conditions(r, _ctx(memoria={"total": 2, "recentes": recentes}))
+    assert "reunião" in ds[0]["detalhe"]
+
+    r2 = Rule(id="t2", description="t2", when={"memoria_tem": "almoço"}, then={"sugestao": "x"})
+    assert eval_conditions(r2, _ctx(memoria={"total": 2, "recentes": recentes}))[0]["passou"] is False
+    assert eval_conditions(r2, _ctx())[0]["passou"] is False  # memórias ausentes
+
+
+def test_default_rules_use_new_operators():
+    rules = load_rules()
+    ids = {r.id: r for r in rules}
+    assert "timer-aberto-madrugada" in ids
+    assert ids["timer-aberto-madrugada"].when["timer_rodando"] is True
+    assert "foco_atual" in ids["foco-sem-timer"].when["fato_igual"]
+    assert ids["reuniao-guardada"].when["memoria_tem"] == "reunião"
+
+
+def test_evaluate_fires_new_operator_rules():
+    rules = load_rules()
+    ctx = _ctx(
+        agora={"hora": 23, "dia_semana": "segunda"},
+        timetrack={"rodando": True, "label": "codar"},
+    )
+    result = evaluate(rules, ctx)
+    fired = {d["regra"] for d in result["decisions"]}
+    assert "timer-aberto-madrugada" in fired
+    trail = {t["regra"]: t for t in result["trail"]}
+    conds = trail["timer-aberto-madrugada"]["condicoes"]
+    timer = next(c for c in conds if c["condicao"] == "timer_rodando")
+    assert timer["passou"] is True
+    assert "timer_rodando=True" in timer["detalhe"]
+
+
 def test_unavailable_data_fails_with_reason():
     r = Rule(id="t", description="t", when={"cpu_maior_que": 90}, then={"sugestao": "x"})
     ds = eval_conditions(r, _ctx(sistema={}))  # sistema ausente
@@ -179,6 +267,29 @@ def test_evaluate_endpoint_with_simulated_context(client, owner_headers):
     trail = {t["regra"]: t for t in body["trail"]}
     conds = trail["madrugada-silencio"]["condicoes"]
     assert any(c["passou"] for c in conds)
+
+
+def test_evaluate_endpoint_new_operator_rule(client, owner_headers):
+    r = client.post(
+        "/api/v1/cortex/rules/avaliar",
+        json={
+            "contexto": {
+                "agora": {"hora": 10, "dia_semana": "segunda"},
+                "mundo": {"fatos": {"foco_atual": "trabalho"}},
+                "timetrack": {"rodando": False, "label": None},
+            }
+        },
+        headers=owner_headers,
+    )
+    assert r.status_code == 200
+    body = r.json()
+    fired = {d["regra"] for d in body["decisions"]}
+    assert "foco-sem-timer" in fired
+    trail = {t["regra"]: t for t in body["trail"]}
+    conds = trail["foco-sem-timer"]["condicoes"]
+    fato = next(c for c in conds if c["condicao"] == "fato_igual")
+    assert fato["passou"] is True
+    assert "foco_atual" in fato["detalhe"] and "trabalho" in fato["detalhe"]
 
 
 def test_evaluate_endpoint_with_real_context(client, owner_headers):
