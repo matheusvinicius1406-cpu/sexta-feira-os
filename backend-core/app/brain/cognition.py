@@ -149,12 +149,16 @@ class Cognition:
         return [{"role": role_map.get(m.role, "user"), "content": m.content} for m in msgs]
 
     async def _build_messages(
-        self, db: Session, owner_id: str, conv: Conversation, user_text: str
+        self, db: Session, owner_id: str, conv: Conversation, user_text: str,
+        persona: str | None = None,
     ) -> list[dict]:
         # Networked recall: seed by similarity, then follow the links between
         # memories so connected knowledge comes along (Obsidian-style).
         memories = await self.memory.recall_graph(db, owner_id, user_text)
-        system = settings.brain_persona
+        # The active voice pack's persona colors OPEN dialogue: `falar` and
+        # every chat reply speak in the character's manner, not just the
+        # canned phrases. Default = the kernel's own persona.
+        system = persona or settings.brain_persona
         # The present + the owner model: no request ever starts from zero.
         if self.world is not None:
             digest = self.world.context_digest(db, owner_id)
@@ -266,7 +270,7 @@ class Cognition:
     async def respond(
         self, db: Session, owner_id: str, user_text: str,
         conversation_id: str | None = None, device_id: str | None = None,
-        images: list[str] | None = None,
+        images: list[str] | None = None, persona: str | None = None,
     ) -> tuple[str, str]:
         """Return (reply_text, conversation_id). Runs the agentic tool loop.
 
@@ -276,7 +280,7 @@ class Cognition:
         storing the blob would re-send it on every later request forever.
         """
         conv = self._get_or_create_conversation(db, owner_id, conversation_id, device_id)
-        messages = await self._build_messages(db, owner_id, conv, user_text)
+        messages = await self._build_messages(db, owner_id, conv, user_text, persona=persona)
         reply = await self._run_with_tools(db, owner_id, messages, images)
         self._persist_turn(db, conv, "owner", user_text)
         self._persist_turn(db, conv, "assistant", reply)
@@ -387,7 +391,7 @@ class Cognition:
     async def respond_stream(
         self, db: Session, owner_id: str, user_text: str,
         conversation_id: str | None = None, device_id: str | None = None,
-        images: list[str] | None = None,
+        images: list[str] | None = None, persona: str | None = None,
     ) -> AsyncIterator[dict]:
         """Yield {'conversation_id'|'chunk'|'done'} events; persists at the end.
 
@@ -396,7 +400,7 @@ class Cognition:
         the answer may need a tool.
         """
         conv = self._get_or_create_conversation(db, owner_id, conversation_id, device_id)
-        messages = await self._build_messages(db, owner_id, conv, user_text)
+        messages = await self._build_messages(db, owner_id, conv, user_text, persona=persona)
         yield {"conversation_id": conv.id}
         parts: list[str] = []
         async for chunk in self.brain.stream_chat(messages, images=images):

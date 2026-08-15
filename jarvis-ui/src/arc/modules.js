@@ -515,13 +515,14 @@ export const PANELS = {
       const voice = typeof p === 'object'
         ? `${p.tts_voice ?? '—'} · ritmo ${p.tts_rate ?? '—'} · tom ${p.tts_pitch ?? '—'}`
         : ''
-      const detail = [key, typeof p === 'object' ? (p.description ?? '') : '', voice].filter(Boolean).join(' · ')
+      const clone = typeof p === 'object' && p.voice_profile ? `clonagem: ${p.voice_profile}` : ''
+      const detail = [key, typeof p === 'object' ? (p.description ?? '') : '', voice, clone].filter(Boolean).join(' · ')
       return row(`${name}${isActive ? ' — ATIVO' : ''}`, detail || '—')
     })
     return {
       rows,
       note: rows.length
-        ? 'trocar de voz: paleta (Ctrl+K) `usar voz <nome>` — ex.: “usar voz militar” muda a personalidade E a voz TTS. Teste: `falar <texto>`'
+        ? 'trocar de voz: paleta (Ctrl+K) `usar voz <nome>` — ex.: “usar voz ultron” ou “usar voz alfred” muda a persona E a voz TTS. A fala aberta (chat, `falar`) usa a persona do pack. Teste: `falar <texto>`'
         : 'nenhum pacote de voz instalado',
     }
   },

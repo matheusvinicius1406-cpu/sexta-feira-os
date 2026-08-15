@@ -1181,8 +1181,9 @@ import * as Api from './api.js'
               { k: "Descrição", v: p.description ?? "—" },
               { k: "Saudação", v: p.greeting ?? "—" },
               { k: "Fala", v: `${p.tts_voice ?? "—"} · ritmo ${p.tts_rate ?? "—"} · tom ${p.tts_pitch ?? "—"}` },
+              ...(p.voice_profile ? [{ k: "Clonagem", v: p.voice_profile }] : []),
             ],
-            note: "ativa a partir de agora — a voz TTS e as respostas mudam juntas",
+            note: "ativa a partir de agora — a voz TTS, a persona do chat e as respostas mudam juntas",
           };
         }),
       }];

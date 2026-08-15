@@ -51,10 +51,14 @@ class VoiceBox:
                     voice=self._pack.tts_voice,
                     rate=self._pack.tts_rate,
                     pitch=self._pack.tts_pitch,
+                    voice_profile=self._pack.voice_profile,
                 )
             except Exception:
                 logger.exception("failed to reconfigure TTS for pack '%s'", name)
-        logger.info("Voice pack switched to '%s' (voice=%s)", name, self._pack.tts_voice)
+        logger.info(
+            "Voice pack switched to '%s' (edge voice=%s, voicebox profile=%s)",
+            name, self._pack.tts_voice, self._pack.voice_profile,
+        )
 
     def status(self) -> dict:
         voicebox_status = "unknown"

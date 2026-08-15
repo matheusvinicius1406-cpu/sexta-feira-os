@@ -98,7 +98,8 @@ async def voice_chat(
 
     try:
         reply, conv_id = await cognition.respond(
-            db, owner.id, transcript, conversation_id, device_id
+            db, owner.id, transcript, conversation_id, device_id,
+            persona=voice.pack.persona,
         )
     except BrainUnavailable as e:
         raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, str(e)) from e
@@ -146,6 +147,8 @@ async def get_voice_pack(
         "tts_voice": pack.tts_voice,
         "tts_rate": pack.tts_rate,
         "tts_pitch": pack.tts_pitch,
+        "voice_profile": pack.voice_profile,
+        "persona": pack.persona,
     }
 
 

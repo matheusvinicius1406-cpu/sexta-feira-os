@@ -12,9 +12,10 @@ from sqlalchemy.orm import Session
 from app.auth.jwt import get_current_owner
 from app.brain.cognition import Cognition
 from app.brain.engine import BrainUnavailable
-from app.core.di import get_cognition
+from app.core.di import get_cognition, get_voice
 from app.db.database import get_db
 from app.models.models import Conversation, Owner
+from app.voice.box import VoiceBox
 
 router = APIRouter(prefix="/api/v1/chat", tags=["chat"])
 
@@ -59,12 +60,13 @@ async def chat(
     body: ChatRequest,
     owner: Owner = Depends(get_current_owner),
     cognition: Cognition = Depends(get_cognition),
+    voice: VoiceBox = Depends(get_voice),
     db: Session = Depends(get_db),
 ):
     try:
         reply, conv_id = await cognition.respond(
             db, owner.id, body.message, body.conversation_id, body.device_id,
-            images=_seen(body),
+            images=_seen(body), persona=voice.pack.persona,
         )
         return ChatResponse(reply=reply, conversation_id=conv_id)
     except BrainUnavailable as e:
@@ -76,6 +78,7 @@ async def chat_stream(
     body: ChatRequest,
     owner: Owner = Depends(get_current_owner),
     cognition: Cognition = Depends(get_cognition),
+    voice: VoiceBox = Depends(get_voice),
     db: Session = Depends(get_db),
 ):
     # Decoded BEFORE the stream opens: raising inside the generator would have
@@ -87,7 +90,7 @@ async def chat_stream(
         try:
             async for event in cognition.respond_stream(
                 db, owner.id, body.message, body.conversation_id, body.device_id,
-                images=images,
+                images=images, persona=voice.pack.persona,
             ):
                 yield f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
         except BrainUnavailable as e:

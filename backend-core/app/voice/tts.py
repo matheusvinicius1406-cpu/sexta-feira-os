@@ -84,6 +84,13 @@ class PiperSynthesizer(Synthesizer):
 class VoiceBoxSynthesizer(Synthesizer):
     """TTS via jamiepine/voicebox REST API — 7 engines, voice cloning, local."""
 
+    def __init__(self) -> None:
+        self._profile: str | None = None
+
+    def configure(self, voice_profile: str | None = None) -> None:
+        """Set the named voice profile (clone) to speak with."""
+        self._profile = voice_profile
+
     def available(self) -> bool:
         # Optimistically report available when voicebox_enabled.
         # Actual connectivity is checked in speak(); failures
@@ -92,7 +99,7 @@ class VoiceBoxSynthesizer(Synthesizer):
 
     async def speak(self, text: str) -> bytes:
         from app.voice.voicebox_adapter import synthesize
-        audio = await synthesize(text)
+        audio = await synthesize(text, voice_profile=self._profile)
         if audio is None:
             raise VoiceUnavailable(
                 "VoiceBox indisponível. Verifique se o servidor VoiceBox "
