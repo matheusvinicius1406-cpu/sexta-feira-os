@@ -40,6 +40,8 @@ _CONDITION_OPS = {
     "voz_pack",
     "cpu_maior_que",
     "metas_ativas_maior_que",
+    "metas_ativas_menor_que",
+    "briefing_hoje",
     "memorias_maior_que",
     # mundo / marcadores / timer / memória semântica
     "fato_igual",
@@ -198,6 +200,19 @@ def _eval_one(op: str, expected, ctx: dict) -> tuple[bool, str]:
         if cur is None:
             return False, f"metas_ativas={cur} (indisponível)"
         return int(cur) > n, f"metas_ativas={cur} > {n}"
+
+    if op == "metas_ativas_menor_que":
+        cur = _obs(ctx, "metas", "ativas")
+        n = int(expected)
+        if cur is None:
+            return False, f"metas_ativas={cur} (indisponível)"
+        return int(cur) < n, f"metas_ativas={cur} < {n}"
+
+    if op == "briefing_hoje":
+        cur = _obs(ctx, "briefing", "hoje")
+        if cur is None:
+            return False, f"briefing_hoje={cur} (indisponível)"
+        return bool(cur) is bool(expected), f"briefing_hoje={cur} (esperado {expected})"
 
     if op == "memorias_maior_que":
         cur = _obs(ctx, "memoria", "total")

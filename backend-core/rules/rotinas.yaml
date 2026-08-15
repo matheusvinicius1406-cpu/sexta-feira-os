@@ -1,0 +1,160 @@
+# Rotinas do dono — trabalho, rotina diária e saúde.
+#
+# Regras honestas: cada uma depende de contexto que o kernel realmente mede
+# (hora, dia, fatos do mundo como localizacao/foco_atual/energia, timer,
+# briefing de hoje, metas). Regra cuja condição depende de um fato que o dono
+# ainda não declarou simplesmente não dispara — a trilha mostra o porquê.
+#
+# Fatos do mundo que o dono pode definir (paleta `definir fato <chave> <valor>`):
+#   localizacao (casa/trabalho), foco_atual, energia (baixa/normal/alta),
+#   humor, estado_usuario (acordado/dormindo — o kernel projeta sozinho).
+
+# ── Trabalho ──────────────────────────────────────────────
+
+- id: trabalho-inicio-de-dia
+  descricao: "No trabalho pela manhã e sem timer aberto — oferece começar o timer de trabalho"
+  prioridade: 26
+  auto: false
+  when:
+    dia_semana: [segunda, terca, quarta, quinta, sexta]
+    hora_entre: [8, 11]
+    fato_igual:
+      localizacao: trabalho
+    timer_rodando: false
+  then:
+    sugestao: "Você está no trabalho e o dia começou. Inicio o timer 'trabalho'?"
+
+- id: trabalho-fim-de-dia
+  descricao: "No fim do dia de trabalho com timer aberto — oferece fechar o tempo"
+  prioridade: 24
+  auto: false
+  when:
+    dia_semana: [segunda, terca, quarta, quinta, sexta]
+    hora_entre: [17, 19]
+    fato_igual:
+      localizacao: trabalho
+    timer_rodando: true
+  then:
+    sugestao: "Fim do expediente. Quer que eu pare o timer e feche o dia?"
+
+- id: reuniao-pela-manha
+  descricao: "Há algo sobre reunião guardado e é começo de dia útil — oferece lembrar"
+  prioridade: 22
+  auto: false
+  when:
+    dia_semana: [segunda, terca, quarta, quinta, sexta]
+    hora_entre: [7, 10]
+    memoria_tem: reunião
+  then:
+    sugestao: "Você guardou algo sobre reunião. Quer que eu lembre o que era?"
+
+- id: foco-sem-meta
+  descricao: "Foco declarado no mundo mas nenhuma meta ativa — a ambição precisa de um destino"
+  prioridade: 19
+  auto: false
+  when:
+    fato_existe: foco_atual
+    metas_ativas_menor_que: 1
+  then:
+    sugestao: "Você declarou um foco, mas não há meta ativa. Quero criar uma meta para ele?"
+
+# ── Rotina do dono ────────────────────────────────────────
+
+- id: briefing-pendente
+  descricao: "Manhã de dia útil sem briefing do dia — oferece gerar"
+  prioridade: 28
+  auto: false
+  when:
+    dia_semana: [segunda, terca, quarta, quinta, sexta]
+    hora_entre: [6, 10]
+    briefing_hoje: false
+  then:
+    sugestao: "Ainda não gerei o briefing de hoje. Quer que eu monte o dia agora?"
+
+- id: fim-de-semana-manha
+  descricao: "Manhã de fim de semana — sugere aproveitar sem pressa"
+  prioridade: 8
+  auto: false
+  when:
+    dia_semana: [sabado, domingo]
+    hora_entre: [8, 12]
+  then:
+    sugestao: "Manhã de fim de semana. Algo para fazer hoje, ou só descansar?"
+
+- id: domingo-planejamento
+  descricao: "Domingo de manhã — hora de planejar a semana"
+  prioridade: 16
+  auto: false
+  when:
+    dia_semana: [domingo]
+    hora_entre: [9, 13]
+    metas_ativas_maior_que: 0
+  then:
+    sugestao: "Domingo é bom para planejar. Quer revisar as metas da semana?"
+
+- id: noite-rever-o-dia
+  descricao: "Fim de noite em dia útil — oferece fechar o dia e planejar amanhã"
+  prioridade: 14
+  auto: false
+  when:
+    dia_semana: [segunda, terca, quarta, quinta, sexta]
+    hora_entre: [20, 22]
+  then:
+    sugestao: "Fim do dia. Quero revisar como foi e preparar o amanhã?"
+
+- id: em-casa-fim-de-tarde
+  descricao: "Em casa no fim de tarde — sugere música para relaxar"
+  prioridade: 12
+  auto: false
+  when:
+    hora_entre: [18, 20]
+    fato_igual:
+      localizacao: casa
+    radio_tocando: false
+  then:
+    sugestao: "Em casa no fim de tarde — quer que eu toque algo para relaxar?"
+
+# ── Saúde ─────────────────────────────────────────────────
+
+- id: energia-baixa
+  descricao: "Energia declarada baixa — o corpo pede pausa"
+  prioridade: 30
+  auto: false
+  when:
+    fato_igual:
+      energia: baixa
+    hora_entre: [6, 22]
+  then:
+    sugestao: "Sua energia está baixa. Talvez uma pausa curta antes de seguir?"
+
+- id: madrugada-acordado
+  descricao: "De madrugada acordado — o sono importa mais que qualquer tarefa"
+  prioridade: 30
+  auto: false
+  when:
+    hora_entre: [1, 5]
+  then:
+    sugestao: "São horas de dormir. O que ficou pode esperar o dia clarear."
+
+- id: dormindo-sem-barulho
+  descricao: "Estado dormindo com música tocando — silêncio respeita o sono"
+  prioridade: 32
+  auto: false
+  when:
+    fato_igual:
+      estado_usuario: dormindo
+    radio_tocando: true
+  then:
+    sugestao: "Você está dormindo e a música ainda toca. Quer que eu pare?"
+
+- id: acordou-pelo-meninos
+  descricao: "Acordou cedo em dia útil — o café e o começo do dia"
+  prioridade: 20
+  auto: false
+  when:
+    hora_entre: [6, 8]
+    dia_semana: [segunda, terca, quarta, quinta, sexta]
+    fato_igual:
+      estado_usuario: acordado
+  then:
+    sugestao: "Bom dia. Começo com um resumo rápido do que te espera hoje?"

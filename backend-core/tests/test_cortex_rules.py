@@ -170,6 +170,89 @@ def test_memoria_tem_scans_recent_memories():
     assert eval_conditions(r2, _ctx())[0]["passou"] is False  # memórias ausentes
 
 
+# ── rotinas: trabalho, rotina do dono, saúde ────────────
+
+
+def test_metas_ativas_menor_que_operator():
+    r = Rule(id="t", description="t", when={"metas_ativas_menor_que": 1}, then={"sugestao": "x"})
+    assert eval_conditions(r, _ctx(metas={"ativas": 0}))[0]["passou"] is True
+    assert eval_conditions(r, _ctx(metas={"ativas": 2}))[0]["passou"] is False
+    assert eval_conditions(r, _ctx())[0]["passou"] is False  # metas ausentes
+
+
+def test_briefing_hoje_operator():
+    r = Rule(id="t", description="t", when={"briefing_hoje": False}, then={"sugestao": "x"})
+    assert eval_conditions(r, _ctx(briefing={"hoje": False}))[0]["passou"] is True
+    assert eval_conditions(r, _ctx(briefing={"hoje": True}))[0]["passou"] is False
+    ds = eval_conditions(r, _ctx())
+    assert ds[0]["passou"] is False and "indisponível" in ds[0]["detalhe"]
+
+
+def test_rotinas_load_with_new_rules():
+    rules = load_rules()
+    ids = {r.id for r in rules}
+    assert {"trabalho-inicio-de-dia", "trabalho-fim-de-dia", "energia-baixa",
+            "madrugada-acordado", "dormindo-sem-barulho", "briefing-pendente",
+            "foco-sem-meta", "domingo-planejamento", "noite-rever-o-dia"} <= ids
+
+
+def test_trabalho_inicio_de_dia_dispara_com_fatos_certos():
+    rules = load_rules()
+    ctx = _ctx(
+        agora={"hora": 9, "dia_semana": "segunda"},
+        mundo={"fatos": {"localizacao": "trabalho"}},
+        timetrack={"rodando": False, "label": None},
+    )
+    result = evaluate(rules, ctx)
+    fired = {d["regra"] for d in result["decisions"]}
+    assert "trabalho-inicio-de-dia" in fired
+    # e NÃO dispara sem o fato: domingo em casa
+    result2 = evaluate(rules, _ctx(agora={"hora": 9, "dia_semana": "segunda"},
+                                   timetrack={"rodando": False, "label": None}))
+    assert "trabalho-inicio-de-dia" not in {d["regra"] for d in result2["decisions"]}
+
+
+def test_energia_baixa_e_dormindo_disparam():
+    rules = load_rules()
+    ctx = _ctx(agora={"hora": 15, "dia_semana": "segunda"},
+               mundo={"fatos": {"energia": "baixa"}})
+    fired = {d["regra"] for d in evaluate(rules, ctx)["decisions"]}
+    assert "energia-baixa" in fired
+
+    ctx2 = _ctx(agora={"hora": 2, "dia_semana": "sabado"},
+                mundo={"fatos": {"estado_usuario": "dormindo"}},
+                radio={"tocando": True, "fila": 1})
+    fired2 = {d["regra"] for d in evaluate(rules, ctx2)["decisions"]}
+    assert "dormindo-sem-barulho" in fired2  # p32 — o silêncio respeita o sono
+    assert "madrugada-acordado" in fired2
+
+
+def test_briefing_pendente_so_dispara_sem_briefing_hoje():
+    rules = load_rules()
+    ctx = _ctx(agora={"hora": 8, "dia_semana": "terca"}, briefing={"hoje": False})
+    fired = {d["regra"] for d in evaluate(rules, ctx)["decisions"]}
+    assert "briefing-pendente" in fired
+
+    ctx2 = _ctx(agora={"hora": 8, "dia_semana": "terca"}, briefing={"hoje": True})
+    fired2 = {d["regra"] for d in evaluate(rules, ctx2)["decisions"]}
+    assert "briefing-pendente" not in fired2
+
+
+def test_foco_sem_meta_dispara_quando_nao_ha_meta_ativa():
+    rules = load_rules()
+    ctx = _ctx(agora={"hora": 14, "dia_semana": "quarta"},
+               mundo={"fatos": {"foco_atual": "escrever livro"}},
+               metas={"ativas": 0})
+    fired = {d["regra"] for d in evaluate(rules, ctx)["decisions"]}
+    assert "foco-sem-meta" in fired
+    # com meta ativa não dispara
+    ctx2 = _ctx(agora={"hora": 14, "dia_semana": "quarta"},
+                mundo={"fatos": {"foco_atual": "escrever livro"}},
+                metas={"ativas": 2})
+    fired2 = {d["regra"] for d in evaluate(rules, ctx2)["decisions"]}
+    assert "foco-sem-meta" not in fired2
+
+
 def test_default_rules_use_new_operators():
     rules = load_rules()
     ids = {r.id: r for r in rules}

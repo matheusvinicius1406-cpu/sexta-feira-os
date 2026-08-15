@@ -79,7 +79,13 @@ async def build_context(db, owner_id: str) -> dict:
     # Fontes que dependem do banco: metas, memórias, mundo, timer, marcadores.
     if db is not None and owner_id:
         try:
-            from app.core.di import get_memory, get_planning, get_timetracker, get_world
+            from app.core.di import (
+                get_briefing,
+                get_memory,
+                get_planning,
+                get_timetracker,
+                get_world,
+            )
 
             planning = _safe(get_planning)
             if planning:
@@ -130,6 +136,14 @@ async def build_context(db, owner_id: str) -> dict:
                     "rodando": cur is not None,
                     "label": getattr(cur, "label", None) if cur else None,
                 }
+
+            # Briefing — já foi gerado hoje? (rotina matinal honesta: só sugere
+            # se ainda não existe report do dia.)
+            briefing = _safe(get_briefing)
+            if briefing:
+                latest = _safe(lambda: briefing.latest(db, owner_id))
+                if latest is not None:
+                    ctx["briefing"] = {"hoje": latest.created_at.date() == now.date()}
         except Exception as e:  # noqa: BLE001
             logger.debug("contexto: banco indisponível: %s", e)
 
