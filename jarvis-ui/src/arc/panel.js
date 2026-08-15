@@ -18,6 +18,10 @@ import { panelFor } from './modules.js'
 const el = {}
 let token = 0
 
+/** Executor of palette commands, registered by main.js (reuses the same
+ * dynamicCommands pipeline — a panel action IS a typed command, nothing else). */
+let runAction = (cmd) => { console.warn('panel: nenhum runner de ação registrado', cmd) }
+
 function init() {
   if (el.root) return
   el.root = document.getElementById('panel')
@@ -38,7 +42,7 @@ function add(cls, text) {
   return d
 }
 
-function addRow(k, v) {
+function addRow(k, v, opts = {}) {
   const r = document.createElement('div')
   r.className = 'pn-row'
   const kk = document.createElement('div')
@@ -48,7 +52,25 @@ function addRow(k, v) {
   vv.className = 'pn-v'
   vv.textContent = v
   r.append(kk, vv)
+
+  // A row may carry a palette command: one click does what typing the command
+  // would — same pipeline, same honesty. The affordance says so plainly.
+  if (opts.cmd) {
+    const a = document.createElement('button')
+    a.className = 'pn-act'
+    a.type = 'button'
+    a.textContent = opts.label ?? '▶ executar'
+    a.title = opts.cmd
+    a.addEventListener('click', () => runAction(opts.cmd))
+    r.classList.add('pn-actrow')
+    r.appendChild(a)
+  }
+
   el.body.appendChild(r)
+}
+
+export function setActionRunner(fn) {
+  if (typeof fn === 'function') runAction = fn
 }
 
 export function close() {
@@ -109,7 +131,10 @@ export async function openCustom(title, load) {
     }
 
     const rows = out.rows ?? []
-    for (const { k, v } of rows) addRow(k, v)
+    for (const rowData of rows) {
+      const { k, v } = rowData
+      addRow(k, v, rowData)
+    }
     if (!rows.length && !out.note) add('pn-note', 'o kernel respondeu, e não há nada a listar')
     if (out.note) add('pn-note', out.note)
     el.src.textContent = rows.length ? `${rows.length} leitura${rows.length > 1 ? 's' : ''}` : 'vazio'

@@ -903,6 +903,20 @@ import * as Api from './api.js'
   const pal = document.getElementById("palette");
   const palInput = document.getElementById("palInput");
   const palList = document.getElementById("palList");
+
+  /* Panel actions reuse the palette's own command pipeline: clicking an action
+     button on a panel row runs the exact command typing it would have. One
+     pipeline, one honesty — an action either resolves to a real command or it
+     says so instead of pretending. */
+  Panel.setActionRunner((cmd) => {
+    const c = dynamicCommands(cmd);
+    const first = c?.[0];
+    if (first) {
+      first.go();
+    } else {
+      toast(`sem ação para: ${cmd}`);
+    }
+  });
   const COMMANDS = MODULES.flatMap(m => [
     { t: m.label, s: "Module", go: () => { S.activeIdx = MODULES.indexOf(m); setDepth(2); } },
     ...m.kids.map(k => ({

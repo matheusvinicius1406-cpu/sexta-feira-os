@@ -193,15 +193,31 @@ export const PANELS = {
   },
   'agents/Proposals': async () => {
     const ps = await api.proposals()
-    return listing(
-      ps.slice(0, 12),
-      (p) =>
-        row(
-          truncate(p.title ?? p.id, 40),
-          `${p.kind ?? '?'} · ${p.status ?? '?'} · ${String(p.id ?? '').slice(0, 8)}`,
-        ),
-      'nenhuma proposta — o agente não está pedindo nada agora',
-    )
+    const rows = ps.slice(0, 12).map((p) => {
+      const base = {
+        k: truncate(p.title ?? p.id, 40),
+        v: `${p.kind ?? '?'} · ${p.status ?? '?'}`,
+      }
+      // Uma proposta pendente é uma oferta: um clique aprova e o kernel executa.
+      // Recusar é a ação irmã — note explica o comando para não lotar a linha.
+      if (p.status === 'pending') {
+        return {
+          ...base,
+          cmd: `aprovar ${p.id}`,
+          label: p.tool ? `▶ executar ${p.tool}` : '▶ aprovar',
+        }
+      }
+      return { ...base, v: `${base.v} · ${truncate(p.result ?? p.error ?? '', 60)}` }
+    })
+    const pend = ps.filter((p) => p.status === 'pending').length
+    return {
+      rows,
+      note: rows.length
+        ? pend
+          ? `${pend} proposta(s) pendente(s) — clique para o kernel executar; recusar: paleta \`recusar <id>\``
+          : 'nenhuma pendente — as listadas já foram decididas/executadas'
+        : 'nenhuma proposta — o agente não está pedindo nada agora. Paleta `rodar pulse` para ele pensar agora',
+    }
   },
   'agents/Active': async () => {
     const [ds, st] = await Promise.all([api.directors(), api.automationStatus().catch(() => null)])
@@ -517,7 +533,10 @@ export const PANELS = {
         : ''
       const clone = typeof p === 'object' && p.voice_profile ? `clonagem: ${p.voice_profile}` : ''
       const detail = [key, typeof p === 'object' ? (p.description ?? '') : '', voice, clone].filter(Boolean).join(' · ')
-      return row(`${name}${isActive ? ' — ATIVO' : ''}`, detail || '—')
+      const base = row(`${name}${isActive ? ' — ATIVO' : ''}`, detail || '—')
+      return isActive || !key
+        ? base
+        : { ...base, cmd: `usar voz ${key}`, label: '▶ usar' }
     })
     return {
       rows,
@@ -546,17 +565,20 @@ export const PANELS = {
     const ads = sts?.ad_blocker ?? {}
     const playlists = pls?.playlists ?? []
     const rows = [
-      row('Tocando', cur ? `${cur.title}${cur.artist ? ` — ${cur.artist}` : ''}` : 'nada'),
+      // Cada linha viva é um clique: o estado mostra o que é, o botão muda o que dá.
+      cur
+        ? { ...row('Tocando', `${cur.title}${cur.artist ? ` — ${cur.artist}` : ''}`), cmd: 'pular faixa', label: '▶ pular' }
+        : row('Tocando', 'nada'),
       row('Fila', s.queue_length ?? 0),
       row('Volume', s.volume != null ? `${Math.round(s.volume * 100)}%` : '—'),
-      row('Shuffle', s.shuffle ? 'ligado' : 'desligado'),
-      row('Repeat', s.repeat ? 'ligado' : 'desligado'),
-      row('Adblock', s.ad_blocker_enabled ? 'ligado' : 'desligado'),
+      { ...row('Shuffle', s.shuffle ? 'ligado' : 'desligado'), cmd: s.shuffle ? 'não embaralhar' : 'embaralhar', label: s.shuffle ? '▶ desligar' : '▶ ligar' },
+      { ...row('Repeat', s.repeat ? 'ligado' : 'desligado'), cmd: s.repeat ? 'não repetir' : 'repetir', label: s.repeat ? '▶ desligar' : '▶ ligar' },
+      { ...row('Adblock', s.ad_blocker_enabled ? 'ligado' : 'desligado'), cmd: s.ad_blocker_enabled ? 'adblock desligar' : 'adblock ligar', label: s.ad_blocker_enabled ? '▶ desligar' : '▶ ligar' },
       row('Presets', sts?.presets_count ?? '—'),
       row('Ads (categorias)', (ads.categories_blocked ?? []).length ? `${(ads.categories_blocked ?? []).length} · ${(ads.ad_keywords_count ?? 0)} palavras-chave` : '—'),
-      ...(qu.queue ?? []).slice(0, 6).map((t) => row(t.title, `${t.artist ?? ''} · ${t.stream_type ?? ''}`)),
+      ...(qu.queue ?? []).slice(0, 6).map((t) => ({ ...row(t.title, `${t.artist ?? ''} · ${t.stream_type ?? ''}`), cmd: 'pular faixa', label: '▶ tocar próxima' })),
       ...(playlists.length
-        ? [row('Playlists', playlists.map((p) => `${p.name} (${p.count})`).join(', '))]
+        ? playlists.map((p) => ({ ...row(p.name, `${p.count} faixa(s)`), cmd: `tocar playlist ${p.name}`, label: '▶ tocar' }))
         : []),
     ]
     return {
