@@ -99,3 +99,9 @@ backend-core/data/sexta_feira_os.db
 # Modelos de voz do Piper (.onnx, ~63 MB cada). Baixados sob demanda de
 # huggingface.co/rhasspy/piper-voices; são peso, não fonte.
 backend-core/data/voices/
+
+# ── Artefatos de debug do HUD ──────────────────────
+# Probes CDP e screenshots de validação do ARC (scratch, nunca fonte).
+jarvis-ui/.tmp-*.mjs
+jarvis-ui/hud-check/
+tmp/
