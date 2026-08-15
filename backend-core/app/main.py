@@ -54,6 +54,7 @@ from app.api.routers import (  # noqa: E402
     browser,
     chat,
     connectors,
+    cortex,
     decision,
     directors,
     evals,
@@ -166,6 +167,7 @@ app.include_router(action.router)
 app.include_router(schedule.router)
 app.include_router(security.router)
 app.include_router(connectors.router)
+app.include_router(cortex.router)
 app.include_router(vision.router)
 app.include_router(obsidian.router)
 app.include_router(system.router)

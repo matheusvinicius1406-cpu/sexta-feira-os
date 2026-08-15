@@ -46,6 +46,8 @@ para o painel acender.
 | `voice` | `voice/*` + loop de voz (`live.js`) + **packs falam com voz TTS real** — cada pack carrega `tts_voice` (Edge neural: Jarvis Classic→Antonio, Amigável→Francisca), `tts_rate`, `tts_pitch` e `voice_profile` (clonagem VoiceBox: borgerth-jarvis, dondi-ultron, padua-alfred); `usar voz <nome>` reconfigura o synthesizer; **packs de personagem** (`ultron` = Márcio Dondi/James Spader, `alfred` = Pádua Moreira/Michael Caine) com `persona` injetada no system prompt do cérebro — o diálogo **aberto** (chat, stream, `/voice/chat`, `falar`) fala como o personagem, não só frases prontas; paleta `falar <texto>` via `/voice/speak` — **2026-08-15** |
 | `world` | `ai/Context` (digest + perfil do dono + fatos do mundo) + paleta `definir/esquecer perfil <chave> [valor]`, `definir/esquecer fato <chave> [valor]` — curadoria soberana do modelo do dono — **2026-08-15** |
 
+| `cortex` | **novo router — o cérebro simbólico (sem LLM)** — `POST /cortex/intent` (fala → intenção → ação nas engines reais, com `trace` da decisão e resposta honesta) + `GET /cortex/verbs` (a gramática que ele conhece). A paleta consulta o cortex **antes** do chat: texto que nenhum comando dinâmico casa vira `Jarvis: <fala>` → painel Cortex mostra verbo/alvo/resposta/trilha; `falar <texto>` sobe o áudio com a voz do pack ativo; `understood=false` lista o que ele sabe em vez de inventar. **Mic na paleta** (`#palMic`, Web Speech pt-BR): falou → transcreve → executa sozinho, mesmo caminho do teclado — **2026-08-15** |
+
 ## 🟢 Nota de arquitetura
 
 Os **12 módulos** do ARC são fixos por design (`docs/design-system/`). Estender

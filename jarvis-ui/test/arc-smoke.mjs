@@ -327,6 +327,27 @@ const ROUTES = {
   '/journal': [], '/habits': [],
   '/time/summary': [{ label: 'trabalho', seconds: 3600 }], '/time/current': { running: null },
   '/chat/conversations': [],
+  '/cortex/verbs': {
+    engine: 'symbolic',
+    count: 17,
+    verbs: [
+      { name: 'tocar_playlist', description: 'tocar a playlist <nome>' },
+      { name: 'tocar', description: 'tocar <música>' },
+      { name: 'voz', description: 'trocar a voz' },
+      { name: 'falar', description: 'o Jarvis fala um texto' },
+      { name: 'hora', description: 'saber as horas' },
+      { name: 'status', description: 'saber o estado do sistema' },
+    ],
+  },
+  '/cortex/intent': {
+    understood: true,
+    verb: 'hora',
+    target: null,
+    params: {},
+    trace: ['hora:padrão1'],
+    response: 'São 14:32 de 15/08/2026.',
+    raw: 'que horas são',
+  },
 }
 
 const seen = new Set()

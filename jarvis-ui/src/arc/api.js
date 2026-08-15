@@ -283,6 +283,13 @@ export const voiceStatus = () => get('/voice/status')
 export const voicePacks = () => get('/voice/packs')
 // Get a pack by key and — per the kernel — switch it to active.
 export const voicePack = (key) => get(`/voice/packs/${encodeURIComponent(key)}`)
+
+/**
+ * The cortex — the hand-built brain. `text` -> intent -> action, no LLM.
+ * Returns `{ understood, verb, target, params, trace, response, raw, known }`.
+ */
+export const cortexIntent = (text) => post('/cortex/intent', { text })
+export const cortexVerbs = () => get('/cortex/verbs')
 export const voicePersonality = () => get('/voice/personality')
 
 /** Transcribe recorded audio. Returns `{ text }` — whatever the kernel heard. */

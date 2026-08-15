@@ -926,10 +926,43 @@ import * as Api from './api.js'
   ]);
 
   /**
+   * The cortex — the hand-built brain, zero LLM. Speech no dynamic command
+   * matches goes here FIRST: the cortex parses it against its grammar, runs it
+   * on the real engines and answers honestly. `falar <texto>` is spoken with
+   * the active pack's voice. `understood=false` lists what it knows instead of
+   * inventing a reply.
+   */
+  async function runCortex(text) {
+    Panel.openCustom("Cortex", async () => {
+      let r;
+      try {
+        r = await Api.cortexIntent(text);
+      } catch (e) {
+        return { rows: [{ k: "cortex", v: String(e.message ?? e) }] };
+      }
+      if (!r.understood) {
+        return {
+          rows: [{ k: "não entendi", v: `"${r.raw ?? text}" não casa com nenhuma intenção conhecida` }],
+          note: `eu sei: ${(r.known ?? []).map(k => k.name).join(", ") || "nada ainda"}`,
+        };
+      }
+      // "falar <texto>" devolve o texto a dizer — o áudio sobe com a voz do pack.
+      if (r.verb === "falar" && r.response) Live.speak(r.response);
+      const rows = [{ k: r.verb, v: r.response }];
+      if (r.target) rows.push({ k: "alvo", v: r.target });
+      return {
+        rows,
+        note: `cortex · ${r.trace?.[0] ?? "intenção determinística"} — sem LLM no caminho`,
+      };
+    });
+  }
+
+  /**
    * Typed input that is not a module name is still meant for the assistant.
    * These entries make the palette answer for it — `buscar X` reaches the web
-   * through the kernel, anything else is a question for the brain. Without
-   * them, typing a real question would silently match nothing.
+   * through the kernel, the cortex decides what it can do, anything else is a
+   * question for the brain. Without them, typing a real question would
+   * silently match nothing.
    */
   function dynamicCommands(raw) {
     const q = raw.trim();
@@ -1802,6 +1835,7 @@ import * as Api from './api.js'
       }];
     }
     return [
+      { t: `Jarvis: ${q}`, s: "Cortex", go: () => runCortex(q) },
       { t: `Perguntar: ${q}`, s: "Chat", go: () => Live.say(q) },
       { t: `Lembrar: ${q}`, s: "Memory", go: () => Panel.openCustom("Memory · Semantic", async () => {
         const ms = await Api.recall(q);
@@ -1926,6 +1960,44 @@ import * as Api from './api.js'
     if (e.key === "Enter") { const f = palList.querySelector(".pal-item"); if (f) f.click(); }
   });
   pal.addEventListener("click", e => { if (e.target === pal) closePal(); });
+
+  /* Falar o comando: o navegador transcreve (pt-BR) e o texto entra na paleta
+     e executa sozinho — mesmo caminho do teclado, nada de clique extra. O
+     texto que nenhum comando conhece vai para o cortex (o cérebro simbólico)
+     decidir. */
+  const palMic = document.getElementById("palMic");
+  let palRec = null;
+  palMic.addEventListener("click", () => {
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) { toast("este navegador não tem reconhecimento de fala — use Chrome"); return; }
+    if (palRec) { palRec.cancelled = true; palRec.stop(); palRec = null; palMic.classList.remove("on"); return; }
+    const rec = new SR();
+    palRec = rec; rec.cancelled = false;
+    palMic.classList.add("on");
+    rec.lang = "pt-BR"; rec.interimResults = true; rec.continuous = false;
+    rec.onresult = (ev) => {
+      let interim = "", final = "";
+      for (const res of ev.results) {
+        if (res.isFinal) final += res[0].transcript;
+        else interim += res[0].transcript;
+      }
+      palInput.value = (final || interim).trim();
+      renderPal(palInput.value);
+    };
+    rec.onend = () => {
+      palRec = null; palMic.classList.remove("on");
+      if (rec.cancelled) return;
+      const txt = palInput.value.trim();
+      if (!txt) return;
+      const f = palList.querySelector(".pal-item");
+      if (f) f.click();   // roda o comando — ou o cortex decide por conta própria
+    };
+    rec.onerror = (e) => {
+      palMic.classList.remove("on"); palRec = null;
+      if (e.error !== "aborted") toast(`microfone: ${e.error}`);
+    };
+    rec.start();
+  });
 
   /* ═══════════════════════════════════════════════════════
      13 — TOAST
