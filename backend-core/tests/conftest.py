@@ -23,6 +23,14 @@ os.environ["OWNER_NAME"] = "Test Owner"
 os.environ["OWNER_PASSWORD"] = "a-strong-test-password"
 os.environ["DEVICE_PAIRING_CODE"] = "pair-code-123"
 os.environ["SCHEDULER_ENABLED"] = "false"  # tests drive run_due() directly
+# Same class of leak as SCHEDULER_ENABLED: the pulse's API tests (test_agent_pulse)
+# assert the pulse is WIRED in the test kernel, so the developer's real
+# AGENT_PULSE_ENABLED=false must not reach the test process either. Pin it on.
+os.environ["AGENT_PULSE_ENABLED"] = "true"
+# Same class: the cognition tests (test_extractor, test_obsidian) assert the
+# background auto-learn actually RUNS. The developer's real MEMORY_AUTO_LEARN
+# must not reach the test process either.
+os.environ["MEMORY_AUTO_LEARN"] = "true"
 # Pin the auth bypass off, whatever the developer's .env says. The endpoint
 # tests assert that protected routes answer 401 without a token; if the local
 # .env opted into the bypass, they would silently start asserting nothing.
