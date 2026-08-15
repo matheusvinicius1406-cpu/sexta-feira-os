@@ -111,6 +111,16 @@ class EdgeTTSSynthesizer:
         self._voice = voice
         logger.info("EdgeTTS voice switched to %s", voice)
 
+    def configure(self, voice: str | None = None, rate: str | None = None, pitch: str | None = None) -> None:
+        """Reconfigure voice, rate and/or pitch. None keeps the current value."""
+        if voice is not None:
+            self._voice = voice
+        if rate is not None:
+            self._rate = rate
+        if pitch is not None:
+            self._pitch = pitch
+        logger.info("EdgeTTS configured: voice=%s rate=%s pitch=%s", self._voice, self._rate, self._pitch)
+
 
 def build_edge_tts() -> EdgeTTSSynthesizer:
     """Build an EdgeTTS synthesizer with the default Portuguese voice."""

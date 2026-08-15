@@ -274,3 +274,59 @@ async def radio_stats(
     """Get radio engine statistics."""
     radio = get_radio()
     return await radio.get_stats()
+
+
+# ── Playlists (in-memory, like the queue) ───────────────────
+
+
+@router.get("/playlists")
+async def list_playlists(
+    owner: Owner = Depends(get_current_owner),
+):
+    """List saved playlists."""
+    return {"playlists": get_radio().list_playlists()}
+
+
+@router.post("/playlists/{name}", status_code=status.HTTP_201_CREATED)
+async def save_playlist(
+    name: str,
+    owner: Owner = Depends(get_current_owner),
+):
+    """Save the current queue as a named playlist."""
+    radio = get_radio()
+    count = radio.save_playlist(name)
+    if not count:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            "Nada para salvar: a fila está vazia e nada está tocando.",
+        )
+    return {"name": name, "count": count}
+
+
+@router.post("/playlists/{name}/play")
+async def play_playlist(
+    name: str,
+    owner: Owner = Depends(get_current_owner),
+):
+    """Load a playlist into the queue and play its first track."""
+    track = get_radio().load_playlist(name)
+    if track is None:
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND,
+            f"Playlist '{name}' não existe. Paleta: `playlists` para ver as salvas.",
+        )
+    return {"playing": track.to_dict()}
+
+
+@router.delete("/playlists/{name}")
+async def delete_playlist(
+    name: str,
+    owner: Owner = Depends(get_current_owner),
+):
+    """Delete a saved playlist."""
+    if not get_radio().delete_playlist(name):
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND,
+            f"Playlist '{name}' não existe.",
+        )
+    return {"deleted": name}

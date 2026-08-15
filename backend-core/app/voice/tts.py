@@ -120,6 +120,14 @@ class EdgeTTSSynthesizer(Synthesizer):
             self._impl = EdgeTTSSynthesizer()
         return await self._impl.speak(text)
 
+    def configure(self, voice: str | None = None, rate: str | None = None, pitch: str | None = None) -> None:
+        """Reconfigure the Edge voice (voice/rate/pitch)."""
+        from app.voice.edge_tts_adapter import EdgeTTSSynthesizer
+        if self._impl is None:
+            # build with defaults, then apply whatever was requested
+            self._impl = EdgeTTSSynthesizer()
+        self._impl.configure(voice=voice, rate=rate, pitch=pitch)
+
 
 def build_synthesizer() -> Synthesizer:
     from app.core.config import settings

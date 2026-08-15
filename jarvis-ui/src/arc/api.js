@@ -214,6 +214,10 @@ export const radioToggleShuffle = () => post('/radio/shuffle', {})
 export const radioToggleRepeat = () => post('/radio/repeat', {})
 export const radioToggleAdblock = () => post('/radio/adblock', {})
 export const radioStats = () => get('/radio/stats')
+export const radioPlaylists = () => get('/radio/playlists')
+export const radioPlaylistSave = (name) => post(`/radio/playlists/${encodeURIComponent(name)}`, {})
+export const radioPlaylistPlay = (name) => post(`/radio/playlists/${encodeURIComponent(name)}/play`, {}, { timeout: SLOW_TIMEOUT_MS })
+export const radioPlaylistDelete = (name) => request(`/radio/playlists/${encodeURIComponent(name)}`, { method: 'DELETE' })
 
 // ── Decision — por que o kernel escolheu o próximo objetivo ─
 export const decisionHistory = () => get('/decision/history')

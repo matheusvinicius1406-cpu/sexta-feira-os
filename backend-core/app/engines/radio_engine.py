@@ -159,6 +159,10 @@ class RadioEngine:
         self.ad_blocker = AdBlocker()
         self._state = RadioState()
         self._station_cache: list[RadioStation] = []
+        # Named playlists — in-memory like the queue: honest about being
+        # ephemeral (they do not survive a reboot). A playlist is a snapshot of
+        # the queue at the moment it was saved.
+        self._playlists: dict[str, list[Track]] = {}
 
     async def aclose(self) -> None:
         await self._client.aclose()
@@ -606,6 +610,47 @@ class RadioEngine:
                 return None
 
         return None
+
+    # ── Playlists (in-memory, like the queue) ────────────────
+
+    def save_playlist(self, name: str) -> int:
+        """Save the current queue as a named playlist. Returns the track count.
+        With an empty queue the current track (when playing) becomes the
+        playlist; with nothing at all, no playlist is created."""
+        tracks = list(self._state.queue)
+        if not tracks and self._state.current_track:
+            tracks = [self._state.current_track]
+        if not tracks:
+            return 0
+        self._playlists[name] = tracks
+        return len(tracks)
+
+    def list_playlists(self) -> list[dict]:
+        """List saved playlists: name, size and the first titles."""
+        return [
+            {
+                "name": name,
+                "count": len(tracks),
+                "titles": [t.title for t in tracks[:3]],
+            }
+            for name, tracks in self._playlists.items()
+        ]
+
+    def load_playlist(self, name: str) -> Track | None:
+        """Load a playlist into the queue and start playing its first track.
+        Returns None when the playlist does not exist."""
+        tracks = self._playlists.get(name)
+        if not tracks:
+            return None
+        self._state.queue = [Track(**t.__dict__) for t in tracks]
+        self._state.queue_index = 0
+        self._state.current_track = self._state.queue[0]
+        self._state.is_playing = True
+        return self._state.current_track
+
+    def delete_playlist(self, name: str) -> bool:
+        """Remove a saved playlist. Returns False when it did not exist."""
+        return self._playlists.pop(name, None) is not None
 
     # ── Presets ──────────────────────────────────────────────
 

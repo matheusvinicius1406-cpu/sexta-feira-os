@@ -35,10 +35,26 @@ class VoiceBox:
         return self._pack
 
     def set_pack(self, name: str) -> None:
-        """Switch the active voice pack."""
+        """Switch the active voice pack — personality phrases AND the TTS voice.
+
+        Each pack carries the Edge neural voice, rate and pitch it speaks with;
+        when the synthesizer supports reconfiguration (Edge), switching packs
+        changes how Jarvis actually sounds, not just what he says. Engines that
+        cannot change voice at runtime (Piper, VoiceBox) ignore the call.
+        """
         self._pack = get_pack(name)
         self._pack_name = name
-        logger.info("Voice pack switched to '%s'", name)
+        synth = self.synthesizer
+        if hasattr(synth, "configure"):
+            try:
+                synth.configure(
+                    voice=self._pack.tts_voice,
+                    rate=self._pack.tts_rate,
+                    pitch=self._pack.tts_pitch,
+                )
+            except Exception:
+                logger.exception("failed to reconfigure TTS for pack '%s'", name)
+        logger.info("Voice pack switched to '%s' (voice=%s)", name, self._pack.tts_voice)
 
     def status(self) -> dict:
         voicebox_status = "unknown"

@@ -249,14 +249,17 @@ const ROUTES = {
     ad_blocker: { sponsorblock_cache_size: 12, categories_blocked: ['music_offtopic'], ad_keywords_count: 40 },
     presets_count: 6,
   },
+  '/radio/playlists': {
+    playlists: [{ name: 'mix', count: 2, titles: ['Antena 1', 'Alpha'] }],
+  },
   '/voice/status': {
     enabled: true, stt_available: true, tts_available: true, voicebox_enabled: true,
     voicebox_status: 'enabled', tts_engine: 'piper', voice_pack: 'Jarvis Classic',
   },
   '/voice/packs': [
-    { name: 'Jarvis Classic', description: 'Tom profissional e direto.', key: 'jarvis' },
-    { name: 'Amigável', description: 'Tom casual e descontraído.', key: 'friendly' },
-    { name: 'Militar', description: 'Tom formal e direto.', key: 'military' },
+    { name: 'Jarvis Classic', description: 'Tom profissional e direto.', key: 'jarvis', tts_voice: 'pt-BR-AntonioNeural', tts_rate: '-10%', tts_pitch: '-5Hz' },
+    { name: 'Amigável', description: 'Tom casual e descontraído.', key: 'friendly', tts_voice: 'pt-BR-FranciscaNeural', tts_rate: '-5%', tts_pitch: '+2Hz' },
+    { name: 'Militar', description: 'Tom formal e direto.', key: 'military', tts_voice: 'pt-BR-AntonioNeural', tts_rate: '-20%', tts_pitch: '-10Hz' },
   ],
   '/voice/personality': { greeting: 'Às ordens.' },
   '/vision/status': { available: true, model: 'qwen3-vl:2b' },

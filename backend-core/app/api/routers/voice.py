@@ -143,6 +143,9 @@ async def get_voice_pack(
         "greeting": pack.greeting,
         "farewell": pack.farewell,
         "personality_phrases": pack.personality_phrases,
+        "tts_voice": pack.tts_voice,
+        "tts_rate": pack.tts_rate,
+        "tts_pitch": pack.tts_pitch,
     }
 
 

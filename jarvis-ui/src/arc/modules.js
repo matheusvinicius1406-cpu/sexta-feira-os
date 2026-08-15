@@ -512,13 +512,16 @@ export const PANELS = {
       const name = typeof p === 'string' ? p : (p.name ?? '—')
       const key = typeof p === 'object' ? (p.key ?? '') : ''
       const isActive = Boolean(active) && String(name).toLowerCase() === String(active).toLowerCase()
-      const detail = [key, typeof p === 'object' ? (p.description ?? '') : ''].filter(Boolean).join(' · ')
+      const voice = typeof p === 'object'
+        ? `${p.tts_voice ?? '—'} · ritmo ${p.tts_rate ?? '—'} · tom ${p.tts_pitch ?? '—'}`
+        : ''
+      const detail = [key, typeof p === 'object' ? (p.description ?? '') : '', voice].filter(Boolean).join(' · ')
       return row(`${name}${isActive ? ' — ATIVO' : ''}`, detail || '—')
     })
     return {
       rows,
       note: rows.length
-        ? 'trocar de voz: paleta (Ctrl+K) `usar voz <nome>` — ex.: “usar voz militar”'
+        ? 'trocar de voz: paleta (Ctrl+K) `usar voz <nome>` — ex.: “usar voz militar” muda a personalidade E a voz TTS. Teste: `falar <texto>`'
         : 'nenhum pacote de voz instalado',
     }
   },
@@ -531,14 +534,16 @@ export const PANELS = {
     note: 'a latência medida do kernel fica no trilho à direita, em LATENCY',
   }),
   'voice/Radio': async () => {
-    const [st, qu, sts] = await Promise.all([
+    const [st, qu, sts, pls] = await Promise.all([
       api.radioStatus().catch(() => null),
       api.radioQueue().catch(() => ({ queue: [] })),
       api.radioStats().catch(() => null),
+      api.radioPlaylists().catch(() => ({ playlists: [] })),
     ])
     const s = st?.state ?? {}
     const cur = s.current_track
     const ads = sts?.ad_blocker ?? {}
+    const playlists = pls?.playlists ?? []
     const rows = [
       row('Tocando', cur ? `${cur.title}${cur.artist ? ` — ${cur.artist}` : ''}` : 'nada'),
       row('Fila', s.queue_length ?? 0),
@@ -549,10 +554,13 @@ export const PANELS = {
       row('Presets', sts?.presets_count ?? '—'),
       row('Ads (categorias)', (ads.categories_blocked ?? []).length ? `${(ads.categories_blocked ?? []).length} · ${(ads.ad_keywords_count ?? 0)} palavras-chave` : '—'),
       ...(qu.queue ?? []).slice(0, 6).map((t) => row(t.title, `${t.artist ?? ''} · ${t.stream_type ?? ''}`)),
+      ...(playlists.length
+        ? [row('Playlists', playlists.map((p) => `${p.name} (${p.count})`).join(', '))]
+        : []),
     ]
     return {
       rows,
-      note: 'tocar: `tocar <busca>` · colar link: `colar <url>` · fila: `adicionar à fila <busca>`, `limpar fila`, `pular faixa`, `faixa anterior` · `volume <0-100>` · `tocar preset <n>`',
+      note: 'tocar: `tocar <busca>` · colar link: `colar <url>` · fila: `adicionar à fila <busca>`, `limpar fila`, `pular faixa`, `faixa anterior` · `volume <0-100>` · `tocar preset <n>` · modos: `embaralhar`, `repetir`, `adblock ligar|desligar` · playlists: `salvar playlist <nome>`, `tocar playlist <nome>`, `playlists`, `apagar playlist <nome>`',
     }
   },
 

@@ -946,7 +946,33 @@ import * as Api from './api.js'
       }];
     }
 
-    // Rádio: buscar e tocar (primeiro resultado), volume, pular, preset.
+    // Rádio: tocar playlist e preset vêm ANTES do genérico `tocar <busca>`,
+    // senão o regex genérico casa tudo e eles nunca disparam.
+    const plPlay = q.match(/^tocar\s+playlist\s+(.+)/i);
+    if (plPlay) {
+      const name = plPlay[1].trim();
+      return [{
+        t: `Tocar playlist: ${name.slice(0, 40)}`, s: "Voice",
+        go: () => Panel.openCustom("Voice · Radio", async () => {
+          const r = await Api.radioPlaylistPlay(name);
+          const t = r.playing;
+          return { rows: [{ k: "tocando", v: t ? `${t.title}${t.artist ? ` — ${t.artist}` : ""}` : name }] };
+        }),
+      }];
+    }
+    const preset = q.match(/^tocar\s+preset\s+(\d+)$/i);
+    if (preset) {
+      return [{
+        t: `Tocar preset ${preset[1]}`, s: "Voice",
+        go: () => Panel.openCustom("Voice · Radio", async () => {
+          const r = await Api.radioPlayPreset(parseInt(preset[1], 10));
+          const t = r.playing;
+          return { rows: [{ k: "preset", v: t ? `${t.title}${t.artist ? ` — ${t.artist}` : ""}` : "tocando" }] };
+        }),
+      }];
+    }
+
+    // Rádio: buscar e tocar (primeiro resultado), volume, pular.
     const play = q.match(/^tocar\s+(.+)/i);
     if (play) {
       return [{
@@ -987,20 +1013,9 @@ import * as Api from './api.js'
         }),
       }];
     }
-    const preset = q.match(/^tocar\s+preset\s+(\d+)$/i);
-    if (preset) {
-      return [{
-        t: `Tocar preset ${preset[1]}`, s: "Voice",
-        go: () => Panel.openCustom("Voice · Radio", async () => {
-          const r = await Api.radioPlayPreset(parseInt(preset[1], 10));
-          const t = r.playing;
-          return { rows: [{ k: "preset", v: t ? `${t.title}${t.artist ? ` — ${t.artist}` : ""}` : "tocando" }] };
-        }),
-      }];
-    }
-
-    // Rádio extras: faixa anterior, limpar fila, busca só no YouTube e
-    // enfileirar sem interromper o que está tocando.
+    // Rádio extras: faixa anterior, limpar fila, busca só no YouTube,
+    // enfileirar sem interromper, modos (embaralhar/repetir/adblock) e
+    // playlists (salvar/listar/apagar).
     if (/^faixa\s+anterior$/i.test(q)) {
       return [{
         t: "Faixa anterior", s: "Voice",
@@ -1017,6 +1032,80 @@ import * as Api from './api.js'
         go: () => Panel.openCustom("Voice · Radio", async () => {
           await Api.radioQueueClear();
           return { rows: [{ k: "fila", v: "esvaziada" }] };
+        }),
+      }];
+    }
+
+    // Modos: embaralhar / repetir / adblock — toggles honestos (o kernel
+    // devolve o estado novo; o painel mostra o que ficou).
+    const shuffleQ = q.match(/^(?:não\s+)?embaralhar$/i);
+    if (shuffleQ) {
+      const want = !/^não/i.test(shuffleQ[0]);
+      return [{
+        t: `${want ? "Embaralhar" : "Não embaralhar"}`, s: "Voice",
+        go: () => Panel.openCustom("Voice · Radio", async () => {
+          const r = await Api.radioToggleShuffle();
+          return { rows: [{ k: "embaralhar", v: r.shuffle ? "ligado" : "desligado" }] };
+        }),
+      }];
+    }
+    const repeatQ = q.match(/^(?:não\s+)?repetir$/i);
+    if (repeatQ) {
+      const want = !/^não/i.test(repeatQ[0]);
+      return [{
+        t: `${want ? "Repetir" : "Não repetir"}`, s: "Voice",
+        go: () => Panel.openCustom("Voice · Radio", async () => {
+          const r = await Api.radioToggleRepeat();
+          return { rows: [{ k: "repetir", v: r.repeat ? "ligado" : "desligado" }] };
+        }),
+      }];
+    }
+    const adblockQ = q.match(/^adblock\s+(ligar|desligar)$/i);
+    if (adblockQ) {
+      return [{
+        t: `Adblock ${adblockQ[1]}`, s: "Voice",
+        go: () => Panel.openCustom("Voice · Radio", async () => {
+          const r = await Api.radioToggleAdblock();
+          return { rows: [{ k: "adblock", v: r.ad_blocker_enabled ? "ligado" : "desligado" }] };
+        }),
+      }];
+    }
+
+    // Playlists: salvar a fila atual, listar, apagar.
+    const plSave = q.match(/^salvar\s+playlist\s+(.+)/i);
+    if (plSave) {
+      const name = plSave[1].trim();
+      return [{
+        t: `Salvar playlist: ${name.slice(0, 40)}`, s: "Voice",
+        go: () => Panel.openCustom("Voice · Radio", async () => {
+          const r = await Api.radioPlaylistSave(name);
+          return { rows: [{ k: "playlist", v: `${r.name} — ${r.count} faixa(s)` }] };
+        }),
+      }];
+    }
+    if (/^playlists$/i.test(q)) {
+      return [{
+        t: "Playlists salvas", s: "Voice",
+        go: () => Panel.openCustom("Voice · Radio", async () => {
+          const r = await Api.radioPlaylists();
+          const pls = r.playlists ?? [];
+          return {
+            rows: pls.length
+              ? pls.map((p) => ({ k: p.name, v: `${p.count} faixa(s) · ${(p.titles ?? []).join(" / ")}` }))
+              : [{ k: "playlists", v: "nenhuma salva — `salvar playlist <nome>` com uma fila tocando" }],
+            note: "playlists são cópias da fila em memória — somem no reboot, como a fila",
+          };
+        }),
+      }];
+    }
+    const plDel = q.match(/^apagar\s+playlist\s+(.+)/i);
+    if (plDel) {
+      const name = plDel[1].trim();
+      return [{
+        t: `Apagar playlist: ${name.slice(0, 40)}`, s: "Voice",
+        go: () => Panel.openCustom("Voice · Radio", async () => {
+          const r = await Api.radioPlaylistDelete(name);
+          return { rows: [{ k: "apagada", v: r.deleted }] };
         }),
       }];
     }
@@ -1091,10 +1180,21 @@ import * as Api from './api.js'
               { k: "Voz", v: p.name ?? key },
               { k: "Descrição", v: p.description ?? "—" },
               { k: "Saudação", v: p.greeting ?? "—" },
+              { k: "Fala", v: `${p.tts_voice ?? "—"} · ritmo ${p.tts_rate ?? "—"} · tom ${p.tts_pitch ?? "—"}` },
             ],
-            note: "ativa a partir de agora — vale para os próximos diálogos do kernel",
+            note: "ativa a partir de agora — a voz TTS e as respostas mudam juntas",
           };
         }),
+      }];
+    }
+
+    // Falar: o Jarvis diz o texto com a voz do pack ativo, via TTS do kernel.
+    const speak = q.match(/^falar\s+(.+)/i);
+    if (speak) {
+      const text = speak[1].trim();
+      return [{
+        t: `Falar: ${text.slice(0, 40)}`, s: "Voice",
+        go: () => Live.speak(text),
       }];
     }
 

@@ -45,6 +45,12 @@ class VoicePack:
         "Privacidade garantida. Nada sai daqui.",
         "Sou seu. Rodo na sua máquina.",
     )
+    # The actual TTS voice this pack speaks with (Edge neural voices).
+    # `tts_engine` must be "edge" (or auto-detect) for these to take effect;
+    # Piper/VoiceBox engines ignore them and keep their own configured voice.
+    tts_voice: str = "pt-BR-AntonioNeural"
+    tts_rate: str = "-10%"
+    tts_pitch: str = "-5Hz"
 
 
 # ── Built-in Voice Packs ──────────────────────────────────
@@ -80,6 +86,10 @@ JARVIS_CLASSIC = VoicePack(
 FRIENDLY = VoicePack(
     name="Amigável",
     description="Tom casual e descontraído.",
+    # warmer, female, slightly faster than Jarvis Classic
+    tts_voice="pt-BR-FranciscaNeural",
+    tts_rate="-5%",
+    tts_pitch="+2Hz",
     greeting="Oi! Tudo pronto por aqui.",
     farewell="Valeu! Falamos mais.",
     thinking="Hm, deixa eu pensar...",
@@ -107,6 +117,10 @@ FRIENDLY = VoicePack(
 MILITARY = VoicePack(
     name="Militar",
     description="Tom formal e direto, estilo operações.",
+    # deeper and slower than Jarvis Classic — command voice
+    tts_voice="pt-BR-AntonioNeural",
+    tts_rate="-20%",
+    tts_pitch="-10Hz",
     greeting="Sistemas operacionais. Pronto para missão.",
     farewell="Missão encerrada. Até o próximo chamado.",
     thinking="Processando dados táticos.",
@@ -146,8 +160,15 @@ def get_pack(name: str) -> VoicePack:
 
 
 def list_packs() -> list[dict]:
-    """List all available voice packs."""
+    """List all available voice packs, including the TTS voice each speaks with."""
     return [
-        {"name": p.name, "description": p.description, "key": k}
+        {
+            "name": p.name,
+            "description": p.description,
+            "key": k,
+            "tts_voice": p.tts_voice,
+            "tts_rate": p.tts_rate,
+            "tts_pitch": p.tts_pitch,
+        }
         for k, p in VOICE_PACKS.items()
     ]
