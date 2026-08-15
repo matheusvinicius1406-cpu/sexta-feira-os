@@ -8,6 +8,8 @@ mark is a real memory that `forget` knows how to remove.
 """
 import uuid
 
+from app.api.routers import vision as vision_router
+
 # ─────────────────────────────────────────────────────── tabs
 
 
@@ -19,6 +21,47 @@ def test_tabs_shape(client, owner_headers):
     assert body["session_started_at"]
     for tab in body["tabs"]:
         assert {"query", "kind", "results", "top_url", "at"} <= set(tab)
+
+
+def test_successful_search_records_a_tab(client, owner_headers, monkeypatch):
+    """
+    Contract between /vision/search and /browser/tabs: the search engine returns
+    a DICT (query/results/top_content) — not an object with attributes — and the
+    hook records it as a tab. This is the exact shape that broke the hook once
+    (attribute access on a dict) without any test noticing.
+    """
+
+    class _FakeSearch:
+        def __init__(self):
+            self.calls = 0
+
+        async def search_and_fetch(self, query, max_results=5, fetch_top=False):
+            self.calls += 1
+            return {
+                "query": query,
+                "results": [
+                    {"title": "Exemplo", "url": "https://exemplo.com/1", "snippet": "snippet"}
+                ],
+                "top_content": None,
+            }
+
+    fake = _FakeSearch()
+    monkeypatch.setattr(vision_router, "_web_search", fake)
+
+    r = client.post(
+        "/api/v1/vision/search",
+        json={"query": "exemplo", "max_results": 5},
+        headers=owner_headers,
+    )
+    assert r.status_code == 200
+    body = r.json()
+    assert body["query"] == "exemplo"
+    assert body["results"][0]["url"] == "https://exemplo.com/1"
+
+    tabs = client.get("/api/v1/browser/tabs", headers=owner_headers).json()
+    assert any(
+        t["query"] == "exemplo" and t["kind"] == "search" for t in tabs["tabs"]
+    )
 
 
 # ────────────────────────────────────────────────────── marks

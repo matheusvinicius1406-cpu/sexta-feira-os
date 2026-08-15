@@ -200,7 +200,7 @@ async def web_search(
             fetch_top=body.fetch_top,
         )
         # The kernel's own "tab": every successful search is one open window.
-        record_search(body.query, "search", len(result.results), _top_url(result.top_content))
+        record_search(body.query, "search", len(result["results"]), _top_url(result["top_content"]))
         return result
     except Exception as e:
         raise HTTPException(
@@ -221,5 +221,5 @@ async def search_and_fetch(
         max_results=body.max_results,
         fetch_top=True,
     )
-    record_search(body.query, "search_and_fetch", len(result.results), _top_url(result.top_content))
+    record_search(body.query, "search_and_fetch", len(result["results"]), _top_url(result["top_content"]))
     return result
