@@ -33,6 +33,7 @@ proteção — nada de portões de processo que travam o trabalho.
 | Área | Lint | Teste |
 |------|------|-------|
 | Kernel Python (`backend-core/`) | `ruff check app tests` | `python -m pytest` |
+| Serviço Java (`services/jarvis-java/`) | — | `./gradlew test` (build: `./gradlew build`) |
 | Rust (`src/`, crate raiz) | `cargo check --all-targets` | `cargo test --all-targets` |
 | Android (`mobile-android/`) | — | `./gradlew testDebug` (build: `assembleDebug`) |
 

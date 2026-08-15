@@ -1,0 +1,5 @@
+#!/usr/bin/env sh
+# gradle wrapper launcher
+PRG="$0"
+DIR=$(cd "$(dirname "$PRG")" >/dev/null && pwd)
+exec java -Xmx512m -classpath "$DIR/gradle/wrapper/gradle-wrapper.jar" org.gradle.wrapper.GradleWrapperMain "$@"

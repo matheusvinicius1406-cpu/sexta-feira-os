@@ -334,8 +334,9 @@ class ToolKit:
                 "function": {
                     "name": "record_learning",
                     "description": (
-                        "Registra um aprendizado após uma ação. 'quality' 0.0-1.0; 'lesson' vai "
-                        "para a memória; 'tag' agrupa o tema."
+                        "Registra um aprendizado após uma ação. Use 'context' (obrigatório, "
+                        "NÃO use 'content') para o que aconteceu; 'lesson' é a lição durável "
+                        "para a memória; 'quality' 0.0-1.0; 'tag' agrupa o tema."
                     ),
                     "parameters": {
                         "type": "object",
@@ -680,11 +681,16 @@ class ToolKit:
             if name == "record_learning":
                 if not self.learning:
                     return "Aprendizado indisponível."
+                # Modelos pequenos às vezes chamam com `content` (o chute
+                # natural) em vez dos campos reais. Aceite-o como contexto,
+                # nunca perca o dado que o agente tentou registrar.
+                fallback = args.get("content") or ""
                 entry = await self.learning.record(
-                    db, owner_id, args.get("context", ""),
-                    observation=args.get("observation"),
+                    db, owner_id, args.get("context") or fallback,
+                    observation=args.get("observation") or (fallback or None),
                     quality=float(args.get("quality", 0.5) or 0.5),
-                    lesson=args.get("lesson"), tag=args.get("tag"), source="tool",
+                    lesson=args.get("lesson") or (fallback or None),
+                    tag=args.get("tag"), source="tool",
                 )
                 return f"Aprendizado registrado (qualidade {entry.quality})."
             if name == "recall_lessons":

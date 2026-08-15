@@ -51,6 +51,10 @@ done
 #    sem misturar com a saída do frontend.
 echo ""
 echo "🐍 Kernel subindo (log: backend-core/.dev-backend.log)..."
+# O pulse (a iniciativa do agente) é uma escolha do dev, não da máquina: uma
+# AGENT_PULSE_ENABLED=false no ambiente do usuário não pode desligar a
+# autonomia de propósito. Pina aqui como o conftest pina nos testes.
+export AGENT_PULSE_ENABLED="${AGENT_PULSE_ENABLED:-true}"
 (
   cd "$ROOT/backend-core"
   exec .venv/Scripts/python -m app.main
