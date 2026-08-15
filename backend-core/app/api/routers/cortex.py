@@ -163,6 +163,77 @@ def _nucleo_out(d) -> dict:
     }
 
 
+class CortexCicloAgendarRequest(BaseModel):
+    """O ciclo autônomo: a cada `intervalo_minutos`, o kernel acorda e o
+    núcleo avalia as regras — cada regra disparada vira proposta do agente.
+    Idempotente: agendar de novo devolve a mesma tarefa (sem duplicar)."""
+    intervalo_minutos: int = Field(default=60, ge=5, le=24 * 60)
+    iniciar_em_minutos: float = Field(default=1, ge=0, le=24 * 60)
+
+
+@router.post("/ciclo/agendar")
+async def cortex_ciclo_agendar(
+    body: CortexCicloAgendarRequest,
+    owner: Owner = Depends(get_current_owner),
+    db: Session = Depends(get_db),
+):
+    """Agenda o ciclo decisório recorrente (kind="cortex"). Idempotente: se já
+    existe uma tarefa recorrente pendente do mesmo intervalo, devolve a mesma."""
+    from app.brain.tools import _compute_due
+    from app.core.di import get_scheduler
+
+    scheduler = get_scheduler()
+    recurrence = body.intervalo_minutos * 60
+    for t in scheduler.list(db, owner.id):
+        if t["kind"] == "cortex" and t["recurrence_seconds"] == recurrence:
+            return {"agendado": t, "repetido": True}
+
+    due = _compute_due({"in_minutes": body.iniciar_em_minutos})
+    task = scheduler.schedule(
+        db, owner.id, kind="cortex", due_at=due,
+        text="Ciclo decisório do núcleo (regras → propostas)",
+        recurrence_seconds=recurrence,
+    )
+    return {"agendado": scheduler._to_dict(task), "repetido": False}
+
+
+@router.get("/ciclo")
+async def cortex_ciclo_status(
+    owner: Owner = Depends(get_current_owner),
+    db: Session = Depends(get_db),
+):
+    """Status do ciclo autônomo: a tarefa recorrente agendada, as últimas
+    execuções disparadas e as propostas de regra geradas por elas."""
+    from app.core.di import get_pulse, get_scheduler
+
+    scheduler = get_scheduler()
+    agendado = next(
+        (t for t in scheduler.list(db, owner.id) if t["kind"] == "cortex"),
+        None,
+    )
+    historico = [
+        t for t in scheduler.list(db, owner.id, include_done=True)
+        if t["kind"] == "cortex" and t["status"] == "fired"
+    ][-5:]
+
+    pulse = get_pulse()
+    propostas = []
+    if pulse is not None:
+        for p in pulse.list_proposals(db, owner.id, limit=20):
+            if p.source == "cortex":
+                propostas.append({
+                    "id": p.id, "title": p.title, "status": p.status,
+                    "created_at": p.created_at,
+                })
+
+    return {
+        "agendado": agendado,
+        "historico": list(reversed(historico)),
+        "propostas": propostas,
+        "engine": "symbolic",
+    }
+
+
 class CortexDecidirRequest(BaseModel):
     """Contexto simulado opcional — o mesmo contrato de rules/avaliar. Sem ele,
     o núcleo monta o snapshot real do mundo."""

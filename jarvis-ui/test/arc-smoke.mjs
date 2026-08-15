@@ -448,6 +448,26 @@ const ROUTES = {
       created_at: '2026-08-15T23:00:00',
     },
   },
+  '/cortex/ciclo': {
+    agendado: {
+      id: 'ciclo-1', kind: 'cortex', status: 'pending', recurrence_seconds: 3600,
+      due_at: '2026-08-15T23:01:00', text: 'Ciclo decisório do núcleo (regras → propostas)',
+    },
+    historico: [
+      { id: 'ciclo-0', kind: 'cortex', status: 'fired', due_at: '2026-08-15T22:01:00' },
+    ],
+    propostas: [
+      { id: 'prop-r1', title: 'madrugada-silencio', status: 'pending', created_at: '2026-08-15T23:00:00' },
+    ],
+    engine: 'symbolic',
+  },
+  '/cortex/ciclo/agendar': {
+    agendado: {
+      id: 'ciclo-1', kind: 'cortex', status: 'pending', recurrence_seconds: 3600,
+      due_at: '2026-08-15T23:01:00', text: 'Ciclo decisório do núcleo (regras → propostas)',
+    },
+    repetido: false,
+  },
 }
 
 const seen = new Set()

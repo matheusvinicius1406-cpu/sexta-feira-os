@@ -473,6 +473,14 @@ class AgentStep(BaseStep):
             world=kernel.world, planning=kernel.planning, decision=kernel.decision,
             learning=kernel.learning, events=kernel.events, journal=kernel.journal,
         )
+        # Agendar kind="cortex" (regras -> propostas) acorda o núcleo sozinho:
+        # o tick dispara o ciclo decisório e cada regra disparada vira proposta.
+        if kernel.scheduler is not None:
+            from app.cortex.nucleus import propor_regras
+
+            kernel.scheduler.cortex_proposer = (
+                lambda db, owner_id: propor_regras(db, owner_id, kernel.pulse)
+            )
         logger.info(
             "Agente próprio pronto (pulse a cada %ss — age ou propõe, nunca sem confirmação)",
             settings.agent_pulse_interval_seconds,

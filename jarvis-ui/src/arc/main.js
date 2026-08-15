@@ -1916,6 +1916,49 @@ import * as Api from './api.js'
       }];
     }
 
+    // Ciclo autônomo: o kernel acorda sozinho (scheduler) e o núcleo avalia
+    // as regras — cada regra disparada vira proposta, sem ninguém digitar.
+    if (/^ciclo$/i.test(q)) {
+      return [{
+        t: "Ciclo autônomo (status)", s: "Cortex",
+        go: () => Panel.openCustom("Cortex · Ciclo", async () => {
+          const r = await Api.cortexCiclo();
+          const ag = r.agendado;
+          const pend = (r.propostas ?? []).filter(p => p.status === "pending").length;
+          const rows = [
+            ag
+              ? { k: "agendado", v: `a cada ${Math.round((ag.recurrence_seconds ?? 0) / 60)} min (próximo em ${ag.due_at ?? "—"})` }
+              : { k: "agendado", v: "não — o núcleo só decide quando alguém pede" },
+            { k: "execuções", v: `${r.historico?.length ?? 0} no histórico` },
+            { k: "propostas de regra", v: `${pend} pendente(s) de ${r.propostas?.length ?? 0} geradas` },
+          ];
+          return {
+            rows,
+            note: ag
+              ? `o kernel acorda sozinho e o núcleo propõe — aprovar em Agents · Proposals (▶ executar)`
+              : `sem agendamento — use "agendar ciclo" para o kernel decidir sozinho a cada hora`,
+          };
+        }),
+      }];
+    }
+
+    if (/^agendar ciclo$/i.test(q)) {
+      return [{
+        t: "Agendar ciclo (cada hora)", s: "Cortex",
+        go: () => Panel.openCustom("Cortex · Ciclo", async () => {
+          const r = await Api.cortexCicloAgendar(60);
+          const ag = r.agendado ?? {};
+          return {
+            rows: [
+              { k: "agendado", v: `a cada ${Math.round((ag.recurrence_seconds ?? 0) / 60)} min (próximo em ${ag.due_at ?? "—"})` },
+              { k: "repetido", v: r.repetido ? "já estava agendado — nada duplicado" : "novo — o kernel acorda sozinho" },
+            ],
+            note: `o núcleo avalia as regras sozinho e cada regra disparada vira proposta (Agents · Proposals)`,
+          };
+        }),
+      }];
+    }
+
     return [
       { t: `Jarvis: ${q}`, s: "Cortex", go: () => runCortex(q) },
       { t: `Perguntar: ${q}`, s: "Chat", go: () => Live.say(q) },

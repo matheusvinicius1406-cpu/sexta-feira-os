@@ -33,10 +33,15 @@ def _aware(dt: datetime) -> datetime:
 
 
 class Scheduler:
-    def __init__(self, actions: ActionService, events=None, briefing=None):
+    def __init__(self, actions: ActionService, events=None, briefing=None, cortex_proposer=None):
         self.actions = actions
-        self.events = events      # EventBus | None — time becomes events (agendamento.venceu)
-        self.briefing = briefing  # BriefingService | None — for the daily "morning report"
+        self.events = events        # EventBus | None — time becomes events (agendamento.venceu)
+        self.briefing = briefing    # BriefingService | None — for the daily "morning report"
+        # Cortex proposer: async callable (db, owner_id) -> dict | None. When
+        # wired by the kernel, a scheduled kind="cortex" task runs the nucleus
+        # cycle (regras -> propostas) on its own — the agent wakes up without
+        # anyone asking. Optional: the CLI keeps working without the cortex.
+        self.cortex_proposer = cortex_proposer
 
     # ---------- create / manage ----------
 
@@ -120,6 +125,15 @@ class Scheduler:
                 db, task.owner_id, task.device_selector or "celular",
                 "notify", {"text": b.summary},
             )
+        elif task.kind == "cortex":
+            # The autonomous cycle: rules -> proposals, no LLM. The kernel wires
+            # the proposer; without it the tick is honest (logged, not silent).
+            if not self.cortex_proposer:
+                logger.warning(
+                    "scheduled cortex task %s: proposer not wired — skipping", task.id
+                )
+                return
+            await self.cortex_proposer(db, task.owner_id)
         elif task.kind == "action" and task.action:
             params = json.loads(task.params) if task.params else {}
             await self.actions.dispatch(

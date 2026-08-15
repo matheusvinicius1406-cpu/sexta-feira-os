@@ -307,6 +307,11 @@ export const cortexRulesEvaluate = (contexto) =>
 export const cortexDecidir = (contexto) => post('/cortex/decidir', contexto ? { contexto } : {})
 export const cortexDecidirUltimo = () => get('/cortex/decidir/ultimo')
 
+/** O ciclo autônomo: o kernel acorda sozinho e o núcleo propõe regras. */
+export const cortexCiclo = () => get('/cortex/ciclo')
+export const cortexCicloAgendar = (intervaloMinutos = 60) =>
+  post('/cortex/ciclo/agendar', { intervalo_minutos: intervaloMinutos, iniciar_em_minutos: 1 })
+
 /** Regras disparadas viram propostas do agente (source=cortex), com a trilha. */
 export const cortexRegrasPropor = (contexto) =>
   post('/cortex/regras/propor', contexto ? { contexto } : {})
