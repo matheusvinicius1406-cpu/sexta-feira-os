@@ -921,6 +921,31 @@ import * as Api from './api.js'
     const q = raw.trim();
     if (!q) return [];
 
+    // Colar música: um link de YouTube (vira video_id) ou uma URL de stream
+    // direto vai direto ao POST /radio/play — o kernel extrai e toca.
+    const paste = q.match(/^(?:colar|tocar\s+link)\s+(https?:\/\/\S+|www\.[^\s]+)/i);
+    if (paste) {
+      const raw = paste[1].trim();
+      return [{
+        t: `Tocar link: ${raw.slice(0, 40)}`, s: "Voice",
+        go: () => Panel.openCustom("Voice · Radio", async () => {
+          const vid = youtubeId(raw);
+          const r = vid
+            ? await Api.radioPlay({ video_id: vid, name: vid })
+            : await Api.radioPlay({ url: raw, name: raw });
+          const t = r.playing ?? {};
+          return {
+            rows: [
+              { k: "Tocando", v: t.title || (vid ? `YouTube ${vid}` : raw) },
+              { k: "Artista", v: t.artist || "—" },
+              { k: "Tipo", v: t.stream_type || (r.is_live ? "estação ao vivo" : "—") },
+            ],
+            note: r.is_live ? "estação ao vivo — fluxo contínuo" : undefined,
+          };
+        }),
+      }];
+    }
+
     // Rádio: buscar e tocar (primeiro resultado), volume, pular, preset.
     const play = q.match(/^tocar\s+(.+)/i);
     if (play) {
@@ -970,6 +995,105 @@ import * as Api from './api.js'
           const r = await Api.radioPlayPreset(parseInt(preset[1], 10));
           const t = r.playing;
           return { rows: [{ k: "preset", v: t ? `${t.title}${t.artist ? ` — ${t.artist}` : ""}` : "tocando" }] };
+        }),
+      }];
+    }
+
+    // Rádio extras: faixa anterior, limpar fila, busca só no YouTube e
+    // enfileirar sem interromper o que está tocando.
+    if (/^faixa\s+anterior$/i.test(q)) {
+      return [{
+        t: "Faixa anterior", s: "Voice",
+        go: () => Panel.openCustom("Voice · Radio", async () => {
+          const r = await Api.radioPrevious();
+          const t = r.track;
+          return { rows: [{ k: "voltou para", v: t ? `${t.title}${t.artist ? ` — ${t.artist}` : ""}` : "nenhuma" }] };
+        }),
+      }];
+    }
+    if (/^limpar\s+fila$/i.test(q)) {
+      return [{
+        t: "Limpar fila", s: "Voice",
+        go: () => Panel.openCustom("Voice · Radio", async () => {
+          await Api.radioQueueClear();
+          return { rows: [{ k: "fila", v: "esvaziada" }] };
+        }),
+      }];
+    }
+    const yt = q.match(/^buscar\s+m[úu]sica\s+(.+)/i);
+    if (yt) {
+      const term = yt[1].trim();
+      return [{
+        t: `Buscar música: ${term}`, s: "Voice",
+        go: () => Panel.openCustom("Voice · Radio", async () => {
+          const r = await Api.radioYoutube(term);
+          const tracks = r.tracks ?? [];
+          return {
+            rows: tracks.slice(0, 8).map((t) => ({
+              k: t.title,
+              v: `${t.artist ?? ""}${t.duration ? ` · ${Math.round(t.duration / 60)} min` : ""}`,
+            })),
+            note: tracks.length
+              ? `${tracks.length} faixa(s) — tocar: “colar <link>” ou “adicionar à fila ${term}”`
+              : "nada encontrado",
+          };
+        }),
+      }];
+    }
+    const enq = q.match(/^adicionar\s+(?:à|a)\s+fila\s+(.+)/i);
+    if (enq) {
+      const term = enq[1].trim();
+      return [{
+        t: `Adicionar à fila: ${term}`, s: "Voice",
+        go: () => Panel.openCustom("Voice · Radio", async () => {
+          const r = await Api.radioYoutube(term, 1);
+          const t = (r.tracks ?? [])[0];
+          if (!t) return { rows: [{ k: "fila", v: "nada encontrado" }] };
+          const qa = await Api.radioQueueAdd({
+            track_id: t.id, title: t.title, artist: t.artist ?? "",
+            stream_url: t.stream_url ?? "", stream_type: t.stream_type ?? "youtube",
+          });
+          return {
+            rows: [{ k: "fila", v: `${t.title}${t.artist ? ` — ${t.artist}` : ""}` }],
+            note: qa.queue_length != null ? `posição ${qa.position ?? "?"} de ${qa.queue_length}` : undefined,
+          };
+        }),
+      }];
+    }
+
+    // Voz: trocar o pacote ativo. Só oferece o que o kernel conhece — um
+    // nome desconhecido devolveria Jarvis Classic por fallback, e o HUD não
+    // inventa; ele diz que não achou e lista as opções reais.
+    const voice = q.match(/^(?:usar\s+voz|voz)\s+(.+)/i);
+    if (voice) {
+      const want = voice[1].trim().toLowerCase();
+      return [{
+        t: `Usar voz: ${voice[1].trim().slice(0, 40)}`, s: "Voice",
+        go: () => Panel.openCustom("Voice · Voices", async () => {
+          const packs = await Api.voicePacks();
+          const list = Array.isArray(packs) ? packs : (packs.packs ?? []);
+          const hit = list.find((p) => {
+            const key = String(p.key ?? "").toLowerCase();
+            const name = String(p.name ?? "").toLowerCase();
+            return key === want || name === want || (name && name.startsWith(want));
+          });
+          if (!hit) {
+            const keys = list.map((p) => p.key ?? p.name).filter(Boolean).join(", ");
+            return {
+              rows: [{ k: "voz", v: "não encontrada" }],
+              note: keys ? `disponíveis: ${keys}` : "nenhum pacote de voz instalado",
+            };
+          }
+          const key = hit.key ?? hit.name;
+          const p = await Api.voicePack(key);
+          return {
+            rows: [
+              { k: "Voz", v: p.name ?? key },
+              { k: "Descrição", v: p.description ?? "—" },
+              { k: "Saudação", v: p.greeting ?? "—" },
+            ],
+            note: "ativa a partir de agora — vale para os próximos diálogos do kernel",
+          };
         }),
       }];
     }
@@ -1025,6 +1149,38 @@ import * as Api from './api.js'
       }];
     }
 
+    // Capabilities: invocar uma capacidade do kernel com params livres
+    // (chave=valor). O kernel resolve {param} e {segredo.X} no template.
+    const call = q.match(/^chamar\s+(\S+?)(?:\s+(.+))?$/i);
+    if (call) {
+      const name = call[1];
+      // chave=valor; um token sem "=" continua o valor anterior (espaços).
+      const params = {};
+      let cur = null;
+      for (const tok of (call[2] ?? "").trim().split(/\s+/)) {
+        const eq = tok.indexOf("=");
+        if (eq > 0) { cur = tok.slice(0, eq); params[cur] = tok.slice(eq + 1); }
+        else if (cur && tok) params[cur] += ` ${tok}`;
+      }
+      return [{
+        t: `Chamar capability: ${name}`, s: "Security",
+        go: () => Panel.openCustom("Security · Keys", async () => {
+          const r = await Api.connectorCall(name, params);
+          if (r.ok === false) {
+            return { rows: [{ k: name, v: "não chamado" }], note: r.error ?? `HTTP ${r.status}` };
+          }
+          const d = r.data;
+          const entries = d && typeof d === "object" && !Array.isArray(d)
+            ? Object.entries(d)
+            : [["resposta", Array.isArray(d) ? JSON.stringify(d) : String(d)]];
+          return {
+            rows: entries.slice(0, 12).map(([k, v]) => ({ k, v: typeof v === "object" ? JSON.stringify(v) : String(v) })),
+            note: `HTTP ${r.status} · ${name}`,
+          };
+        }),
+      }];
+    }
+
     // Decision: o kernel escolhe o que focar agora (ranqueia metas abertas).
     if (/^decidir\s+foco$/i.test(q)) {
       return [{
@@ -1042,6 +1198,28 @@ import * as Api from './api.js'
               { k: "Política", v: d.policy ?? "—" },
             ],
             note: (d.options ?? []).length ? `${d.options.length} opção(ões) avaliada(s)` : undefined,
+          };
+        }),
+      }];
+    }
+
+    // Varredura completa: todos os probes numa lista de linhas de .env.
+    // Lento por definição — ocupa a máquina por vários minutos.
+    if (/^otimizar\s+completo$/i.test(q)) {
+      return [{
+        t: "Varredura completa de otimização (lento — vários minutos)", s: "System",
+        go: () => Panel.openCustom("System · Optimize", async () => {
+          const o = await Api.optimizeFull();
+          return {
+            rows: [
+              ...(o.env ?? []).map((line) => ({ k: "env", v: line })),
+              { k: "Contexto", v: o.context?.knee_tokens ? `${o.context.knee_tokens} tokens` : "—" },
+              { k: "Threads", v: o.threads?.best ?? "—" },
+              { k: "Batch", v: o.embedding_batch?.best ?? "—" },
+              ...(o.models ?? []).slice(0, 4).map((m) => ({ k: m.name, v: `${m.size_gb ?? "?"} GB · ${m.quantization ?? "?"}` })),
+            ],
+            note: [...(o.findings ?? []), ...(o.notes ?? [])].slice(0, 5).join(" · ")
+              || "nenhuma recomendação — o kernel só reporta; quem edita o .env é você",
           };
         }),
       }];
@@ -1116,6 +1294,66 @@ import * as Api from './api.js'
       }];
     }
 
+    // Automações: rodar, ativar/desativar e instalar o catálogo embutido.
+    const autoRun = q.match(/^rodar\s+automa[çc][ãa]o\s+(.+)/i);
+    if (autoRun) {
+      const slug = autoRun[1].trim();
+      return [{
+        t: `Rodar automação: ${slug}`, s: "Agent",
+        go: () => Panel.openCustom("Agents · Queue", async () => {
+          const r = await Api.runAutomation(slug);
+          return {
+            rows: [
+              { k: "Workflow", v: r.workflow ?? slug },
+              { k: "Status", v: r.status ?? "—" },
+              { k: "Nós executados", v: String(r.nodes_executed ?? 0) },
+              { k: "Duração", v: r.duration_ms != null ? `${r.duration_ms} ms` : "—" },
+              ...(r.error ? [{ k: "erro", v: r.error }] : []),
+            ],
+            note: `execução ${String(r.execution_id ?? "").slice(0, 8)} — veja Agents · Queue`,
+          };
+        }),
+      }];
+    }
+    const autoTgl = q.match(/^(ativar|desativar)\s+automa[çc][ãa]o\s+(\S+)/i);
+    if (autoTgl) {
+      const on = autoTgl[1].toLowerCase() === "ativar";
+      const slug = autoTgl[2];
+      return [{
+        t: `${on ? "Ativar" : "Desativar"} automação: ${slug}`, s: "Agent",
+        go: () => Panel.openCustom("Agents · Spawn", async () => {
+          const r = await Api.automationEnable(slug, on);
+          return { rows: [{ k: r.slug ?? slug, v: r.ativo ? "armada" : "desarmada" }] };
+        }),
+      }];
+    }
+    if (/^instalar\s+automa[çc][õo]es$/i.test(q)) {
+      return [{
+        t: "Instalar catálogo de automações", s: "Agent",
+        go: () => Panel.openCustom("Agents · Spawn", async () => {
+          const r = await Api.automationInstall();
+          const list = Array.isArray(r.instaladas) ? r.instaladas : [];
+          return {
+            rows: list.slice(0, 12).map((s) => ({ k: String(s), v: "instalada" })),
+            note: list.length ? `${r.total ?? list.length} no catálogo — as suas edições nunca são sobrescritas` : "catálogo já instalado",
+          };
+        }),
+      }];
+    }
+    // Briefing: gerar agora e mostrar o resumo na hora.
+    if (/^gerar\s+briefing$/i.test(q)) {
+      return [{
+        t: "Gerar briefing agora", s: "Projects",
+        go: () => Panel.openCustom("Projects · Timeline", async () => {
+          const b = await Api.generateBriefing();
+          return {
+            rows: String(b.summary ?? "").split("\n").filter(Boolean).map((l, i) => ({ k: `#${i + 1}`, v: l })),
+            note: `briefing ${b.kind ?? "on_demand"} de ${when(b.created_at)}`,
+          };
+        }),
+      }];
+    }
+
     // Agenda: criar lembrete `lembrar <texto> em <n> <min|h|d>`, com
     // recorrência opcional `repetir a cada <n> <unidade>`. Checa ANTES do
     // recall de memória, que é o `lembrar X` sem tempo.
@@ -1186,6 +1424,175 @@ import * as Api from './api.js'
       }];
     }
 
+    // Metas: criar, concluir, atualizar progresso e cancelar — resolvidas pelo
+    // título (o painel Projects · Active mostra títulos, não ids).
+    const goalNew = q.match(/^criar\s+meta\s+(.+)/i);
+    if (goalNew) {
+      return [{
+        t: `Criar meta: ${goalNew[1].trim().slice(0, 40)}`, s: "Projects",
+        go: () => Panel.openCustom("Projects · Active", async () => {
+          const g = await Api.goalCreate(goalNew[1].trim());
+          return { rows: [{ k: g.title ?? "meta", v: "criada" }], note: `id ${String(g.id).slice(0, 8)}` };
+        }),
+      }];
+    }
+    const goalDone = q.match(/^concluir\s+meta\s+(.+)/i);
+    if (goalDone) {
+      return [{
+        t: `Concluir meta: ${goalDone[1].trim().slice(0, 40)}`, s: "Projects",
+        go: () => Panel.openCustom("Projects · Active", async () => {
+          const id = await resolveGoal(goalDone[1].trim());
+          const g = await Api.goalComplete(id);
+          return { rows: [{ k: g.title ?? id, v: `concluída · ${g.status ?? "done"}` }] };
+        }),
+      }];
+    }
+    const goalProg = q.match(/^progresso\s+meta\s+(.+?)\s+(\d{1,3})\s*%?$/i);
+    if (goalProg) {
+      const pct = Math.max(0, Math.min(100, parseInt(goalProg[2], 10)));
+      return [{
+        t: `Progresso da meta ${goalProg[1].trim().slice(0, 30)} → ${pct}%`, s: "Projects",
+        go: () => Panel.openCustom("Projects · Active", async () => {
+          const id = await resolveGoal(goalProg[1].trim());
+          const g = await Api.goalProgress(id, pct / 100);
+          return { rows: [{ k: g.title ?? id, v: `${Math.round((g.progress ?? 0) * 100)}%` }] };
+        }),
+      }];
+    }
+    const goalCancel = q.match(/^cancelar\s+meta\s+(.+)/i);
+    if (goalCancel) {
+      return [{
+        t: `Cancelar meta: ${goalCancel[1].trim().slice(0, 40)}`, s: "Projects",
+        go: () => Panel.openCustom("Projects · Active", async () => {
+          const id = await resolveGoal(goalCancel[1].trim());
+          await Api.goalCancel(id);
+          return { rows: [{ k: id, v: "cancelada" }] };
+        }),
+      }];
+    }
+
+    // Vault Obsidian: importar/exportar (escrevem no seu disco — explícitos)
+    // e ligar/desligar o watcher de auto-sync.
+    const vaultIn = q.match(/^importar\s+vault\s+(.+)/i);
+    if (vaultIn) {
+      return [{
+        t: `Importar vault: ${vaultIn[1].trim().slice(0, 40)}`, s: "Files",
+        go: () => Panel.openCustom("Files · Sync", async () => {
+          const r = await Api.obsidianImport(vaultIn[1].trim());
+          return { rows: [{ k: "import", v: r.ok ? "concluído" : "falhou" }], note: r.message ?? "" };
+        }),
+      }];
+    }
+    const vaultOut = q.match(/^exportar\s+vault\s+(.+)/i);
+    if (vaultOut) {
+      return [{
+        t: `Exportar vault: ${vaultOut[1].trim().slice(0, 40)}`, s: "Files",
+        go: () => Panel.openCustom("Files · Sync", async () => {
+          const r = await Api.obsidianExport(vaultOut[1].trim());
+          return { rows: [{ k: "export", v: r.ok ? "concluído" : "falhou" }], note: r.message ?? "" };
+        }),
+      }];
+    }
+    const vaultWatch = q.match(/^observar\s+vault(?:\s+(.+))?$/i);
+    if (vaultWatch) {
+      const path = vaultWatch[1] ? vaultWatch[1].trim() : null;
+      return [{
+        t: `Observar vault${path ? `: ${path}` : ""}`, s: "Files",
+        go: () => Panel.openCustom("Files · Sync", async () => {
+          const r = await Api.obsidianWatch("start", path);
+          return { rows: [{ k: "watcher", v: r.ok ? (r.message ?? "ligado") : "falhou" }], note: r.message ?? "" };
+        }),
+      }];
+    }
+    if (/^(?:parar\s+observação|parar\s+observacao)$/i.test(q)) {
+      return [{
+        t: "Parar observação do vault", s: "Files",
+        go: () => Panel.openCustom("Files · Sync", async () => {
+          const r = await Api.obsidianWatch("stop");
+          return { rows: [{ k: "watcher", v: r.ok ? (r.message ?? "desligado") : "falhou" }], note: r.message ?? "" };
+        }),
+      }];
+    }
+
+    // Mundo: o kernel sabe o presente (fatos) e quem é o dono (perfil) —
+    // curadoria soberana: o dono lê, define e esquece o que quiser.
+    const profSet = q.match(/^definir\s+perfil\s+(\S+)\s+(.+)/i);
+    if (profSet) {
+      return [{
+        t: `Definir perfil ${profSet[1]}`, s: "AI",
+        go: () => Panel.openCustom("AI · Context", async () => {
+          const a = await Api.worldSetProfile(profSet[1], profSet[2].trim());
+          return { rows: [{ k: a.key, v: a.value }], note: "o kernel passa a saber isso sobre você" };
+        }),
+      }];
+    }
+    const profForget = q.match(/^esquecer\s+perfil\s+(\S+)/i);
+    if (profForget) {
+      return [{
+        t: `Esquecer perfil ${profForget[1]}`, s: "AI",
+        go: () => Panel.openCustom("AI · Context", async () => {
+          const r = await Api.worldForgetProfile(profForget[1]);
+          return { rows: [{ k: r.forgotten ?? profForget[1], v: "esquecido" }] };
+        }),
+      }];
+    }
+    const factSet = q.match(/^definir\s+fato\s+(\S+)\s+(.+)/i);
+    if (factSet) {
+      return [{
+        t: `Definir fato ${factSet[1]}`, s: "AI",
+        go: () => Panel.openCustom("AI · Context", async () => {
+          const f = await Api.worldSetFact(factSet[1], factSet[2].trim());
+          return { rows: [{ k: f.key, v: f.value }], note: "o kernel passa a saber isso sobre o mundo" };
+        }),
+      }];
+    }
+    const factForget = q.match(/^esquecer\s+fato\s+(\S+)/i);
+    if (factForget) {
+      return [{
+        t: `Esquecer fato ${factForget[1]}`, s: "AI",
+        go: () => Panel.openCustom("AI · Context", async () => {
+          const r = await Api.worldForgetFact(factForget[1]);
+          return { rows: [{ k: r.forgotten ?? factForget[1], v: "esquecido" }] };
+        }),
+      }];
+    }
+
+    // Memória: guardar um fato de propósito e esquecer pelo id/título.
+    const keep = q.match(/^guardar\s+(.+)/i);
+    if (keep) {
+      return [{
+        t: `Guardar: ${keep[1].trim().slice(0, 40)}`, s: "Memory",
+        go: () => Panel.openCustom("Memory · Recent", async () => {
+          const m = await Api.remember(keep[1].trim());
+          return { rows: [{ k: m.title ?? "memória", v: m.content }], note: `id ${String(m.id).slice(0, 8)}` };
+        }),
+      }];
+    }
+    const forgetMem = q.match(/^esquecer\s+(.+)/i);
+    if (forgetMem) {
+      return [{
+        t: `Esquecer: ${forgetMem[1].trim().slice(0, 40)}`, s: "Memory",
+        go: () => Panel.openCustom("Memory · Purge", async () => {
+          const id = await resolveMemory(forgetMem[1].trim());
+          await Api.forget(id);
+          return { rows: [{ k: id, v: "esquecido — ligações em cascata" }] };
+        }),
+      }];
+    }
+
+    // Dispositivos: revogar um corpo pareado pelo nome.
+    const revoke = q.match(/^revogar\s+aparelho\s+(.+)/i);
+    if (revoke) {
+      return [{
+        t: `Revogar aparelho: ${revoke[1].trim().slice(0, 40)}`, s: "Network",
+        go: () => Panel.openCustom("Network · Devices", async () => {
+          const id = await resolveDevice(revoke[1].trim());
+          await Api.deviceRevoke(id);
+          return { rows: [{ k: id, v: "revogado — o aparelho perde acesso" }] };
+        }),
+      }];
+    }
+
     // Defesa ativa: armar/desarmar honeytokens pelo cofre. O valor-isca nunca
     // importa (é bait — o kernel nunca o devolve), então o HUD gera um.
     const arm = q.match(/^armar\s+honeypot\s+(.+)/i);
@@ -1211,6 +1618,56 @@ import * as Api from './api.js'
         go: () => Panel.openCustom("Security · Threats", async () => {
           await Api.deleteSecret(name);
           return { rows: [{ k: name, v: "desarmado" }] };
+        }),
+      }];
+    }
+
+    // Browser: buscar e trazer o conteúdo do melhor resultado (a aba do kernel
+    // vira `search_and_fetch` em Tabs). Checa ANTES do `buscar` simples.
+    const fetch = q.match(/^buscar\s+e\s+trazer\s+(.+)/i);
+    if (fetch) {
+      const term = fetch[1].trim();
+      return [{
+        t: `Buscar e trazer: ${term}`, s: "Web",
+        go: () => Panel.openCustom("Browser · Capture", async () => {
+          const r = await Api.searchAndFetch(term);
+          const top = r.top_content ?? {};
+          return {
+            rows: [
+              { k: "Termo", v: term },
+              { k: "Resultados", v: String((r.results ?? []).length) },
+              { k: "Melhor resultado", v: top.title ?? top.url ?? "—" },
+              { k: "Conteúdo", v: String(top.content ?? "").replace(/\s+/g, " ").slice(0, 140) || "—" },
+            ],
+            note: top.url ?? undefined,
+          };
+        }),
+      }];
+    }
+
+    // Marcadores: links que valem guardar viram memórias de tipo bookmark.
+    const mark = q.match(/^marcar\s+(https?:\/\/\S+)(?:\s+(.+))?$/i);
+    if (mark) {
+      const title = mark[2] ? mark[2].trim() : mark[1];
+      return [{
+        t: `Marcar: ${title.slice(0, 40)}`, s: "Browser",
+        go: () => Panel.openCustom("Browser · Marks", async () => {
+          const m = await Api.browserMarkAdd(mark[1], title);
+          return {
+            rows: [{ k: m.title ?? title, v: m.url }],
+            note: `marcador ${String(m.id).slice(0, 8)} — vive em Memory (kind bookmark)`,
+          };
+        }),
+      }];
+    }
+    const unmark = q.match(/^desmarcar\s+(.+)/i);
+    if (unmark) {
+      return [{
+        t: `Desmarcar: ${unmark[1].trim().slice(0, 40)}`, s: "Browser",
+        go: () => Panel.openCustom("Browser · Marks", async () => {
+          const id = await resolveMark(unmark[1].trim());
+          await Api.browserMarkDelete(id);
+          return { rows: [{ k: id, v: "desmarcado — a memória foi esquecida" }] };
         }),
       }];
     }
@@ -1246,6 +1703,56 @@ import * as Api from './api.js'
     const ps = await Api.proposals();
     const hit = ps.find(p => String(p.id).toLowerCase().startsWith(prefix.toLowerCase()));
     if (!hit) throw new Error(`nenhuma proposta começa com "${prefix}"`);
+    return hit.id;
+  }
+
+  /**
+   * Extrai o id de 11 caracteres de um link do YouTube (watch, youtu.be,
+   * shorts, live, embed, music.youtube). Retorna null para qualquer outra URL
+   * — aí o kernel trata o link como stream direto de rádio.
+   */
+  function youtubeId(raw) {
+    const m = String(raw).match(
+      /(?:youtube\.com\/(?:watch\?(?:.*&)?v=|shorts\/|live\/|embed\/)|youtu\.be\/)([\w-]{11})/
+    );
+    return m ? m[1] : null;
+  }
+
+  /** Memória pelo prefixo do id ou do título (o painel Memory · Recent mostra títulos). */
+  async function resolveMemory(prefix) {
+    const ms = await Api.memories();
+    const hit = ms.find((m) =>
+      String(m.id).toLowerCase().startsWith(prefix.toLowerCase())
+      || String(m.title ?? "").toLowerCase().startsWith(prefix.toLowerCase())
+    );
+    if (!hit) throw new Error(`nenhuma memória começa com "${prefix}"`);
+    return hit.id;
+  }
+
+  /** Meta pelo prefixo do título (o painel Projects · Active mostra títulos). */
+  async function resolveGoal(prefix) {
+    const gs = await Api.goals();
+    const hit = gs.find((g) => String(g.title ?? "").toLowerCase().startsWith(prefix.toLowerCase()));
+    if (!hit) throw new Error(`nenhuma meta começa com "${prefix}"`);
+    return hit.id;
+  }
+
+  /** Marcador pelo prefixo do título ou da URL (o painel Browser · Marks mostra ambos). */
+  async function resolveMark(prefix) {
+    const ms = await Api.browserMarks();
+    const hit = (ms.marks ?? []).find((m) =>
+      String(m.title ?? "").toLowerCase().startsWith(prefix.toLowerCase())
+      || String(m.url ?? "").toLowerCase().startsWith(prefix.toLowerCase())
+    );
+    if (!hit) throw new Error(`nenhum marcador começa com "${prefix}"`);
+    return hit.id;
+  }
+
+  /** Aparelho pareado pelo prefixo do nome (o painel Network · Devices mostra nomes). */
+  async function resolveDevice(prefix) {
+    const ds = await Api.devices();
+    const hit = ds.find((d) => String(d.name ?? "").toLowerCase().startsWith(prefix.toLowerCase()));
+    if (!hit) throw new Error(`nenhum aparelho começa com "${prefix}"`);
     return hit.id;
   }
 

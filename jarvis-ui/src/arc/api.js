@@ -117,8 +117,13 @@ async function request(path, { method = 'GET', body, timeout = TIMEOUT_MS, raw =
 const get = (p, o) => request(p, o)
 const post = (p, body, o) => request(p, { ...o, method: 'POST', body })
 
-// ── System ───────────────────────────────────────────────────
+// ── System / rede ────────────────────────────────────────────
 export const system = () => get('/system')
+// Tráfego de rede: contadores desde boot + velocidade medida entre leituras.
+export const networkTraffic = () => get('/network/traffic')
+// VPN: o que o SO reporta — interfaces de túnel no ar, rota padrão (o kernel
+// mede; não conecta nem desconecta VPN).
+export const networkVpn = () => get('/network/vpn')
 
 // ── Brain / chat ─────────────────────────────────────────────
 export const health = () => get('/health')
@@ -131,12 +136,19 @@ export const conversation = (id) => get(`/chat/conversations/${encodeURIComponen
 export const memories = () => get('/memory')
 export const recall = (query) => post('/memory/recall', { query }, { timeout: SLOW_TIMEOUT_MS })
 export const memoryGraph = () => get('/memory/graph')
+export const remember = (content) => post('/memory', { content, kind: 'fact', importance: 0.5 })
 export const forget = (id) => request(`/memory/${encodeURIComponent(id)}`, { method: 'DELETE' })
 
 // ── World (the present + the owner model) ────────────────────
 export const world = () => get('/world')
 export const worldProfile = () => get('/world/profile')
 export const worldDigest = () => get('/world/digest')
+export const worldSetFact = (key, value) => post('/world', { key, value })
+export const worldForgetFact = (key) =>
+  request(`/world/${encodeURIComponent(key)}`, { method: 'DELETE' })
+export const worldSetProfile = (key, value) => post('/world/profile', { key, value })
+export const worldForgetProfile = (key) =>
+  request(`/world/profile/${encodeURIComponent(key)}`, { method: 'DELETE' })
 
 // ── Events ───────────────────────────────────────────────────
 export const events = () => get('/events')
@@ -148,15 +160,29 @@ export const automationStatus = () => get('/automations/status')
 export const automationTypes = () => get('/automations/types')
 export const executions = () => get('/automations/executions')
 export const execution = (id) => get(`/automations/executions/${encodeURIComponent(id)}`)
-export const runAutomation = (slug) =>
-  post(`/automations/${encodeURIComponent(slug)}/run`, {}, { timeout: SLOW_TIMEOUT_MS })
+export const runAutomation = (slug, dados) =>
+  post(`/automations/${encodeURIComponent(slug)}/run`, dados ?? {}, { timeout: SLOW_TIMEOUT_MS })
+export const automationEnable = (slug, ativo) =>
+  post(`/automations/${encodeURIComponent(slug)}/enable`, { ativo })
+export const automationInstall = () => post('/automations/catalog/install', {})
 
 // ── Files / vault ────────────────────────────────────────────
 export const obsidianStatus = () => get('/obsidian/status')
+export const obsidianImport = (vaultPath) => post('/obsidian/import', { vault_path: vaultPath })
+export const obsidianExport = (vaultPath) =>
+  post('/obsidian/export', { vault_path: vaultPath, include_all: true })
+export const obsidianWatch = (action, vaultPath) =>
+  post('/obsidian/watch', { action, vault_path: vaultPath ?? null })
 
 // ── Projects: planning + briefing ────────────────────────────
 export const goals = () => get('/planning/goals')
 export const board = () => get('/planning/board')
+export const goalCreate = (title) => post('/planning/goals', { title })
+export const goalComplete = (id) => post(`/planning/goals/${encodeURIComponent(id)}/complete`, {})
+export const goalProgress = (id, progress) =>
+  post(`/planning/goals/${encodeURIComponent(id)}/progress`, { progress })
+export const goalCancel = (id) =>
+  request(`/planning/goals/${encodeURIComponent(id)}`, { method: 'DELETE' })
 export const briefingLatest = () => get('/briefing/latest')
 export const briefings = () => get('/briefing')
 export const generateBriefing = () => post('/briefing', {}, { timeout: SLOW_TIMEOUT_MS })
@@ -172,13 +198,19 @@ export const radioStatus = () => get('/radio/status')
 export const radioQueue = () => get('/radio/queue')
 export const radioPresets = () => get('/radio/presets')
 export const radioSearch = (query) => post('/radio/search', { query }, { timeout: SLOW_TIMEOUT_MS })
+export const radioYoutube = (query, limit = 8) =>
+  post('/radio/youtube', { query, limit }, { timeout: SLOW_TIMEOUT_MS })
 export const radioPlay = (body) => post('/radio/play', body, { timeout: SLOW_TIMEOUT_MS })
+export const radioQueueAdd = (body) => post('/radio/queue/add', body)
+export const radioQueueClear = () => post('/radio/queue/clear', {})
 export const radioSkip = () => post('/radio/skip', {})
+export const radioPrevious = () => post('/radio/previous', {})
 export const radioVolume = (level) => post(`/radio/volume/${level}`, {})
 export const radioPlayPreset = (index) => post(`/radio/presets/${index}`, {}, { timeout: SLOW_TIMEOUT_MS })
 export const radioToggleShuffle = () => post('/radio/shuffle', {})
 export const radioToggleRepeat = () => post('/radio/repeat', {})
 export const radioToggleAdblock = () => post('/radio/adblock', {})
+export const radioStats = () => get('/radio/stats')
 
 // ── Decision — por que o kernel escolheu o próximo objetivo ─
 export const decisionHistory = () => get('/decision/history')
@@ -221,14 +253,29 @@ export const webSearch = (query) => post('/vision/search', { query }, { timeout:
 export const searchAndFetch = (query) =>
   post('/vision/search_and_fetch', { query }, { timeout: SLOW_TIMEOUT_MS })
 
-// ── Security ─────────────────────────────────────────────────
+// O kernel não controla um navegador: "tabs" são as buscas que ELE fez desde
+// o boot (efêmeras), e "marks" são memórias de tipo bookmark (vivem no grafo).
+export const browserTabs = () => get('/browser/tabs')
+export const browserMarks = () => get('/browser/marks')
+export const browserMarkAdd = (url, title) => post('/browser/marks', { url, title })
+export const browserMarkDelete = (id) =>
+  request(`/browser/marks/${encodeURIComponent(id)}`, { method: 'DELETE' })
+
+// ── Security / dispositivos ──────────────────────────────────
 export const devices = () => get('/auth/devices')
+export const deviceRevoke = (id) => post(`/auth/devices/${encodeURIComponent(id)}/revoke`, {})
 export const secrets = () => get('/connectors/secrets')
 export const connectors = () => get('/connectors')
+// Invoca uma capability do kernel (params livres; o kernel resolve {param} no
+// template da URL e o segredo {segredo.X} no cofre).
+export const connectorCall = (name, params) =>
+  post(`/connectors/${encodeURIComponent(name)}/call`, { params: params ?? {} })
 
 // ── Voice ────────────────────────────────────────────────────
 export const voiceStatus = () => get('/voice/status')
 export const voicePacks = () => get('/voice/packs')
+// Get a pack by key and — per the kernel — switch it to active.
+export const voicePack = (key) => get(`/voice/packs/${encodeURIComponent(key)}`)
 export const voicePersonality = () => get('/voice/personality')
 
 /** Transcribe recorded audio. Returns `{ text }` — whatever the kernel heard. */

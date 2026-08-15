@@ -244,14 +244,60 @@ const ROUTES = {
     state: { queue_length: 1 },
   },
   '/radio/presets': [{ name: 'Antena 1', url: 'http://x' }],
-  '/voice/status': { enabled: true, stt: 'whisper', tts: 'piper' },
-  '/voice/packs': [{ name: 'jarvis', description: 'voz padrão' }],
+  '/radio/stats': {
+    state: { queue_length: 1, queue_index: 0, is_playing: true, volume: 0.8, shuffle: false, repeat: false, ad_blocker_enabled: true, current_track: null },
+    ad_blocker: { sponsorblock_cache_size: 12, categories_blocked: ['music_offtopic'], ad_keywords_count: 40 },
+    presets_count: 6,
+  },
+  '/voice/status': {
+    enabled: true, stt_available: true, tts_available: true, voicebox_enabled: true,
+    voicebox_status: 'enabled', tts_engine: 'piper', voice_pack: 'Jarvis Classic',
+  },
+  '/voice/packs': [
+    { name: 'Jarvis Classic', description: 'Tom profissional e direto.', key: 'jarvis' },
+    { name: 'Amigável', description: 'Tom casual e descontraído.', key: 'friendly' },
+    { name: 'Militar', description: 'Tom formal e direto.', key: 'military' },
+  ],
   '/voice/personality': { greeting: 'Às ordens.' },
   '/vision/status': { available: true, model: 'qwen3-vl:2b' },
   '/evals/cases': [], '/evals/runs': [],
   '/decision/history': [
     { id: 'd1', question: 'O que focar agora?', policy: 'urgencia', chosen_id: 'g1', chosen_label: 'Meta', rationale: 'mais urgente e mais próximo', options: [{ label: 'Meta' }], created_at: '2026-08-14T10:00:00Z' },
   ],
+  '/network/traffic': {
+    since_boot: { bytes_sent: 1500000000, bytes_recv: 8200000000, packets_sent: 900000, packets_recv: 1200000, errin: 0, errout: 0, dropin: 2, dropout: 5 },
+    rate: { bytes_sent_per_s: 12345.6, bytes_recv_per_s: 98765.4, packets_sent_per_s: 12.5, packets_recv_per_s: 80.2, measured_over_s: 5.0 },
+    interfaces: [
+      { name: 'Ethernet', bytes_sent: 1500000000, bytes_recv: 8000000000, packets_sent: 900000, packets_recv: 1200000, errin: 0, errout: 0, dropin: 2, dropout: 5 },
+      { name: 'Wi-Fi', bytes_sent: 50000000, bytes_recv: 200000000, packets_sent: 10000, packets_recv: 20000, errin: 0, errout: 0, dropin: 0, dropout: 0 },
+    ],
+    connections: { count: 42, by_state: { ESTABLISHED: 30, LISTEN: 8, TIME_WAIT: 4 } },
+    unavailable: {},
+  },
+  '/network/vpn': {
+    vpn_active: true,
+    vpn_interfaces: [
+      { name: 'utun4', up: true, addresses: ['10.8.0.2', 'fe80::abcd'] },
+      { name: 'tun0', up: false, addresses: [] },
+    ],
+    default_route_interface: 'utun4',
+    method: 'heuristic por nome de interface (o kernel mede; não conecta VPN)',
+    unavailable: {},
+  },
+  '/browser/tabs': {
+    tabs: [
+      { query: 'otimização llama.cpp', kind: 'search', results: 5, top_url: null, at: '2026-08-15T10:00:00Z' },
+      { query: 'qwen3 vision', kind: 'search_and_fetch', results: 3, top_url: 'https://huggingface.co/Qwen/Qwen3-VL', at: '2026-08-15T09:55:00Z' },
+    ],
+    count: 2,
+    session_started_at: '2026-08-15T09:00:00Z',
+  },
+  '/browser/marks': {
+    marks: [
+      { id: 'bk1', title: 'Ollama', url: 'https://ollama.com', created_at: '2026-08-15T08:00:00Z' },
+    ],
+    count: 1,
+  },
   '/optimize': {
     endpoint: 'http://127.0.0.1:11434',
     host: { cores: 8, ram_gb: 16 },

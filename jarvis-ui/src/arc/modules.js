@@ -82,11 +82,23 @@ export const PANELS = {
     )
   },
   'ai/Context': async () => {
-    const d = await api.worldDigest()
-    const text = typeof d === 'string' ? d : (d.digest ?? JSON.stringify(d))
+    const [d, prof, facts] = await Promise.all([
+      api.worldDigest().catch(() => null),
+      api.worldProfile().catch(() => []),
+      api.world().catch(() => []),
+    ])
+    const text = d && typeof d === 'string' ? d : (d?.digest ?? null)
+    const rows = []
+    if (text) rows.push(...String(text).split('\n').filter(Boolean).map((line, i) => row(`#${i + 1}`, line)))
+    const attrs = Array.isArray(prof) ? prof : (prof.attributes ?? [])
+    rows.push(...attrs.slice(0, 10).map((a) => row(`perfil: ${a.key}`, truncate(a.value))))
+    const fs = Array.isArray(facts) ? facts : (facts.facts ?? [])
+    rows.push(...fs.slice(0, 8).map((f) => row(`mundo: ${f.key}`, truncate(f.value))))
     return {
-      rows: String(text).split('\n').filter(Boolean).map((line, i) => row(`#${i + 1}`, line)),
-      note: 'o digest que o kernel injeta em cada conversa',
+      rows,
+      note: rows.length
+        ? 'o que o kernel injeta em cada conversa — curadoria: `definir perfil <chave> <valor>`, `definir fato <chave> <valor>`'
+        : 'o kernel não sabe nada sobre o mundo nem o dono ainda — `definir perfil <chave> <valor>` e `definir fato <chave> <valor>`',
     }
   },
   'ai/Tuning': async () => {
@@ -362,18 +374,37 @@ export const PANELS = {
     absent('o kernel não fala SSH. Ele roda na sua máquina; não há sessão remota a listar.'),
 
   // ── Browser: the kernel's reach into the web ───────────────
-  'browser/Tabs': async () =>
-    absent('o kernel não controla um navegador. O alcance dele à web é busca, em Research.'),
+  'browser/Tabs': async () => {
+    const t = await api.browserTabs()
+    const tabs = t.tabs ?? []
+    return {
+      rows: tabs.slice(0, 12).map((x) => row(
+        `${x.kind === 'search_and_fetch' ? 'buscar e trazer' : 'buscar'}: ${x.query}`,
+        `${x.results ?? 0} resultado(s)${x.top_url ? ` · ${x.top_url}` : ''} · ${when(x.at)}`,
+      )),
+      note: tabs.length
+        ? `as janelas do KERNEL para a web — desde ${when(t.session_started_at)}. Ele não controla um navegador; estas são as buscas que ele mesmo fez (efêmeras, somem no reboot).`
+        : 'nenhuma busca ainda — paleta `buscar <termo>` ou `buscar e trazer <termo>`. O kernel não controla um navegador; estas seriam as janelas dele.',
+    }
+  },
   'browser/Research': async () => ({
     rows: [],
-    note: 'busca web: abra a paleta (Ctrl+K) e digite `buscar <termo>`',
+    note: 'busca web: abra a paleta (Ctrl+K) e digite `buscar <termo>` — cada busca vira uma aba em Tabs',
   }),
   'browser/Capture': async () => ({
     rows: [],
-    note: 'buscar e trazer o conteúdo do melhor resultado: paleta (Ctrl+K), `buscar <termo>`',
+    note: 'buscar e trazer o conteúdo do melhor resultado: paleta (Ctrl+K), `buscar e trazer <termo>`',
   }),
-  'browser/Marks': async () =>
-    absent('não há favoritos: o que vale ser guardado vira memória, em Memory.'),
+  'browser/Marks': async () => {
+    const ms = await api.browserMarks()
+    const marks = ms.marks ?? []
+    return {
+      rows: marks.slice(0, 12).map((m) => row(m.title ?? m.url, `${m.url} · ${when(m.created_at)}`)),
+      note: marks.length
+        ? 'marcadores são memórias de tipo bookmark — vivem em Memory; paleta `marcar <url> <título>` / `desmarcar <título>`'
+        : 'nenhum marcador — paleta `marcar <url> <título>`; o que vale guardar vira memória',
+    }
+  },
 
   // ── Security (defesa ativa) ────────────────────────────────
   'security/Keys': async () => {
@@ -455,13 +486,25 @@ export const PANELS = {
     }
   },
   'voice/Voices': async () => {
-    const ps = await api.voicePacks()
+    const [ps, st] = await Promise.all([
+      api.voicePacks().catch(() => []),
+      api.voiceStatus().catch(() => null),
+    ])
     const packs = Array.isArray(ps) ? ps : (ps.packs ?? [])
-    return listing(
-      packs,
-      (p) => row(typeof p === 'string' ? p : (p.name ?? '—'), typeof p === 'object' ? (p.description ?? '') : ''),
-      'nenhum pacote de voz instalado',
-    )
+    const active = st?.voice_pack
+    const rows = packs.map((p) => {
+      const name = typeof p === 'string' ? p : (p.name ?? '—')
+      const key = typeof p === 'object' ? (p.key ?? '') : ''
+      const isActive = Boolean(active) && String(name).toLowerCase() === String(active).toLowerCase()
+      const detail = [key, typeof p === 'object' ? (p.description ?? '') : ''].filter(Boolean).join(' · ')
+      return row(`${name}${isActive ? ' — ATIVO' : ''}`, detail || '—')
+    })
+    return {
+      rows,
+      note: rows.length
+        ? 'trocar de voz: paleta (Ctrl+K) `usar voz <nome>` — ex.: “usar voz militar”'
+        : 'nenhum pacote de voz instalado',
+    }
   },
   'voice/Phrases': async () => {
     const p = await api.voicePersonality()
@@ -472,12 +515,14 @@ export const PANELS = {
     note: 'a latência medida do kernel fica no trilho à direita, em LATENCY',
   }),
   'voice/Radio': async () => {
-    const [st, qu] = await Promise.all([
+    const [st, qu, sts] = await Promise.all([
       api.radioStatus().catch(() => null),
       api.radioQueue().catch(() => ({ queue: [] })),
+      api.radioStats().catch(() => null),
     ])
     const s = st?.state ?? {}
     const cur = s.current_track
+    const ads = sts?.ad_blocker ?? {}
     const rows = [
       row('Tocando', cur ? `${cur.title}${cur.artist ? ` — ${cur.artist}` : ''}` : 'nada'),
       row('Fila', s.queue_length ?? 0),
@@ -485,11 +530,13 @@ export const PANELS = {
       row('Shuffle', s.shuffle ? 'ligado' : 'desligado'),
       row('Repeat', s.repeat ? 'ligado' : 'desligado'),
       row('Adblock', s.ad_blocker_enabled ? 'ligado' : 'desligado'),
+      row('Presets', sts?.presets_count ?? '—'),
+      row('Ads (categorias)', (ads.categories_blocked ?? []).length ? `${(ads.categories_blocked ?? []).length} · ${(ads.ad_keywords_count ?? 0)} palavras-chave` : '—'),
       ...(qu.queue ?? []).slice(0, 6).map((t) => row(t.title, `${t.artist ?? ''} · ${t.stream_type ?? ''}`)),
     ]
     return {
       rows,
-      note: 'tocar: paleta `tocar <busca>` · volume: `volume <0-100>` · `pular faixa` · `tocar preset <n>`',
+      note: 'tocar: `tocar <busca>` · colar link: `colar <url>` · fila: `adicionar à fila <busca>`, `limpar fila`, `pular faixa`, `faixa anterior` · `volume <0-100>` · `tocar preset <n>`',
     }
   },
 
@@ -505,8 +552,39 @@ export const PANELS = {
       ],
     }
   },
-  'network/Traffic': async () =>
-    absent('o kernel não contabiliza tráfego de rede. O que ele mede está em System.'),
+  'network/Traffic': async () => {
+    const t = await api.networkTraffic()
+    if (!t.since_boot) {
+      return { rows: [], note: t.unavailable?.traffic ?? 'sem leitura de rede neste kernel' }
+    }
+    const b = t.since_boot
+    const rate = t.rate
+    const rows = [
+      row('Enviado (desde boot)', bytes(b.bytes_sent)),
+      row('Recebido (desde boot)', bytes(b.bytes_recv)),
+      row('Pacotes enviados', b.packets_sent),
+      row('Pacotes recebidos', b.packets_recv),
+      row('Erros / descartes', `${b.errin + b.errout} err · ${b.dropin + b.dropout} drop`),
+    ]
+    if (rate) {
+      rows.push(row('Velocidade ↑', `${bytes(rate.bytes_sent_per_s)}/s`))
+      rows.push(row('Velocidade ↓', `${bytes(rate.bytes_recv_per_s)}/s`))
+      rows.push(row('Janela de medição', `${rate.measured_over_s}s`))
+    } else {
+      rows.push(row('Velocidade', '—'))
+    }
+    const c = t.connections
+    if (c) {
+      rows.push(row('Conexões ativas', c.count))
+      rows.push(row('Por estado', Object.entries(c.by_state ?? {}).map(([s, n]) => `${s} ${n}`).join(' · ')))
+    }
+    rows.push(...(t.interfaces ?? []).slice(0, 3)
+      .map((i) => row(`iface: ${i.name}`, `${bytes(i.bytes_recv + i.bytes_sent)} acumulado`)))
+    return {
+      rows,
+      note: t.unavailable?.connections ? `conexões: ${t.unavailable.connections}` : undefined,
+    }
+  },
   'network/Devices': async () => {
     const ds = await api.devices()
     return listing(
@@ -526,8 +604,26 @@ export const PANELS = {
       'nenhum comando enviado aos aparelhos ainda',
     )
   },
-  'network/VPN': async () =>
-    absent('o kernel não gerencia VPN. Ele escuta em loopback ou na LAN — veja Access mode em Nodes.'),
+  'network/VPN': async () => {
+    const v = await api.networkVpn()
+    if (v.vpn_active === null) {
+      return { rows: [], note: v.unavailable?.vpn ?? 'sem leitura de interfaces neste kernel' }
+    }
+    const vpns = v.vpn_interfaces ?? []
+    const rows = [
+      row('VPN no ar', v.vpn_active ? 'sim' : 'não'),
+      row('Rota padrão', v.default_route_interface ?? '—'),
+    ]
+    if (vpns.length) {
+      rows.push(...vpns.map((i) => row(
+        i.name,
+        `${i.up ? 'no ar' : 'abaixada'}${i.addresses?.length ? ` · ${i.addresses.join(' · ')}` : ''}`,
+      )))
+    } else {
+      rows.push(row('Interfaces de túnel', 'nenhuma'))
+    }
+    return { rows, note: v.method }
+  },
 
   // ── System: the host, measured ─────────────────────────────
   'system/CPU': async () => {
