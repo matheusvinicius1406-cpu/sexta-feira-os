@@ -2,7 +2,7 @@
 
 > Levantado em 2026-08-14. O HUD servido é o **ARC** (`jarvis-ui/src/arc/`,
 > canvas puro, sem framework — `index.html` aponta para `src/arc/main.js`).
-> Este documento mapeia o que o kernel expõe (28 routers em
+> Este documento mapeia o que o kernel expõe (29 routers em
 > `backend-core/app/api/routers/`) contra o que o ARC lê, e prioriza as lacunas.
 
 ## Regra do HUD (herdada de `kernel.js`)
@@ -40,6 +40,7 @@ para o painel acender.
 | `schedule` | `terminal/Jobs` + paleta `lembrar <texto> em <n> <min|h|d>` (com `repetir a cada`), `cancelar lembrete <id>` — **2026-08-14** |
 | `security` | `security/*` completo — Threats/Audit/Keys + paleta `armar/desarmar honeypot`. **Exige sessão**: cofre e postura são `strict` (nunca aceitam o bypass) — `login <email> <senha>` na paleta guarda o JWT e toda request o apresenta |
 | `system` | `system/*` (CPU, memória, disco, energia, temp) |
+| `terminal` | **novo router** — `terminal/SSH` (status de sessões: porta 22 escutando + quem está conectado via `psutil.users()`, flag `remote`) via `GET /terminal/ssh`. **Fronteira declarada no payload**: o kernel reporta sessões; nunca abre shell, faz proxy ou encaminha porta — `terminal/Shell` continua `absent` por design (executar programa é da Teia, em automação revisada) — **2026-08-15** |
 | `timetrack` | `system/Time` (timer aberto + tempo fechado por rótulo) + paleta `iniciar/parar timer <rótulo>` — **2026-08-14** |
 | `vision` | status + câmera (`live.js`) + busca web (`vision/search`) |
 | `voice` | `voice/*` + loop de voz (`live.js`) + `voice/Voices` marca o pacote **ativo** e a paleta `usar voz <nome>` troca (via `GET /voice/packs/{key}`, que o kernel usa para ativar) — **2026-08-15** |
@@ -63,13 +64,14 @@ existentes não tocam no desenho — como já foi feito:
 
 ## Ordem sugerida
 
-Leituras e escritas mapeadas — os 28 routers do kernel têm presença no ARC,
+Leituras e escritas mapeadas — os 29 routers do kernel têm presença no ARC,
 e as escritas principais saem da paleta (metas, memória, automações, vault,
 rádio, mundo, capabilities, dispositivos, otimização, marcadores). Tráfego,
-VPN e browser saíram das lacunas: agora são medidos de verdade pelo kernel.
+VPN, browser e SSH saíram das lacunas: agora são medidos de verdade.
+A única lacuna `absent` restante é `terminal/Shell`, e é por design — nunca
+shell por HTTP; executar programa é da Teia, em automação revisada.
 Próximos passos naturais: validar os fluxos contra o kernel rodando e evoluir
-o que o kernel ainda não mede (a única lacuna `absent` restante é capacidade
-que este kernel genuinamente não tem — SSH).
+o que o kernel ainda não mede.
 
 ## Verificação
 
