@@ -299,6 +299,13 @@ export const cortexVerbs = () => get('/cortex/verbs')
 export const cortexRules = () => get('/cortex/rules')
 export const cortexRulesEvaluate = (contexto) =>
   post('/cortex/rules/avaliar', contexto ? { contexto } : {})
+
+/**
+ * O núcleo decisório: contexto → regras → metas ranqueadas → escolha
+ * determinística com rationale + trilha, persistida em Decision.
+ */
+export const cortexDecidir = (contexto) => post('/cortex/decidir', contexto ? { contexto } : {})
+export const cortexDecidirUltimo = () => get('/cortex/decidir/ultimo')
 export const voicePersonality = () => get('/voice/personality')
 
 /** Transcribe recorded audio. Returns `{ text }` — whatever the kernel heard. */

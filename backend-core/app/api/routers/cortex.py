@@ -21,6 +21,7 @@ from sqlalchemy.orm import Session
 from app.auth.jwt import get_current_owner
 from app.cortex import VERBS, parse, run_intent
 from app.cortex.context import build_context
+from app.cortex.nucleus import decidir
 from app.cortex.rules import RuleError, evaluate, load_rules
 from app.db.database import get_db
 from app.models.models import Owner
@@ -145,3 +146,51 @@ async def cortex_rules_evaluate(
                 )
 
     return {"decisions": result["decisions"], "trail": result["trail"], "contexto": ctx}
+
+
+def _nucleo_out(d) -> dict:
+    import json as _json
+
+    return {
+        "id": d.id,
+        "question": d.question,
+        "policy": d.policy,
+        "chosen_id": d.chosen_id,
+        "chosen_label": d.chosen_label,
+        "rationale": d.rationale,
+        "options": _json.loads(d.options) if d.options else [],
+        "created_at": d.created_at,
+    }
+
+
+class CortexDecidirRequest(BaseModel):
+    """Contexto simulado opcional — o mesmo contrato de rules/avaliar. Sem ele,
+    o núcleo monta o snapshot real do mundo."""
+    contexto: dict | None = Field(default=None, max_length=50_000)
+
+
+@router.post("/decidir")
+async def cortex_decidir(
+    body: CortexDecidirRequest,
+    owner: Owner = Depends(get_current_owner),
+    db: Session = Depends(get_db),
+):
+    """O núcleo decisório num ciclo único, sem LLM: contexto → regras → metas
+    (ranqueadas pelo DecisionEngine) → escolha determinística com racional +
+    trilha, persistida em Decision (question="nucleo")."""
+    from app.core.di import get_decision
+
+    return await decidir(db, owner.id, get_decision(), contexto=body.contexto)
+
+
+@router.get("/decidir/ultimo")
+async def cortex_decidir_ultimo(
+    owner: Owner = Depends(get_current_owner),
+    db: Session = Depends(get_db),
+):
+    """A última decisão do núcleo — o "por que decidi" persistido."""
+    from app.core.di import get_decision
+
+    history = get_decision().history(db, owner.id, limit=30)
+    last = next((d for d in history if d.question == "nucleo"), None)
+    return {"decisao": _nucleo_out(last) if last else None}

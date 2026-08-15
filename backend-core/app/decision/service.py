@@ -65,15 +65,26 @@ class DecisionEngine:
 
     # ---------- headline decision: what to focus on next ----------
 
-    async def decide_next_goal(self, db: Session, owner_id: str) -> Decision | None:
+    def rank_goals(
+        self, db: Session, owner_id: str,
+    ) -> tuple[list[dict] | None, str | None, dict[str, float] | None]:
+        """Ranks choosable goals (scored, best-first) WITHOUT persisting.
+
+        Pure evaluation, the same the headline decision uses: given the owner's
+        current state (World Model), pick the policy weights and score every
+        pending/active goal. Returns (scored, policy_name, weights) or
+        (None, None, None) when there is nothing choosable or planning is off.
+        The nucleus calls this to merge goals with the rule engine in one cycle;
+        decide_next_goal persists the top one.
+        """
         if not self.planning:
-            return None
+            return None, None, None
         candidates = [
             g for g in self.planning.list_goals(db, owner_id)
             if g.status in ("pending", "active")   # blocked/done/cancelled are not choosable
         ]
         if not candidates:
-            return None
+            return None, None, None
 
         policy_name, weights = self._policy(db, owner_id)
         options = [
@@ -87,14 +98,29 @@ class DecisionEngine:
             }
             for g in candidates
         ]
-        scored = self.score_options(options, weights)
-        best = scored[0]
-        rationale = self._rationale(best, weights)
+        return self.score_options(options, weights), policy_name, weights
 
+    async def record(
+        self,
+        db: Session,
+        owner_id: str,
+        *,
+        question: str,
+        policy: str,
+        chosen_id: str | None,
+        chosen_label: str | None,
+        rationale: str,
+        options: list | dict,
+        fact_key: str | None = None,
+    ) -> Decision:
+        """Persists one decision + publishes the event + (opcional) atualiza um
+        fato do mundo. O caminho único de registro — o núcleo usa para
+        question="nucleo", o decide_next_goal para "next_goal" com o fato
+        foco_decidido."""
         decision = Decision(
-            id=str(uuid.uuid4()), owner_id=owner_id, question="next_goal", policy=policy_name,
-            chosen_id=best["id"], chosen_label=best["label"], rationale=rationale,
-            options=json.dumps(scored, ensure_ascii=False),
+            id=str(uuid.uuid4()), owner_id=owner_id, question=question, policy=policy,
+            chosen_id=chosen_id, chosen_label=chosen_label, rationale=rationale,
+            options=json.dumps(options, ensure_ascii=False),
         )
         db.add(decision)
         db.commit()
@@ -103,15 +129,29 @@ class DecisionEngine:
         if self.events:
             await self.events.publish(
                 db, owner_id, "decisao.tomada",
-                {"question": "next_goal", "chosen": best["label"], "policy": policy_name},
+                {"question": question, "chosen": chosen_label, "policy": policy},
                 source="decision",
             )
-        if self.world:
+        if self.world and fact_key and chosen_label:
             self.world.set_fact(
-                db, owner_id, "foco_decidido", best["label"],
+                db, owner_id, fact_key, chosen_label,
                 category="goals", source="decision",
             )
         return decision
+
+    async def decide_next_goal(self, db: Session, owner_id: str) -> Decision | None:
+        scored, policy_name, weights = self.rank_goals(db, owner_id)
+        if not scored:
+            return None
+        best = scored[0]
+        return await self.record(
+            db, owner_id,
+            question="next_goal", policy=policy_name or "default",
+            chosen_id=best["id"], chosen_label=best["label"],
+            rationale=self._rationale(best, weights or {}),
+            options=scored,
+            fact_key="foco_decidido",
+        )
 
     # ---------- policy + criteria ----------
 

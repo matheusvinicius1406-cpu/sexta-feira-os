@@ -1872,6 +1872,30 @@ import * as Api from './api.js'
       }];
     }
 
+    // Núcleo decisório: um ciclo único sem LLM — contexto → regras → metas
+    // ranqueadas (DecisionEngine) → escolha determinística com rationale.
+    if (/^decidir$/i.test(q)) {
+      return [{
+        t: "Decidir (núcleo)", s: "Cortex",
+        go: () => Panel.openCustom("Cortex · Decisão", async () => {
+          const r = await Api.cortexDecidir();
+          const e = r.escolha ?? {};
+          const rows = [{ k: e.tipo, v: e.descricao ?? "—" }];
+          if (e.tipo === "foco" && r.foco) rows.push({ k: "foco", v: `${r.foco.label} (score ${r.foco.score})` });
+          if (e.tipo === "regra" && e.alvo) rows.push({ k: "regra", v: e.alvo });
+          if (e.tipo === "nenhuma" && r.foco) rows.push({ k: "foco possível", v: r.foco.label });
+          const top = (r.regras?.trail ?? []).find(t => t.disparou);
+          const why = top
+            ? top.condicoes.map(c => `${c.detalhe}${c.passou ? " ✓" : " ✗"}`).join(" · ")
+            : "nenhuma regra forte disparou";
+          return {
+            rows,
+            note: `${e.rationale ?? ""} — ${r.regras?.dispararam ?? 0} de ${r.regras?.total ?? 0} regras (${why})`,
+          };
+        }),
+      }];
+    }
+
     return [
       { t: `Jarvis: ${q}`, s: "Cortex", go: () => runCortex(q) },
       { t: `Perguntar: ${q}`, s: "Chat", go: () => Live.say(q) },

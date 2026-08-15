@@ -391,6 +391,41 @@ const ROUTES = {
     ],
     contexto: { agora: { hora: 23, dia_semana: 'sexta' }, radio: { tocando: true } },
   },
+  '/cortex/decidir': {
+    momento: '2026-08-15T23:00:00',
+    decisao_id: 'dec-nucleo-1',
+    contexto: { agora: { hora: 23, dia_semana: 'sexta' }, radio: { tocando: true } },
+    regras: {
+      total: 11, dispararam: 2,
+      decisions: [{ regra: 'madrugada-silencio', descricao: 'De madrugada, com música tocando, sugere silêncio', prioridade: 30, auto: false, acoes: [{ tipo: 'sugestao', valor: 'São horas de descanso, senhor.' }] }],
+      trail: [
+        {
+          regra: 'madrugada-silencio', descricao: 'De madrugada, com música tocando, sugere silêncio',
+          disparou: true, auto: false,
+          condicoes: [
+            { condicao: 'hora_entre', esperado: [23, 6], passou: true, detalhe: 'hora=23 ∈ [23,6)' },
+            { condicao: 'radio_tocando', esperado: true, passou: true, detalhe: 'radio_tocando=True (esperado True)' },
+          ],
+        },
+      ],
+    },
+    foco: null,
+    escolha: {
+      tipo: 'regra', alvo: 'madrugada-silencio', descricao: 'De madrugada, com música tocando, sugere silêncio',
+      acao: { tipo: 'sugestao', valor: 'São horas de descanso, senhor.' },
+      rationale: "Regra 'madrugada-silencio' (prioridade 30) disparou contra o mundo atual — sinal forte do mundo vence o foco.",
+      policy: 'regras_primeiro',
+    },
+  },
+  '/cortex/decidir/ultimo': {
+    decisao: {
+      id: 'dec-nucleo-1', question: 'nucleo', policy: 'regras_primeiro',
+      chosen_id: 'madrugada-silencio', chosen_label: 'De madrugada, com música tocando, sugere silêncio',
+      rationale: "Regra 'madrugada-silencio' (prioridade 30) disparou contra o mundo atual — sinal forte do mundo vence o foco.",
+      options: [{ tipo: 'regra', id: 'madrugada-silencio', prioridade: 30 }],
+      created_at: '2026-08-15T23:00:00',
+    },
+  },
 }
 
 const seen = new Set()
