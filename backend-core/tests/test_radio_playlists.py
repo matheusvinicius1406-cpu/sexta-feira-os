@@ -114,3 +114,23 @@ def test_delete_unknown_playlist_is_404(client, owner_headers):
 
 def test_playlists_require_owner_token(client):
     assert client.get("/api/v1/radio/playlists").status_code == 401
+
+
+# ── queue robustness ──────────────────────────────────────
+
+
+def test_invalid_stream_type_is_422_not_500(client, owner_headers):
+    """`stream_type` is validated by pydantic (a StreamType enum): a garbage
+    value gets a clean 422, not an unhandled ValueError 500."""
+    r = client.post(
+        "/api/v1/radio/queue/add",
+        json={"track_id": "radio-x", "title": "X", "stream_type": "internet_radio"},
+        headers=owner_headers,
+    )
+    assert r.status_code == 422
+    r2 = client.post(
+        "/api/v1/radio/queue/add",
+        json={"track_id": "radio-x", "title": "X", "stream_type": "radio"},
+        headers=owner_headers,
+    )
+    assert r2.status_code == 200

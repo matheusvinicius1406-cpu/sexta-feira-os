@@ -26,7 +26,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
 
 from app.auth.jwt import get_current_owner
-from app.engines.radio_engine import RadioEngine, Track
+from app.engines.radio_engine import RadioEngine, StreamType, Track
 from app.models.models import Owner
 
 logger = logging.getLogger("sexta-feira.radio.router")
@@ -70,7 +70,7 @@ class AddQueueRequest(BaseModel):
     title: str = ""
     artist: str = ""
     stream_url: str = ""
-    stream_type: str = "radio"
+    stream_type: StreamType = StreamType.INTERNET_RADIO
 
 
 class VolumeRequest(BaseModel):
@@ -155,15 +155,13 @@ async def add_to_queue(
     owner: Owner = Depends(get_current_owner),
 ):
     """Add a track to the queue."""
-    from app.engines.radio_engine import StreamType
-
     radio = get_radio()
     track = Track(
         id=body.track_id,
         title=body.title,
         artist=body.artist,
         stream_url=body.stream_url,
-        stream_type=StreamType(body.stream_type),
+        stream_type=body.stream_type,
     )
     position = radio.add_to_queue(track)
     return {"added": True, "position": position, "queue_length": len(radio._state.queue)}
