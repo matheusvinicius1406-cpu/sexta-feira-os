@@ -71,6 +71,7 @@ from app.api.routers import (  # noqa: E402
     schedule,
     security,
     system,
+    terminal,
     timetrack,
     vision,
     voice,
@@ -170,6 +171,7 @@ app.include_router(obsidian.router)
 app.include_router(system.router)
 app.include_router(network.router)
 app.include_router(browser.router)
+app.include_router(terminal.router)
 app.include_router(optimize.router)
 app.include_router(pulse.router)
 
